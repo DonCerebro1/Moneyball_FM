@@ -26,7 +26,7 @@
     </HBox>
 
     <!-- Tabs -->
-    <TabPane VBox.vgrow="ALWAYS" tabClosingPolicy="UNAVAILABLE">
+    <TabPane fx:id="mainTabPane" VBox.vgrow="ALWAYS" tabClosingPolicy="UNAVAILABLE">
         <!-- TAB 1: Kader & Performance -->
         <Tab text="📋 Kader &amp; Performance">
             <VBox spacing="10.0">
@@ -191,50 +191,71 @@
             </VBox>
         </Tab>
 
-        <!-- TAB 5: Leihspieler-Entscheidung -->
+        <!-- TAB 5: Leihspieler-Entscheidung (Aufgeteilt in Verliehen & Geliehen) -->
         <Tab text="🔄 Leihspieler-Entscheidung">
-            <VBox spacing="12.0">
+            <VBox spacing="10.0">
                 <padding>
                     <Insets top="10.0" />
                 </padding>
 
                 <!-- KPI-Karten oben -->
                 <HBox spacing="15.0" alignment="CENTER_LEFT">
-                    <VBox spacing="4.0" style="-fx-background-color: #dbeafe; -fx-padding: 10 16; -fx-background-radius: 8; -fx-border-color: #bfdbfe; -fx-border-radius: 8;">
+                    <VBox spacing="4.0" style="-fx-background-color: #dbeafe; -fx-padding: 8 16; -fx-background-radius: 8; -fx-border-color: #bfdbfe; -fx-border-radius: 8;">
                         <Label text="Kader-Rückkehr / Übernahme" style="-fx-font-size: 11px; -fx-text-fill: #1e40af; -fx-font-weight: bold;" />
-                        <Label fx:id="lblLoanReturnCount" text="0 Spieler" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #1d4ed8;" />
+                        <Label fx:id="lblLoanReturnCount" text="0 Spieler" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #1d4ed8;" />
                     </VBox>
 
-                    <VBox spacing="4.0" style="-fx-background-color: #fef3c7; -fx-padding: 10 16; -fx-background-radius: 8; -fx-border-color: #fcd34d; -fx-border-radius: 8;">
+                    <VBox spacing="4.0" style="-fx-background-color: #fef3c7; -fx-padding: 8 16; -fx-background-radius: 8; -fx-border-color: #fcd34d; -fx-border-radius: 8;">
                         <Label text="Weiter verleihen" style="-fx-font-size: 11px; -fx-text-fill: #92400e; -fx-font-weight: bold;" />
-                        <Label fx:id="lblLoanExtendCount" text="0 Spieler" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #d97706;" />
+                        <Label fx:id="lblLoanExtendCount" text="0 Spieler" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #d97706;" />
                     </VBox>
 
-                    <VBox spacing="4.0" style="-fx-background-color: #fee2e2; -fx-padding: 10 16; -fx-background-radius: 8; -fx-border-color: #fca5a5; -fx-border-radius: 8;">
+                    <VBox spacing="4.0" style="-fx-background-color: #fee2e2; -fx-padding: 8 16; -fx-background-radius: 8; -fx-border-color: #fca5a5; -fx-border-radius: 8;">
                         <Label text="Verkauf / Leih-Ende" style="-fx-font-size: 11px; -fx-text-fill: #991b1b; -fx-font-weight: bold;" />
-                        <Label fx:id="lblLoanSellCount" text="0 Spieler" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #b91c1c;" />
+                        <Label fx:id="lblLoanSellCount" text="0 Spieler" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #b91c1c;" />
                     </VBox>
 
                     <Region HBox.hgrow="ALWAYS" />
-                    <Button text="+ Leihspieler erfassen" onAction="#onAddLoanPlayerManual" style="-fx-background-color: #0284c7; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 14;" />
+                    <Button text="+ Verliehenen Spieler erfassen" onAction="#onAddLoanPlayerManual" style="-fx-background-color: #0284c7; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 14;" />
                 </HBox>
 
-                <!-- Leihspieler-Tabelle -->
-                <TableView fx:id="loanTable" VBox.vgrow="ALWAYS" editable="true">
+                <!-- TABELLE 1: EIGENE VERLIEHENE SPIELER (OUTGOING) -->
+                <Label text="📤 Eigene verliehene Spieler (Entwicklung &amp; Partnerklubs)" style="-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #1e293b;" />
+                <TableView fx:id="outgoingLoanTable" VBox.vgrow="ALWAYS" editable="true">
                     <columns>
-                        <TableColumn fx:id="colLoanType" text="Typ" prefWidth="120.0" />
-                        <TableColumn fx:id="colLoanName" text="Spielername" prefWidth="140.0" />
-                        <TableColumn fx:id="colLoanRole" text="Ziel-Rolle" prefWidth="120.0" />
-                        <TableColumn fx:id="colLoanAge" text="Alter" prefWidth="55.0" />
-                        <TableColumn fx:id="colLoanClub" text="Leihverein / Liga" prefWidth="160.0" />
-                        <TableColumn fx:id="colLoanGames" text="Spiele" prefWidth="60.0" />
-                        <TableColumn fx:id="colLoanMinutes" text="Minuten" prefWidth="75.0" />
-                        <TableColumn fx:id="colLoanRating" text="FM-Note (nur extern)" prefWidth="140.0" />
-                        <TableColumn fx:id="colLoanScore" text="Score" prefWidth="65.0" />
-                        <TableColumn fx:id="colLoanClause" text="Klausel erfüllt?" prefWidth="105.0" />
-                        <TableColumn fx:id="colLoanMarketValue" text="Marktwert (€)" prefWidth="110.0" />
-                        <TableColumn fx:id="colLoanRecommendation" text="Handlungsempfehlung" prefWidth="250.0" />
-                        <TableColumn fx:id="colLoanFuturePlan" text="Zukunftsplan 1. Mannschaft" prefWidth="260.0" />
+                        <TableColumn fx:id="colOutLoanName" text="Spielername" prefWidth="140.0" />
+                        <TableColumn fx:id="colOutLoanRole" text="Ziel-Rolle" prefWidth="120.0" />
+                        <TableColumn fx:id="colOutLoanAge" text="Alter" prefWidth="55.0" />
+                        <TableColumn fx:id="colOutLoanClub" text="Leihverein / Liga" prefWidth="160.0" />
+                        <TableColumn fx:id="colOutLoanGames" text="Spiele" prefWidth="60.0" />
+                        <TableColumn fx:id="colOutLoanMinutes" text="Minuten" prefWidth="75.0" />
+                        <TableColumn fx:id="colOutLoanRating" text="FM-Note (nur extern)" prefWidth="140.0" />
+                        <TableColumn fx:id="colOutLoanScore" text="Score" prefWidth="65.0" />
+                        <TableColumn fx:id="colOutLoanClause" text="Klausel erfüllt?" prefWidth="105.0" />
+                        <TableColumn fx:id="colOutLoanMarketValue" text="Marktwert (€)" prefWidth="110.0" />
+                        <TableColumn fx:id="colOutLoanRecommendation" text="Handlungsempfehlung" prefWidth="250.0" />
+                        <TableColumn fx:id="colOutLoanFuturePlan" text="Zukunftsplan 1. Mannschaft" prefWidth="260.0" />
+                    </columns>
+                </TableView>
+
+                <Separator />
+
+                <!-- TABELLE 2: VON ANDEREN GELIEHENE SPIELER (INCOMING) -->
+                <Label text="📥 Von anderen Vereinen geliehene Spieler (Kader-Verstärkungen)" style="-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #1e293b;" />
+                <TableView fx:id="incomingLoanTable" prefHeight="200.0" editable="true">
+                    <columns>
+                        <TableColumn fx:id="colInLoanName" text="Spielername" prefWidth="140.0" />
+                        <TableColumn fx:id="colInLoanRole" text="Ziel-Rolle" prefWidth="120.0" />
+                        <TableColumn fx:id="colInLoanAge" text="Alter" prefWidth="55.0" />
+                        <TableColumn fx:id="colInLoanClub" text="Leihverein / Liga" prefWidth="160.0" />
+                        <TableColumn fx:id="colInLoanGames" text="Spiele" prefWidth="60.0" />
+                        <TableColumn fx:id="colInLoanMinutes" text="Minuten" prefWidth="75.0" />
+                        <TableColumn fx:id="colInLoanRating" text="FM-Note (nur extern)" prefWidth="140.0" />
+                        <TableColumn fx:id="colInLoanScore" text="Score" prefWidth="65.0" />
+                        <TableColumn fx:id="colInLoanClause" text="Klausel erfüllt?" prefWidth="105.0" />
+                        <TableColumn fx:id="colInLoanMarketValue" text="Marktwert (€)" prefWidth="110.0" />
+                        <TableColumn fx:id="colInLoanRecommendation" text="Handlungsempfehlung" prefWidth="250.0" />
+                        <TableColumn fx:id="colInLoanFuturePlan" text="Zukunftsplan 1. Mannschaft" prefWidth="260.0" />
                     </columns>
                 </TableView>
             </VBox>
@@ -380,7 +401,7 @@
                             style="-fx-background-color: #047857; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 14;" />
                 </HBox>
 
-                <!-- Schattenkader Tabelle (Spalten aus Excel) -->
+                <!-- Schattenkader Tabelle -->
                 <TableView fx:id="shadowSquadTable" VBox.vgrow="ALWAYS" editable="true">
                     <columns>
                         <TableColumn fx:id="colShadowRole" text="Taktische Taktik-Rolle" prefWidth="120.0" />
