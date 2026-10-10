@@ -1,5 +1,7 @@
 # Moneyball Konfiguration für Football Manager (V7 Exakt)
 
+my_club_name: "Villarreal"
+
 thresholds:
   sample_low_minutes: 450      # < 5 Spiele -> Rote Markierung (Geringe Stichprobe)
   sample_high_minutes: 900     # >= 10 Spiele -> Grüne Markierung (Hohe Aussagekraft)
@@ -8,13 +10,13 @@ thresholds:
 salary_tiers:
   - id: "Tier 1 (Key/Star)"
     max_salary_month: 1000000
-    target_score_min: 90.0
+    target_score_min: 85.0
   - id: "Tier 2 (Stamm)"
     max_salary_month: 650000
-    target_score_min: 75.0
+    target_score_min: 70.0
   - id: "Tier 3 (Rotation/Backup)"
     max_salary_month: 350000
-    target_score_min: 60.0
+    target_score_min: 55.0
   - id: "Tier 4 (Verkauf)"
     max_salary_month: 150000
     target_score_min: 0.0

@@ -15,6 +15,9 @@ public class AppConfig {
 
 	private List<TacticConfig> tactics;
 
+	@JsonProperty("my_club_name")
+	private String myClubName = "Villarreal";
+
 	public AppConfig() {}
 
 	public Map<String, Object> getThresholds() { return thresholds; }
@@ -28,4 +31,7 @@ public class AppConfig {
 
 	public List<TacticConfig> getTactics() { return tactics; }
 	public void setTactics(List<TacticConfig> tactics) { this.tactics = tactics; }
+
+	public String getMyClubName() { return myClubName; }
+	public void setMyClubName(String myClubName) { this.myClubName = myClubName; }
 }

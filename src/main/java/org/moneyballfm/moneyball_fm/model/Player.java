@@ -13,13 +13,24 @@ public class Player {
 	private int agility;
 	private int pace;
 	private int stamina;
+	private int determination;
 	private int minutesPlayed;
+
+	// Neu: Vertragsart ("Leihe", "Vollzeitvertrag") und aktueller Verein
+	private String contractType = "Vollzeitvertrag";
+	private String currentClub = "";
 
 	// Beliebig viele Stats dynamisch erweiterbar
 	private final Map<String, Double> stats = new HashMap<>();
 
 	public Player(String name, String role, int age, long marketValue, long monthlySalary,
-	              double contractYears, int agility, int pace, int stamina, int minutesPlayed) {
+	              double contractYears, int agility, int pace, int stamina, int determination, int minutesPlayed) {
+		this(name, role, age, marketValue, monthlySalary, contractYears, agility, pace, stamina, determination, minutesPlayed, "Vollzeitvertrag", "");
+	}
+
+	public Player(String name, String role, int age, long marketValue, long monthlySalary,
+	              double contractYears, int agility, int pace, int stamina, int determination, int minutesPlayed,
+	              String contractType, String currentClub) {
 		this.name = name;
 		this.role = role;
 		this.age = age;
@@ -29,11 +40,51 @@ public class Player {
 		this.agility = agility;
 		this.pace = pace;
 		this.stamina = stamina;
+		this.determination = determination;
 		this.minutesPlayed = minutesPlayed;
+		this.contractType = (contractType != null) ? contractType : "Vollzeitvertrag";
+		this.currentClub = (currentClub != null) ? currentClub : "";
+	}
+
+	public boolean isOnLoan() {
+		return contractType != null && contractType.trim().equalsIgnoreCase("leihe");
+	}
+
+	public String getContractType() {
+		return contractType;
+	}
+
+	public Player setContractType(String contractType) {
+		this.contractType = contractType;
+		return this;
+	}
+
+	public String getCurrentClub() {
+		return currentClub;
+	}
+
+	public Player setCurrentClub(String currentClub) {
+		this.currentClub = currentClub;
+		return this;
 	}
 
 	public double getStat(String key) {
-		return  stats.getOrDefault(key.trim().toLowerCase(),0.0);
+		return stats.getOrDefault(key.trim().toLowerCase(), 0.0);
+	}
+
+	public void putStat(String key, double value) {
+		if (key != null) {
+			stats.put(key.trim().toLowerCase(), value);
+		}
+	}
+
+	public int getDetermination() {
+		return determination;
+	}
+
+	public Player setDetermination(int determination) {
+		this.determination = determination;
+		return this;
 	}
 
 	public int getMinutesPlayed() {

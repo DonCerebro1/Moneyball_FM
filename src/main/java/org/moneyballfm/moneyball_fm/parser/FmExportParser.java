@@ -6,6 +6,7 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.moneyballfm.moneyball_fm.model.Player;
 import org.moneyballfm.moneyball_fm.model.PlayerRowModel;
+import org.moneyballfm.moneyball_fm.model.TacticRole;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -44,12 +45,10 @@ public class FmExportParser {
 				String[] rawCols = line.split(delimiter);
 				List<String> colsList = new ArrayList<>();
 				for (String col : rawCols) {
-					String trimmed = col.trim();
-					// Führende/nachlaufende leere Spalten durch Rand-Pipes filtern
-					colsList.add(trimmed);
+					colsList.add(col.trim());
 				}
 
-				// Wenn am Rand Pipes waren, ist das erste Element oft leer -> entfernen
+				// Durch äußere Pipes entstandene leere Randelemente entfernen
 				if (!colsList.isEmpty() && colsList.get(0).isEmpty()) {
 					colsList.remove(0);
 				}
@@ -59,7 +58,7 @@ public class FmExportParser {
 
 				String[] cols = colsList.toArray(new String[0]);
 
-				// Headerzeile identifizieren (enthält "Name" und "Alter" oder "Gehalt")
+				// Headerzeile identifizieren
 				if (colMap == null) {
 					boolean isHeader = false;
 					for (String c : cols) {
@@ -120,22 +119,75 @@ public class FmExportParser {
 		String name = getVal(cols, map, "name", "person", "spieler");
 		if (name.isBlank()) return null;
 
-		String role = getVal(cols, map, "ausgewählte position", "pos", "rolle", "taktische rolle");
-		if (role.isBlank() || role.equals("-")) role = "DMZL"; // Fallback oder aus Datei
+		String rawPos = getVal(cols, map, "ausgewählte position", "pos", "rolle", "taktische rolle");
+		TacticRole tacticRole = TacticRole.fromPosition(rawPos);
 
 		int age = parseInt(getVal(cols, map, "alter", "age"));
 		long value = parseMoney(getVal(cols, map, "transferwert", "marktwert", "wert"));
 		long salary = parseMoney(getVal(cols, map, "gehalt", "monatsgehalt"));
 		int minutes = parseInt(getVal(cols, map, "min.", "minuten", "min"));
 
-		// Beispiel-Mapping für die 3 Stats (z. B. xG/90, xA/90, Pas %)
-		// Du kannst hier genau die Spalten abgreifen, die du für deinen Score brauchst!
-		double s1 = parseDouble(getVal(cols, map, "xg/90", "stats wert 1"));
-		double s2 = parseDouble(getVal(cols, map, "xa/90", "stats wert 2"));
-		double s3 = parseDouble(getVal(cols, map, "pas %", "stats wert 3"));
+		// Vertragsart (ART) & Aktueller Verein (VEREIN)
+		String art = getVal(cols, map, "art", "vertragsart");
+		if (art.isBlank()) art = "Vollzeitvertrag";
 
-		Player p = new Player(name, role, age, value, salary, 2.0, 10, 10, 10, minutes);
-		return new PlayerRowModel(p, s1, s2, s3);
+		String club = getVal(cols, map, "verein", "club");
+
+		// Athletik & mentale Attribute aus FM
+		int bew = parseInt(getVal(cols, map, "bew", "bewegung"));
+		int ant = parseInt(getVal(cols, map, "ant", "antritt"));
+		int aus = parseInt(getVal(cols, map, "aus", "ausdauer"));
+		int zie = parseInt(getVal(cols, map, "zie", "ziel", "zielstrebigkeit"));
+
+		double contractYears = parseContractYears(getVal(cols, map, "endet", "vertrag"));
+
+		Player player = new Player(
+				name,
+				tacticRole.getDisplayName(),
+				age,
+				value,
+				salary,
+				contractYears,
+				bew,
+				ant,
+				aus,
+				zie,
+				minutes,
+				art,
+				club
+		);
+
+		// Sämtliche Spalten in die stats-Map des Spielers schreiben
+		for (Map.Entry<String, Integer> entry : map.entrySet()) {
+			int idx = entry.getValue();
+			if (idx < cols.length) {
+				double val = parseDouble(cols[idx]);
+				player.putStat(entry.getKey(), val);
+			}
+		}
+
+		// Die 3 Kennzahlen dynamisch anhand der Rolle abgreifen
+		double s1 = parseDouble(getVal(cols, map, tacticRole.getStat1Header().toLowerCase()));
+		double s2 = parseDouble(getVal(cols, map, tacticRole.getStat2Header().toLowerCase()));
+		double s3 = parseDouble(getVal(cols, map, tacticRole.getStat3Header().toLowerCase()));
+
+		PlayerRowModel row = new PlayerRowModel(player, s1, s2, s3);
+		row.setStatLabels(tacticRole.getStat1Header(), tacticRole.getStat2Header(), tacticRole.getStat3Header());
+
+		return row;
+	}
+
+	private static double parseContractYears(String dateStr) {
+		if (dateStr == null || dateStr.isBlank() || dateStr.equals("-")) return 1.0;
+		try {
+			String[] parts = dateStr.split("/");
+			if (parts.length == 3) {
+				int endYear = Integer.parseInt(parts[2].trim());
+				int currentSeasonYear = 2038; // Aktuelle FM-Saison
+				return Math.max(0.5, endYear - currentSeasonYear);
+			}
+		} catch (Exception ignored) {}
+		return 1.0;
 	}
 
 	private static String getVal(String[] cols, Map<String, Integer> map, String... keys) {
@@ -150,7 +202,6 @@ public class FmExportParser {
 
 	private static int parseInt(String val) {
 		if (val == null || val.isBlank() || val.equals("-")) return 0;
-		// Punkte wie bei 2.893 Minuten entfernen
 		String c = val.replace(".", "").replaceAll("[^0-9]", "");
 		return c.isEmpty() ? 0 : Integer.parseInt(c);
 	}
@@ -172,12 +223,28 @@ public class FmExportParser {
 		if (val == null || val.isBlank() || val.equals("-")) return 0L;
 		String clean = val.toLowerCase().replace("€", "").trim();
 
-		// Falls Range wie €111Mio - €133Mio -> den ersten Wert nehmen
+		// Wenn eine Spanne vorliegt (z. B. "111mio - 133mio" oder "4,5m - 6m")
 		if (clean.contains("-")) {
-			clean = clean.split("-")[0].trim();
+			String[] parts = clean.split("-");
+			if (parts.length == 2) {
+				long minVal = parseSingleAmount(parts[0].trim());
+				long maxVal = parseSingleAmount(parts[1].trim());
+				if (minVal > 0 && maxVal > 0) {
+					return (minVal + maxVal) / 2; // Arithmetischer Mittelwert
+				} else if (maxVal > 0) {
+					return maxVal;
+				} else {
+					return minVal;
+				}
+			}
 		}
 
-		// /M. oder /J. Gehaltsangaben bereinigen
+		return parseSingleAmount(clean);
+	}
+
+	private static long parseSingleAmount(String clean) {
+		if (clean == null || clean.isBlank()) return 0L;
+
 		clean = clean.replace("/m.", "").replace("/m", "").replace("/j.", "").replace("/j", "").trim();
 
 		double factor = 1.0;

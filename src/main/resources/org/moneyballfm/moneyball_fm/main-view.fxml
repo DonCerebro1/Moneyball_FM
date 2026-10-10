@@ -4,11 +4,11 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
-<VBox fx:id="rootPane" spacing="10.0" prefHeight="700.0" prefWidth="1100.0"
+<VBox fx:id="rootPane" spacing="10.0" prefHeight="780.0" prefWidth="1380.0"
       xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="org.moneyballfm.moneyball_fm.controller.MainController">
     <padding>
-        <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
+        <Insets bottom="10.0" left="15.0" right="15.0" top="15.0" />
     </padding>
 
     <!-- Toolbar / Menüleiste -->
@@ -16,24 +16,388 @@
         <Button text="+ Spieler manuell anlegen" onAction="#onAddPlayerManual" />
         <Button text="Tabelle leeren" onAction="#onClearList" />
         <Separator orientation="VERTICAL" />
-        <Label fx:id="statusLabel" text="Datei (.txt oder .html) hier hineinziehen per Drag &amp; Drop" style="-fx-font-weight: bold;" />
+
+        <!-- Editierbarer Vereinsname für flexibles Karrierespiel -->
+        <Label text="Mein Verein:" style="-fx-font-weight: bold;" />
+        <TextField fx:id="txtMyClub" prefWidth="130.0" promptText="z. B. Villarreal" />
+
+        <Separator orientation="VERTICAL" />
+        <Label fx:id="statusLabel" text="Datei (.rtf, .txt oder .html) hier hineinziehen per Drag &amp; Drop" style="-fx-font-weight: bold;" />
     </HBox>
 
-    <!-- Datentabelle -->
-    <TableView fx:id="playerTable" VBox.vgrow="ALWAYS">
-        <columns>
-            <TableColumn fx:id="colName" text="Name" prefWidth="150.0" />
-            <TableColumn fx:id="colRole" text="Rolle" prefWidth="110.0" />
-            <TableColumn fx:id="colAge" text="Alter" prefWidth="60.0" />
-            <TableColumn fx:id="colSalary" text="Gehalt / Mon." prefWidth="110.0" />
-            <TableColumn fx:id="colMinutes" text="Minuten" prefWidth="80.0" />
-            <TableColumn fx:id="colStat1" text="Stat 1" prefWidth="80.0" />
-            <TableColumn fx:id="colStat2" text="Stat 2" prefWidth="80.0" />
-            <TableColumn fx:id="colStat3" text="Stat 3" prefWidth="80.0" />
-            <TableColumn fx:id="colScore" text="Moneyball-Score" prefWidth="120.0" />
-            <TableColumn fx:id="colTier" text="Gehalts-Tier" prefWidth="130.0" />
-            <TableColumn fx:id="colSalaryCheck" text="Gehalts-Check" prefWidth="160.0" />
-            <TableColumn fx:id="colQuality" text="Stichprobe" prefWidth="170.0" />
-        </columns>
-    </TableView>
+    <!-- Tabs -->
+    <TabPane VBox.vgrow="ALWAYS" tabClosingPolicy="UNAVAILABLE">
+        <!-- TAB 1: Kader & Performance -->
+        <Tab text="📋 Kader &amp; Performance">
+            <VBox spacing="10.0">
+                <padding>
+                    <Insets top="10.0" />
+                </padding>
+                <TableView fx:id="playerTable" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="colName" text="Name" prefWidth="140.0" />
+                        <TableColumn fx:id="colRole" text="Rolle" prefWidth="130.0" />
+                        <TableColumn fx:id="colOnLoan" text="Geliehen?" prefWidth="75.0" />
+                        <TableColumn fx:id="colAge" text="Alter" prefWidth="50.0" />
+                        <TableColumn fx:id="colAgility" text="Bew" prefWidth="45.0" />
+                        <TableColumn fx:id="colPace" text="Ant" prefWidth="45.0" />
+                        <TableColumn fx:id="colStamina" text="Aus" prefWidth="45.0" />
+                        <TableColumn fx:id="colMarketValue" text="Marktwert" prefWidth="110.0" />
+                        <TableColumn fx:id="colFairMarketValue" text="Fairer Marktwert" prefWidth="125.0" />
+                        <TableColumn fx:id="colSalary" text="Gehalt / Mon." prefWidth="105.0" />
+                        <TableColumn fx:id="colMaxSalary" text="Max-Gehalt / Mon." prefWidth="125.0" />
+                        <TableColumn fx:id="colMinutes" text="Minuten" prefWidth="70.0" />
+                        <TableColumn fx:id="colStat1" text="Stat 1" prefWidth="65.0" />
+                        <TableColumn fx:id="colStat2" text="Stat 2" prefWidth="65.0" />
+                        <TableColumn fx:id="colStat3" text="Stat 3" prefWidth="65.0" />
+                        <TableColumn fx:id="colScore" text="Moneyball-Score" prefWidth="105.0" />
+                        <TableColumn fx:id="colTier" text="Gehalts-Tier" prefWidth="120.0" />
+                        <TableColumn fx:id="colSalaryCheck" text="Gehalts-Check" prefWidth="150.0" />
+                        <TableColumn fx:id="colQuality" text="Stichprobe" prefWidth="160.0" />
+                    </columns>
+                </TableView>
+            </VBox>
+        </Tab>
+
+        <!-- TAB 2: Positions-Bedarf & Scouting -->
+        <Tab text="🎯 Positions-Bedarf &amp; Scouting">
+            <VBox spacing="12.0">
+                <padding>
+                    <Insets top="10.0" />
+                </padding>
+
+                <!-- KPI-Karten -->
+                <HBox spacing="15.0" alignment="CENTER_LEFT">
+                    <VBox spacing="4.0" style="-fx-background-color: #fee2e2; -fx-padding: 10 16; -fx-background-radius: 8; -fx-border-color: #fca5a5; -fx-border-radius: 8;">
+                        <Label text="Kritische Baustellen (Prio 1)" style="-fx-font-size: 11px; -fx-text-fill: #991b1b; -fx-font-weight: bold;" />
+                        <Label fx:id="lblCriticalNeeds" text="0 Positionen" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #b91c1c;" />
+                    </VBox>
+
+                    <VBox spacing="4.0" style="-fx-background-color: #fef3c7; -fx-padding: 10 16; -fx-background-radius: 8; -fx-border-color: #fcd34d; -fx-border-radius: 8;">
+                        <Label text="Beobachten / Perspektive" style="-fx-font-size: 11px; -fx-text-fill: #92400e; -fx-font-weight: bold;" />
+                        <Label fx:id="lblWarningNeeds" text="0 Positionen" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #d97706;" />
+                    </VBox>
+
+                    <VBox spacing="4.0" style="-fx-background-color: #dcfce7; -fx-padding: 10 16; -fx-background-radius: 8; -fx-border-color: #86efac; -fx-border-radius: 8;">
+                        <Label text="Optimal besetzt" style="-fx-font-size: 11px; -fx-text-fill: #166534; -fx-font-weight: bold;" />
+                        <Label fx:id="lblOptimalNeeds" text="0 Positionen" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #15803d;" />
+                    </VBox>
+                </HBox>
+
+                <!-- Bedarfs-Tabelle -->
+                <TableView fx:id="needsTable" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="colNeedSlot" text="Slot" prefWidth="80.0" />
+                        <TableColumn fx:id="colNeedRole" text="Rolle" prefWidth="160.0" />
+                        <TableColumn fx:id="colNeedCount" text="Anzahl" prefWidth="65.0" />
+                        <TableColumn fx:id="colNeedBestPlayer" text="Bester Spieler" prefWidth="130.0" />
+                        <TableColumn fx:id="colNeedBestScore" text="Top-Score" prefWidth="80.0" />
+                        <TableColumn fx:id="colNeedAvgScore" text="Ø Score" prefWidth="75.0" />
+                        <TableColumn fx:id="colNeedAvgAge" text="Ø Alter" prefWidth="65.0" />
+                        <TableColumn fx:id="colNeedCritContracts" text="Vertrag &lt;= 1J" prefWidth="95.0" />
+                        <TableColumn fx:id="colNeedDiagnosis" text="Diagnose" prefWidth="190.0" />
+                        <TableColumn fx:id="colNeedRecommendation" text="Handlungsempfehlung" prefWidth="210.0" />
+                        <TableColumn fx:id="colNeedTargetProfile" text="Scouting-Zielprofil (Metriken)" prefWidth="250.0" />
+                    </columns>
+                </TableView>
+            </VBox>
+        </Tab>
+
+        <!-- TAB 3: Gehalts-Kalkulator -->
+        <Tab text="💰 Gehalts-Kalkulator">
+            <HBox spacing="25.0">
+                <padding>
+                    <Insets top="15.0" bottom="15.0" left="10.0" right="10.0" />
+                </padding>
+
+                <!-- Eingabe-Panel (Links) -->
+                <VBox spacing="12.0" prefWidth="420.0" style="-fx-background-color: #f8fafc; -fx-padding: 16; -fx-background-radius: 8; -fx-border-color: #e2e8f0; -fx-border-radius: 8;">
+                    <Label text="Verhandlungs-Parameter" style="-fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: #1e293b;" />
+                    <Separator />
+
+                    <Label text="Spieler aus Kader wählen:" style="-fx-font-size: 12px; -fx-font-weight: bold;" />
+                    <HBox spacing="8.0" alignment="CENTER_LEFT">
+                        <ComboBox fx:id="cmbCalcPlayer" promptText="-- Kader-Spieler wählen --" HBox.hgrow="ALWAYS" maxWidth="Infinity" />
+                        <Button text="✕ Reset" onAction="#onResetSalaryCalc" style="-fx-background-color: #e2e8f0; -fx-text-fill: #475569;" />
+                    </HBox>
+
+                    <Label text="Oder manueller Name / Scouting-Ziel:" style="-fx-font-size: 12px; -fx-font-weight: bold;" />
+                    <TextField fx:id="txtCalcCustomName" promptText="z. B. Benjamin Sesko / Scouting-Ziel" />
+
+                    <Label text="Moneyball-Score (0 - 100):" style="-fx-font-size: 12px; -fx-font-weight: bold;" />
+                    <TextField fx:id="txtCalcScore" promptText="z. B. 82.5" />
+
+                    <Label text="Forderung des Beraters (€ / Monat):" style="-fx-font-size: 12px; -fx-font-weight: bold;" />
+                    <TextField fx:id="txtCalcDemand" promptText="z. B. 450000" />
+
+                    <Region VBox.vgrow="ALWAYS" />
+                    <Button text="Kalkulieren / Aktualisieren" onAction="#onCalculateSalary" maxWidth="Infinity" style="-fx-background-color: #2563eb; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 16;" />
+                </VBox>
+
+                <!-- Ergebnis & Verhandlungsplan (Rechts) -->
+                <VBox spacing="14.0" HBox.hgrow="ALWAYS" style="-fx-background-color: #ffffff; -fx-padding: 16; -fx-background-radius: 8; -fx-border-color: #e2e8f0; -fx-border-radius: 8;">
+                    <Label text="Empfohlene Verhandlungs-Strategie" style="-fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: #1e293b;" />
+                    <Separator />
+
+                    <!-- Ampel-Statuskarte -->
+                    <VBox fx:id="boxCalcAssessment" spacing="4.0" style="-fx-padding: 12 16; -fx-background-radius: 6; -fx-background-color: #eff6ff; -fx-border-color: #bfdbfe; -fx-border-radius: 6;">
+                        <Label text="Bewertung der Forderung:" style="-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: #475569;" />
+                        <Label fx:id="lblCalcAssessment" text="Bereit für Verhandlung" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2563eb;" wrapText="true" />
+                    </VBox>
+
+                    <!-- Kennzahlen-Grid -->
+                    <GridPane hgap="20.0" vgap="14.0">
+                        <columnConstraints>
+                            <ColumnConstraints minWidth="180.0" prefWidth="200.0" />
+                            <ColumnConstraints minWidth="200.0" hgrow="ALWAYS" />
+                        </columnConstraints>
+
+                        <Label text="Einstufung (Tier):" GridPane.rowIndex="0" GridPane.columnIndex="0" style="-fx-font-weight: bold; -fx-text-fill: #64748b;" />
+                        <Label fx:id="lblCalcTier" text="-" GridPane.rowIndex="0" GridPane.columnIndex="1" style="-fx-font-size: 14px; -fx-font-weight: bold;" />
+
+                        <Label text="Einstiegsangebot (70 %):" GridPane.rowIndex="1" GridPane.columnIndex="0" style="-fx-font-weight: bold; -fx-text-fill: #64748b;" />
+                        <Label fx:id="lblCalcStartingOffer" text="€ 0 / Mon." GridPane.rowIndex="1" GridPane.columnIndex="1" style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #15803d;" />
+
+                        <Label text="Faires Zielgehalt (85 %):" GridPane.rowIndex="2" GridPane.columnIndex="0" style="-fx-font-weight: bold; -fx-text-fill: #64748b;" />
+                        <Label fx:id="lblCalcTargetSalary" text="€ 0 / Mon." GridPane.rowIndex="2" GridPane.columnIndex="1" style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #0369a1;" />
+
+                        <Label text="Schmerzgrenze / Limit (100 %):" GridPane.rowIndex="3" GridPane.columnIndex="0" style="-fx-font-weight: bold; -fx-text-fill: #64748b;" />
+                        <Label fx:id="lblCalcMaxSalary" text="€ 0 / Mon." GridPane.rowIndex="3" GridPane.columnIndex="1" style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #b91c1c;" />
+                    </GridPane>
+
+                    <Separator />
+                    <Label text="💡 Tipp: Starte die Verhandlung stets beim Einstiegsangebot. Bei Unterschreiten des Zielgehalts erhältst du einen 'Top-Deal'. Biete niemals mehr als die Schmerzgrenze." style="-fx-font-size: 11px; -fx-text-fill: #64748b;" wrapText="true" />
+                </VBox>
+            </HBox>
+        </Tab>
+
+        <!-- TAB 4: Tiefenchart & Kader-Hierarchie -->
+        <Tab text="📊 Tiefenchart &amp; Hierarchie">
+            <VBox spacing="10.0">
+                <padding>
+                    <Insets top="10.0" />
+                </padding>
+                <TableView fx:id="depthChartTable" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="colDepthRole" text="Taktische Rolle" prefWidth="180.0" />
+                        <TableColumn fx:id="colDepthRank" text="Rang" prefWidth="60.0" />
+                        <TableColumn fx:id="colDepthPlayerName" text="Spielername" prefWidth="180.0" />
+                        <TableColumn fx:id="colDepthScore" text="Moneyball-Score" prefWidth="130.0" />
+                        <TableColumn fx:id="colDepthTeamRole" text="Rolle im Team" prefWidth="200.0" />
+                        <TableColumn fx:id="colDepthAge" text="Alter" prefWidth="70.0" />
+                        <TableColumn fx:id="colDepthSalary" text="Monatsgehalt (€)" prefWidth="150.0" />
+                    </columns>
+                </TableView>
+            </VBox>
+        </Tab>
+
+        <!-- TAB 5: Leihspieler-Entscheidung -->
+        <Tab text="🔄 Leihspieler-Entscheidung">
+            <VBox spacing="12.0">
+                <padding>
+                    <Insets top="10.0" />
+                </padding>
+
+                <!-- KPI-Karten oben -->
+                <HBox spacing="15.0" alignment="CENTER_LEFT">
+                    <VBox spacing="4.0" style="-fx-background-color: #dbeafe; -fx-padding: 10 16; -fx-background-radius: 8; -fx-border-color: #bfdbfe; -fx-border-radius: 8;">
+                        <Label text="Kader-Rückkehr / Übernahme" style="-fx-font-size: 11px; -fx-text-fill: #1e40af; -fx-font-weight: bold;" />
+                        <Label fx:id="lblLoanReturnCount" text="0 Spieler" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #1d4ed8;" />
+                    </VBox>
+
+                    <VBox spacing="4.0" style="-fx-background-color: #fef3c7; -fx-padding: 10 16; -fx-background-radius: 8; -fx-border-color: #fcd34d; -fx-border-radius: 8;">
+                        <Label text="Weiter verleihen" style="-fx-font-size: 11px; -fx-text-fill: #92400e; -fx-font-weight: bold;" />
+                        <Label fx:id="lblLoanExtendCount" text="0 Spieler" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #d97706;" />
+                    </VBox>
+
+                    <VBox spacing="4.0" style="-fx-background-color: #fee2e2; -fx-padding: 10 16; -fx-background-radius: 8; -fx-border-color: #fca5a5; -fx-border-radius: 8;">
+                        <Label text="Verkauf / Leih-Ende" style="-fx-font-size: 11px; -fx-text-fill: #991b1b; -fx-font-weight: bold;" />
+                        <Label fx:id="lblLoanSellCount" text="0 Spieler" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #b91c1c;" />
+                    </VBox>
+
+                    <Region HBox.hgrow="ALWAYS" />
+                    <Button text="+ Leihspieler erfassen" onAction="#onAddLoanPlayerManual" style="-fx-background-color: #0284c7; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 14;" />
+                </HBox>
+
+                <!-- Leihspieler-Tabelle -->
+                <TableView fx:id="loanTable" VBox.vgrow="ALWAYS" editable="true">
+                    <columns>
+                        <TableColumn fx:id="colLoanType" text="Typ" prefWidth="120.0" />
+                        <TableColumn fx:id="colLoanName" text="Spielername" prefWidth="140.0" />
+                        <TableColumn fx:id="colLoanRole" text="Ziel-Rolle" prefWidth="120.0" />
+                        <TableColumn fx:id="colLoanAge" text="Alter" prefWidth="55.0" />
+                        <TableColumn fx:id="colLoanClub" text="Leihverein / Liga" prefWidth="160.0" />
+                        <TableColumn fx:id="colLoanGames" text="Spiele" prefWidth="60.0" />
+                        <TableColumn fx:id="colLoanMinutes" text="Minuten" prefWidth="75.0" />
+                        <TableColumn fx:id="colLoanRating" text="FM-Note (nur extern)" prefWidth="140.0" />
+                        <TableColumn fx:id="colLoanScore" text="Score" prefWidth="65.0" />
+                        <TableColumn fx:id="colLoanClause" text="Klausel erfüllt?" prefWidth="105.0" />
+                        <TableColumn fx:id="colLoanMarketValue" text="Marktwert (€)" prefWidth="110.0" />
+                        <TableColumn fx:id="colLoanRecommendation" text="Handlungsempfehlung" prefWidth="250.0" />
+                        <TableColumn fx:id="colLoanFuturePlan" text="Zukunftsplan 1. Mannschaft" prefWidth="260.0" />
+                    </columns>
+                </TableView>
+            </VBox>
+        </Tab>
+
+        <!-- TAB 6: Jugend & Talent-Pipeline -->
+        <Tab text="🌱 Jugend &amp; Pipeline">
+            <VBox spacing="12.0">
+                <padding>
+                    <Insets top="10.0" />
+                </padding>
+
+                <!-- KPI-Karten oben -->
+                <HBox spacing="15.0" alignment="CENTER_LEFT">
+                    <VBox spacing="4.0" style="-fx-background-color: #dbeafe; -fx-padding: 10 16; -fx-background-radius: 8; -fx-border-color: #bfdbfe; -fx-border-radius: 8;">
+                        <Label text="⭐ Top-Talente (1. Mannschaft)" style="-fx-font-size: 11px; -fx-text-fill: #1e40af; -fx-font-weight: bold;" />
+                        <Label fx:id="lblYouthTopCount" text="0 Spieler" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #1d4ed8;" />
+                    </VBox>
+
+                    <VBox spacing="4.0" style="-fx-background-color: #fef3c7; -fx-padding: 10 16; -fx-background-radius: 8; -fx-border-color: #fcd34d; -fx-border-radius: 8;">
+                        <Label text="🚜 Leih-Kandidaten (Forcieren)" style="-fx-font-size: 11px; -fx-text-fill: #92400e; -fx-font-weight: bold;" />
+                        <Label fx:id="lblYouthLoanCount" text="0 Spieler" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #d97706;" />
+                    </VBox>
+
+                    <VBox spacing="4.0" style="-fx-background-color: #dcfce7; -fx-padding: 10 16; -fx-background-radius: 8; -fx-border-color: #86efac; -fx-border-radius: 8;">
+                        <Label text="🌱 U19 / U21 Entwickeln" style="-fx-font-size: 11px; -fx-text-fill: #166534; -fx-font-weight: bold;" />
+                        <Label fx:id="lblYouthDevelopCount" text="0 Spieler" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #15803d;" />
+                    </VBox>
+
+                    <VBox spacing="4.0" style="-fx-background-color: #fee2e2; -fx-padding: 10 16; -fx-background-radius: 8; -fx-border-color: #fca5a5; -fx-border-radius: 8;">
+                        <Label text="💰 Verkaufsmöglichkeiten" style="-fx-font-size: 11px; -fx-text-fill: #991b1b; -fx-font-weight: bold;" />
+                        <Label fx:id="lblYouthSellCount" text="0 Spieler" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #b91c1c;" />
+                    </VBox>
+
+                    <Region HBox.hgrow="ALWAYS" />
+                    <Button text="+ Talent manuell erfassen" onAction="#onAddYouthPlayerManual" style="-fx-background-color: #10b981; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 14;" />
+                </HBox>
+
+                <!-- Pipeline-Tabelle -->
+                <TableView fx:id="youthTable" VBox.vgrow="ALWAYS" editable="true">
+                    <columns>
+                        <TableColumn fx:id="colYouthName" text="Talent-Name" prefWidth="150.0" />
+                        <TableColumn fx:id="colYouthRole" text="Ziel-Rolle 1. Team" prefWidth="130.0" />
+                        <TableColumn fx:id="colYouthAge" text="Alter" prefWidth="55.0" />
+                        <TableColumn fx:id="colYouthPotentialStars" text="Potenzial (★)" prefWidth="95.0" />
+                        <TableColumn fx:id="colYouthCurrentStars" text="Ist-Stärke (★)" prefWidth="95.0" />
+                        <TableColumn fx:id="colYouthAgility" text="Beweglichkeit" prefWidth="90.0" />
+                        <TableColumn fx:id="colYouthPace" text="Antritt" prefWidth="65.0" />
+                        <TableColumn fx:id="colYouthStamina" text="Ausdauer" prefWidth="75.0" />
+                        <TableColumn fx:id="colYouthDetermination" text="Persönlichkeit/Entsch." prefWidth="145.0" />
+                        <TableColumn fx:id="colYouthStat1" text="Stats Wert 1" prefWidth="80.0" />
+                        <TableColumn fx:id="colYouthStat2" text="Stats Wert 2" prefWidth="80.0" />
+                        <TableColumn fx:id="colYouthStat3" text="Stats Wert 3" prefWidth="80.0" />
+                        <TableColumn fx:id="colYouthScore" text="Talent-Score" prefWidth="85.0" />
+                        <TableColumn fx:id="colYouthForecast" text="Prognose 1. Mannschaft" prefWidth="250.0" />
+                        <TableColumn fx:id="colYouthRecommendation" text="Handlungsempfehlung Pipeline" prefWidth="240.0" />
+                        <TableColumn fx:id="colYouthMaxSalary" text="Max-Gehalt Jugend (€)" prefWidth="150.0" />
+                    </columns>
+                </TableView>
+            </VBox>
+        </Tab>
+
+        <!-- TAB 7: Moneyball Scouting -->
+        <Tab text="🔭 Moneyball Scouting">
+            <VBox spacing="12.0">
+                <padding>
+                    <Insets top="10.0" />
+                </padding>
+
+                <!-- KPI-Karten oben -->
+                <HBox spacing="15.0" alignment="CENTER_LEFT">
+                    <VBox spacing="4.0" style="-fx-background-color: #dcfce7; -fx-padding: 10 16; -fx-background-radius: 8; -fx-border-color: #86efac; -fx-border-radius: 8;">
+                        <Label text="⭐ Sofort verpflichten" style="-fx-font-size: 11px; -fx-text-fill: #166534; -fx-font-weight: bold;" />
+                        <Label fx:id="lblScoutSignCount" text="0 Spieler" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #15803d;" />
+                    </VBox>
+
+                    <VBox spacing="4.0" style="-fx-background-color: #dbeafe; -fx-padding: 10 16; -fx-background-radius: 8; -fx-border-color: #bfdbfe; -fx-border-radius: 8;">
+                        <Label text="🟢 Top-Schnäppchen" style="-fx-font-size: 11px; -fx-text-fill: #1e40af; -fx-font-weight: bold;" />
+                        <Label fx:id="lblScoutBargainCount" text="0 Spieler" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #1d4ed8;" />
+                    </VBox>
+
+                    <VBox spacing="4.0" style="-fx-background-color: #fee2e2; -fx-padding: 10 16; -fx-background-radius: 8; -fx-border-color: #fca5a5; -fx-border-radius: 8;">
+                        <Label text="🔴 Überteuert / Ablehnen" style="-fx-font-size: 11px; -fx-text-fill: #991b1b; -fx-font-weight: bold;" />
+                        <Label fx:id="lblScoutRejectCount" text="0 Spieler" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #b91c1c;" />
+                    </VBox>
+
+                    <Region HBox.hgrow="ALWAYS" />
+                    <Button text="+ Scout-Kandidat anlegen" onAction="#onAddScoutPlayerManual" style="-fx-background-color: #0284c7; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 14;" />
+                </HBox>
+
+                <!-- Scouting-Tabelle -->
+                <TableView fx:id="scoutTable" VBox.vgrow="ALWAYS" editable="true">
+                    <columns>
+                        <TableColumn fx:id="colScoutName" text="Spielername" prefWidth="160.0" />
+                        <TableColumn fx:id="colScoutRole" text="Taktische Rolle" prefWidth="130.0" />
+                        <TableColumn fx:id="colScoutAge" text="Alter" prefWidth="55.0" />
+                        <TableColumn fx:id="colScoutAskingPrice" text="Ablöseforderung (€)" prefWidth="130.0" />
+                        <TableColumn fx:id="colScoutWageDemand" text="Gehalt / Monat (€)" prefWidth="130.0" />
+                        <TableColumn fx:id="colScoutContractYears" text="Restvertrag (J)" prefWidth="95.0" />
+                        <TableColumn fx:id="colScoutAgility" text="Beweglichkeit" prefWidth="90.0" />
+                        <TableColumn fx:id="colScoutPace" text="Antritt" prefWidth="65.0" />
+                        <TableColumn fx:id="colScoutStamina" text="Ausdauer" prefWidth="75.0" />
+                        <TableColumn fx:id="colScoutStat1" text="Stats Wert 1" prefWidth="85.0" />
+                        <TableColumn fx:id="colScoutStat2" text="Stats Wert 2" prefWidth="85.0" />
+                        <TableColumn fx:id="colScoutStat3" text="Stats Wert 3" prefWidth="85.0" />
+                        <TableColumn fx:id="colScoutScore" text="Scouting-Score" prefWidth="95.0" />
+                        <TableColumn fx:id="colScoutMaxFee" text="Max-Ablöse (€)" prefWidth="120.0" />
+                        <TableColumn fx:id="colScoutMaxWage" text="Max-Gehalt (€)" prefWidth="120.0" />
+                        <TableColumn fx:id="colScoutPriceCheck" text="Preis-Check" prefWidth="150.0" />
+                        <TableColumn fx:id="colScoutAction" text="Transfer-Aktion" prefWidth="180.0" />
+                    </columns>
+                </TableView>
+            </VBox>
+        </Tab>
+
+        <!-- TAB 8: Schattenkader -->
+        <Tab text="👥 Schattenkader">
+            <VBox spacing="12.0">
+                <padding>
+                    <Insets top="10.0" />
+                </padding>
+
+                <!-- KPI Leiste oben -->
+                <HBox spacing="15.0" alignment="CENTER_LEFT">
+                    <VBox spacing="4.0" style="-fx-background-color: #dcfce7; -fx-padding: 10 16; -fx-background-radius: 8; -fx-border-color: #86efac; -fx-border-radius: 8;">
+                        <Label text="💰 Max. Netto-Transfergewinn" style="-fx-font-size: 11px; -fx-text-fill: #166534; -fx-font-weight: bold;" />
+                        <Label fx:id="lblShadowTotalProfit" text="€ 0" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #15803d;" />
+                    </VBox>
+
+                    <VBox spacing="4.0" style="-fx-background-color: #dbeafe; -fx-padding: 10 16; -fx-background-radius: 8; -fx-border-color: #bfdbfe; -fx-border-radius: 8;">
+                        <Label text="📉 Max. Gehaltsersparnis / M" style="-fx-font-size: 11px; -fx-text-fill: #1e40af; -fx-font-weight: bold;" />
+                        <Label fx:id="lblShadowTotalSavings" text="€ 0 / Mon." style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #1d4ed8;" />
+                    </VBox>
+
+                    <VBox spacing="4.0" style="-fx-background-color: #f1f5f9; -fx-padding: 10 16; -fx-background-radius: 8; -fx-border-color: #cbd5e1; -fx-border-radius: 8;">
+                        <Label text="🛡️ Abgedeckte Rollen" style="-fx-font-size: 11px; -fx-text-fill: #475569; -fx-font-weight: bold;" />
+                        <Label fx:id="lblShadowCoveredSlots" text="0 / 0" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #0f172a;" />
+                    </VBox>
+
+                    <Region HBox.hgrow="ALWAYS" />
+                    <Button text="+ Schatten-Zeile anlegen"
+                            onAction="#onAddShadowPlayerManual"
+                            style="-fx-background-color: #047857; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 14;" />
+                </HBox>
+
+                <!-- Schattenkader Tabelle (Spalten aus Excel) -->
+                <TableView fx:id="shadowSquadTable" VBox.vgrow="ALWAYS" editable="true">
+                    <columns>
+                        <TableColumn fx:id="colShadowRole" text="Taktische Taktik-Rolle" prefWidth="120.0" />
+                        <TableColumn fx:id="colShadowStarter" text="Aktueller Stammspieler" prefWidth="150.0" />
+                        <TableColumn fx:id="colShadowStarterSalary" text="Stamm-Gehalt (€)" prefWidth="110.0" />
+                        <TableColumn fx:id="colShadowStarterValue" text="Stamm-Marktwert (€)" prefWidth="130.0" />
+                        <TableColumn fx:id="colShadowC1Name" text="Schatten-Kandidat 1" prefWidth="150.0" />
+                        <TableColumn fx:id="colShadowC1Fee" text="Scout-Ablöse 1 (€)" prefWidth="120.0" />
+                        <TableColumn fx:id="colShadowC1Salary" text="Scout-Gehalt 1 (€)" prefWidth="110.0" />
+                        <TableColumn fx:id="colShadowC2Name" text="Schatten-Kandidat 2" prefWidth="150.0" />
+                        <TableColumn fx:id="colShadowC2Fee" text="Scout-Ablöse 2 (€)" prefWidth="120.0" />
+                        <TableColumn fx:id="colShadowC2Salary" text="Scout-Gehalt 2 (€)" prefWidth="110.0" />
+                        <TableColumn fx:id="colShadowNetGain" text="Netto-Transfergewinn bei Verkauf (€)" prefWidth="190.0" />
+                        <TableColumn fx:id="colShadowWageSavings" text="Gehaltsersparnis / Monat (€)" prefWidth="160.0" />
+                    </columns>
+                </TableView>
+            </VBox>
+        </Tab>
+    </TabPane>
 </VBox>

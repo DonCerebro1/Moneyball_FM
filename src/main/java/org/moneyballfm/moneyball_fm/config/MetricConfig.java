@@ -10,6 +10,9 @@ public class MetricConfig {
 	private double weight;
 	private double benchmark;
 
+	@JsonProperty("inverse")
+	private boolean inverse = false;
+
 	@JsonProperty("column_aliases")
 	private List<String> columnAliases;
 
@@ -23,6 +26,9 @@ public class MetricConfig {
 
 	public double getBenchmark() { return benchmark; }
 	public void setBenchmark(double benchmark) { this.benchmark = benchmark; }
+
+	public boolean isInverse() { return inverse; }
+	public void setInverse(boolean inverse) { this.inverse = inverse; }
 
 	public List<String> getColumnAliases() { return columnAliases; }
 	public void setColumnAliases(List<String> columnAliases) { this.columnAliases = columnAliases; }
