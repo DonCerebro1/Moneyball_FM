@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox fx:id="rootPane" spacing="10.0" prefHeight="700.0" prefWidth="1100.0"
+      xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="org.moneyballfm.moneyball_fm.controller.MainController">
+    <padding>
+        <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
+    </padding>
+
+    <!-- Toolbar / Menüleiste -->
+    <HBox spacing="10.0" alignment="CENTER_LEFT">
+        <Button text="+ Spieler manuell anlegen" onAction="#onAddPlayerManual" />
+        <Button text="Tabelle leeren" onAction="#onClearList" />
+        <Separator orientation="VERTICAL" />
+        <Label fx:id="statusLabel" text="Datei (.txt oder .html) hier hineinziehen per Drag &amp; Drop" style="-fx-font-weight: bold;" />
+    </HBox>
+
+    <!-- Datentabelle -->
+    <TableView fx:id="playerTable" VBox.vgrow="ALWAYS">
+        <columns>
+            <TableColumn fx:id="colName" text="Name" prefWidth="150.0" />
+            <TableColumn fx:id="colRole" text="Rolle" prefWidth="110.0" />
+            <TableColumn fx:id="colAge" text="Alter" prefWidth="60.0" />
+            <TableColumn fx:id="colSalary" text="Gehalt / Mon." prefWidth="110.0" />
+            <TableColumn fx:id="colMinutes" text="Minuten" prefWidth="80.0" />
+            <TableColumn fx:id="colStat1" text="Stat 1" prefWidth="80.0" />
+            <TableColumn fx:id="colStat2" text="Stat 2" prefWidth="80.0" />
+            <TableColumn fx:id="colStat3" text="Stat 3" prefWidth="80.0" />
+            <TableColumn fx:id="colScore" text="Moneyball-Score" prefWidth="120.0" />
+            <TableColumn fx:id="colTier" text="Gehalts-Tier" prefWidth="130.0" />
+            <TableColumn fx:id="colSalaryCheck" text="Gehalts-Check" prefWidth="160.0" />
+            <TableColumn fx:id="colQuality" text="Stichprobe" prefWidth="170.0" />
+        </columns>
+    </TableView>
+</VBox>
