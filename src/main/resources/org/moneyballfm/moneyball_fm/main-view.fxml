@@ -23,6 +23,13 @@
 
         <Separator orientation="VERTICAL" />
         <Label fx:id="statusLabel" text="Datei (.rtf, .txt oder .html) hier hineinziehen per Drag &amp; Drop" style="-fx-font-weight: bold;" />
+
+        <!-- Schiebt das Datum ganz nach rechts -->
+        <Region HBox.hgrow="ALWAYS" />
+
+        <!-- Zeitstempel oben rechts -->
+        <Label fx:id="lblImportTimestamp" text="Stand: Noch kein Import"
+               style="-fx-font-size: 11px; -fx-text-fill: #64748b; -fx-font-weight: bold;" />
     </HBox>
 
     <!-- Tabs -->
@@ -33,6 +40,35 @@
                 <padding>
                     <Insets top="10.0" />
                 </padding>
+
+                <!-- KPI-Header Leiste (Werte aus Excel) -->
+                <HBox spacing="15.0" alignment="CENTER_LEFT">
+                    <VBox spacing="4.0" style="-fx-background-color: #f1f5f9; -fx-padding: 8 16; -fx-background-radius: 8; -fx-border-color: #cbd5e1; -fx-border-radius: 8;">
+                        <Label text="Ø KADER-ALTER" style="-fx-font-size: 11px; -fx-text-fill: #475569; -fx-font-weight: bold;" />
+                        <Label fx:id="lblSquadAvgAge" text="0,0" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #0f172a;" />
+                    </VBox>
+
+                    <VBox spacing="4.0" style="-fx-background-color: #f1f5f9; -fx-padding: 8 16; -fx-background-radius: 8; -fx-border-color: #cbd5e1; -fx-border-radius: 8;">
+                        <Label text="Ø ATHLETIK &amp; FITNESS" style="-fx-font-size: 11px; -fx-text-fill: #475569; -fx-font-weight: bold;" />
+                        <Label fx:id="lblSquadAvgAthletics" text="0,0" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #0f172a;" />
+                    </VBox>
+
+                    <VBox spacing="4.0" style="-fx-background-color: #dbeafe; -fx-padding: 8 16; -fx-background-radius: 8; -fx-border-color: #bfdbfe; -fx-border-radius: 8;">
+                        <Label text="GEHALTSSUMME / MONAT" style="-fx-font-size: 11px; -fx-text-fill: #1e40af; -fx-font-weight: bold;" />
+                        <Label fx:id="lblSquadTotalWage" text="€ 0 / Mon." style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #1d4ed8;" />
+                    </VBox>
+
+                    <VBox spacing="4.0" style="-fx-background-color: #dcfce7; -fx-padding: 8 16; -fx-background-radius: 8; -fx-border-color: #86efac; -fx-border-radius: 8;">
+                        <Label text="GESAMT-MARKTWERT" style="-fx-font-size: 11px; -fx-text-fill: #166534; -fx-font-weight: bold;" />
+                        <Label fx:id="lblSquadTotalMarketValue" text="€ 0" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #15803d;" />
+                    </VBox>
+
+                    <VBox spacing="4.0" style="-fx-background-color: #f1f5f9; -fx-padding: 8 16; -fx-background-radius: 8; -fx-border-color: #cbd5e1; -fx-border-radius: 8;">
+                        <Label text="Ø SPIELZEIT (MINUTEN)" style="-fx-font-size: 11px; -fx-text-fill: #475569; -fx-font-weight: bold;" />
+                        <Label fx:id="lblSquadAvgMinutes" text="0" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #0f172a;" />
+                    </VBox>
+                </HBox>
+
                 <TableView fx:id="playerTable" VBox.vgrow="ALWAYS">
                     <columns>
                         <TableColumn fx:id="colName" text="Name" prefWidth="140.0" />
@@ -390,7 +426,7 @@
                         <Label fx:id="lblShadowTotalSavings" text="€ 0 / Mon." style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #1d4ed8;" />
                     </VBox>
 
-                    <VBox spacing="4.0" style="-fx-background-color: #f1f5f9; -fx-padding: 10 16; -fx-background-radius: 8; -fx-border-color: #cbd5e1; -fx-border-radius: 8;">
+                    <VBox spacing="4.0" style="-fx-background-color: #f1f5f9; -fx-padding: 8 16; -fx-background-radius: 8; -fx-border-color: #cbd5e1; -fx-border-radius: 8;">
                         <Label text="🛡️ Abgedeckte Rollen" style="-fx-font-size: 11px; -fx-text-fill: #475569; -fx-font-weight: bold;" />
                         <Label fx:id="lblShadowCoveredSlots" text="0 / 0" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #0f172a;" />
                     </VBox>
