@@ -9,6 +9,7 @@ import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.input.Dragboard;
 import javafx.scene.input.TransferMode;
 import javafx.scene.layout.VBox;
+import javafx.stage.Stage;
 import javafx.util.StringConverter;
 import javafx.util.converter.DoubleStringConverter;
 import javafx.util.converter.IntegerStringConverter;
@@ -284,6 +285,33 @@ public class MainController {
 				scoutDataList
 		);
 
+		// Automatische Bereinigung alter DB-Stände: U18 ohne Minuten direkt in die Jugend schieben
+		List<PlayerRowModel> promoteToYouth = playerDataList.stream()
+				.filter(p -> p.ageProperty().get() <= 18 && p.minutesPlayedProperty().get() < 300)
+				.toList();
+
+		if (!promoteToYouth.isEmpty()) {
+			for (PlayerRowModel p : promoteToYouth) {
+				playerDataList.remove(p);
+				YouthPlayerModel y = new YouthPlayerModel(
+						p.nameProperty().get(),
+						p.roleProperty().get(),
+						p.ageProperty().get(),
+						4.0,
+						2.0,
+						p.agilityProperty().get(),
+						p.paceProperty().get(),
+						p.staminaProperty().get(),
+						p.determinationProperty().get(),
+						p.statValue1Property().get(),
+						p.statValue2Property().get(),
+						p.statValue3Property().get()
+				);
+				youthDataList.add(y);
+			}
+			autoSaveToDatabase();
+		}
+
 		if (!playerDataList.isEmpty() || !youthDataList.isEmpty() || !outgoingLoanDataList.isEmpty() || !scoutDataList.isEmpty()) {
 			// 1. A-Kader durchrechnen
 			for (PlayerRowModel row : playerDataList) {
@@ -558,6 +586,18 @@ public class MainController {
 		colTier.setCellValueFactory(cell -> cell.getValue().salaryTierProperty());
 		colSalaryCheck.setCellValueFactory(cell -> cell.getValue().salaryCheckProperty());
 		colQuality.setCellValueFactory(cell -> cell.getValue().sampleQualityProperty());
+
+		// Doppelklick auf eine Zeile öffnet das Verlaufs-Popup
+		playerTable.setRowFactory(tv -> {
+			TableRow<PlayerRowModel> row = new TableRow<>();
+			row.setOnMouseClicked(event -> {
+				if (event.getClickCount() == 2 && !row.isEmpty()) {
+					PlayerRowModel selected = row.getItem();
+					PlayerDetailDialog.show(selected, (Stage) rootPane.getScene().getWindow());
+				}
+			});
+			return row;
+		});
 	}
 
 	private void setupNeedsTableColumns() {
@@ -1350,12 +1390,12 @@ public class MainController {
 						boolean isOutgoingLoan = !club.isBlank() && !club.startsWith(clubPrefix);
 						boolean isIncomingLoan = art.contains("leihe");
 
-						boolean isReserveOrYouthTeam = club.startsWith(clubPrefix) && (
+						boolean isReserveOrYouthTeam = (club.startsWith(clubPrefix) && (
 								club.contains(" b") || club.contains(" c") ||
 										club.contains("u19") || club.contains("u21") ||
 										club.contains("u18") || club.contains("u23") ||
 										club.contains("juvenil")
-						);
+						)) || (row.ageProperty().get() <= 18 && row.minutesPlayedProperty().get() < 300);
 
 						if (isOutgoingLoan) {
 							LoanPlayerModel outgoing = new LoanPlayerModel(

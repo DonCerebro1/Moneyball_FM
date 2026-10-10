@@ -22,7 +22,6 @@ public class FmExportParser {
 		if (name.endsWith(".html") || name.endsWith(".htm")) {
 			return parseHtml(file);
 		} else {
-			// FM exportiert .rtf und .txt/.tsv als Klartext-Tabellen mit Pipes (|) oder Tabs
 			return parsePlainTextFile(file);
 		}
 	}
@@ -35,20 +34,18 @@ public class FmExportParser {
 			Map<String, Integer> colMap = null;
 
 			while ((line = reader.readLine()) != null) {
-				line = line.trim();
+				line = cleanNbsps(line).trim();
 				if (line.isEmpty() || line.startsWith("---") || line.matches("^[\\s\\|\\-]+$")) {
-					continue; // Trennzeilen wie | ------- | überspringen
+					continue;
 				}
 
-				// Zeile anhand von | oder Tabs splitten
 				String delimiter = line.contains("|") ? "\\|" : "\t";
 				String[] rawCols = line.split(delimiter);
 				List<String> colsList = new ArrayList<>();
 				for (String col : rawCols) {
-					colsList.add(col.trim());
+					colsList.add(cleanNbsps(col).trim());
 				}
 
-				// Durch äußere Pipes entstandene leere Randelemente entfernen
 				if (!colsList.isEmpty() && colsList.get(0).isEmpty()) {
 					colsList.remove(0);
 				}
@@ -58,7 +55,6 @@ public class FmExportParser {
 
 				String[] cols = colsList.toArray(new String[0]);
 
-				// Headerzeile identifizieren
 				if (colMap == null) {
 					boolean isHeader = false;
 					for (String c : cols) {
@@ -71,13 +67,12 @@ public class FmExportParser {
 					if (isHeader) {
 						colMap = new HashMap<>();
 						for (int i = 0; i < cols.length; i++) {
-							colMap.put(cols[i].toLowerCase().trim(), i);
+							colMap.put(cleanNbsps(cols[i]).toLowerCase().trim(), i);
 						}
 					}
 					continue;
 				}
 
-				// Datenzeile verarbeiten
 				PlayerRowModel model = extractRow(cols, colMap);
 				if (model != null) {
 					result.add(model);
@@ -102,13 +97,13 @@ public class FmExportParser {
 
 		Map<String, Integer> colMap = new HashMap<>();
 		for (int i = 0; i < headers.size(); i++) {
-			colMap.put(headers.get(i).text().trim().toLowerCase(), i);
+			colMap.put(cleanNbsps(headers.get(i).text()).toLowerCase().trim(), i);
 		}
 
 		for (int r = 1; r < rows.size(); r++) {
 			Elements tds = rows.get(r).select("td");
 			if (tds.isEmpty()) continue;
-			String[] cols = tds.stream().map(td -> td.text().trim()).toArray(String[]::new);
+			String[] cols = tds.stream().map(td -> cleanNbsps(td.text()).trim()).toArray(String[]::new);
 			PlayerRowModel model = extractRow(cols, colMap);
 			if (model != null) result.add(model);
 		}
@@ -119,21 +114,42 @@ public class FmExportParser {
 		String name = getVal(cols, map, "name", "person", "spieler");
 		if (name.isBlank()) return null;
 
-		String rawPos = getVal(cols, map, "ausgewählte position", "pos", "rolle", "taktische rolle");
-		TacticRole tacticRole = TacticRole.fromPosition(rawPos);
+		// 1. Primär: Detaillierte Rollen-Spalte prüfen
+		String roleDetail = getVal(cols, map,
+				"position/rolle/aufgabe",
+				"position / rolle / aufgabe",
+				"rolle/aufgabe",
+				"rolle",
+				"taktische rolle"
+		);
+
+		// 2. Sekundär: Ausgewählte Position (Startelfkürzel)
+		String rawPos = getVal(cols, map, "ausgewählte position", "ausgew. pos.", "ausgew. pos");
+
+		String targetPositionStr = "";
+
+		if (!roleDetail.isBlank() && !roleDetail.equals("-") && !roleDetail.equals("—")) {
+			targetPositionStr = roleDetail;
+		} else if (!rawPos.isBlank() && !rawPos.toUpperCase().matches("^[EB]\\d+$") && !rawPos.equals("-") && !rawPos.equals("—")) {
+			targetPositionStr = rawPos;
+		} else {
+			// Fallback für Verliehene oder Ersatzspieler ohne feste Zuweisung
+			targetPositionStr = getVal(cols, map, "position", "pos", "natürliche position");
+		}
+
+		String cleanPos = cleanNbsps(targetPositionStr).replaceAll("[\\.]+$", "").trim();
+		TacticRole tacticRole = TacticRole.fromPosition(cleanPos);
 
 		int age = parseInt(getVal(cols, map, "alter", "age"));
 		long value = parseMoney(getVal(cols, map, "transferwert", "marktwert", "wert"));
 		long salary = parseMoney(getVal(cols, map, "gehalt", "monatsgehalt"));
 		int minutes = parseInt(getVal(cols, map, "min.", "minuten", "min"));
 
-		// Vertragsart (ART) & Aktueller Verein (VEREIN)
 		String art = getVal(cols, map, "art", "vertragsart");
 		if (art.isBlank()) art = "Vollzeitvertrag";
 
 		String club = getVal(cols, map, "verein", "club");
 
-		// Athletik & mentale Attribute aus FM
 		int bew = parseInt(getVal(cols, map, "bew", "bewegung"));
 		int ant = parseInt(getVal(cols, map, "ant", "antritt"));
 		int aus = parseInt(getVal(cols, map, "aus", "ausdauer"));
@@ -157,7 +173,6 @@ public class FmExportParser {
 				club
 		);
 
-		// Sämtliche Spalten in die stats-Map des Spielers schreiben
 		for (Map.Entry<String, Integer> entry : map.entrySet()) {
 			int idx = entry.getValue();
 			if (idx < cols.length) {
@@ -166,15 +181,19 @@ public class FmExportParser {
 			}
 		}
 
-		// Die 3 Kennzahlen dynamisch anhand der Rolle abgreifen
-		double s1 = parseDouble(getVal(cols, map, tacticRole.getStat1Header().toLowerCase()));
-		double s2 = parseDouble(getVal(cols, map, tacticRole.getStat2Header().toLowerCase()));
-		double s3 = parseDouble(getVal(cols, map, tacticRole.getStat3Header().toLowerCase()));
+		double s1 = parseDouble(getVal(cols, map, tacticRole.getStat1Header()));
+		double s2 = parseDouble(getVal(cols, map, tacticRole.getStat2Header()));
+		double s3 = parseDouble(getVal(cols, map, tacticRole.getStat3Header()));
 
 		PlayerRowModel row = new PlayerRowModel(player, s1, s2, s3);
 		row.setStatLabels(tacticRole.getStat1Header(), tacticRole.getStat2Header(), tacticRole.getStat3Header());
 
 		return row;
+	}
+
+	private static String cleanNbsps(String s) {
+		if (s == null) return "";
+		return s.replace('\u00A0', ' ').replace("&nbsp;", " ").trim();
 	}
 
 	private static double parseContractYears(String dateStr) {
@@ -183,7 +202,7 @@ public class FmExportParser {
 			String[] parts = dateStr.split("/");
 			if (parts.length == 3) {
 				int endYear = Integer.parseInt(parts[2].trim());
-				int currentSeasonYear = 2038; // Aktuelle FM-Saison
+				int currentSeasonYear = 2038;
 				return Math.max(0.5, endYear - currentSeasonYear);
 			}
 		} catch (Exception ignored) {}
@@ -192,7 +211,8 @@ public class FmExportParser {
 
 	private static String getVal(String[] cols, Map<String, Integer> map, String... keys) {
 		for (String k : keys) {
-			Integer idx = map.get(k.toLowerCase());
+			String searchKey = cleanNbsps(k).toLowerCase().trim();
+			Integer idx = map.get(searchKey);
 			if (idx != null && idx < cols.length) {
 				return cols[idx].trim();
 			}
@@ -202,18 +222,16 @@ public class FmExportParser {
 
 	private static int parseInt(String val) {
 		if (val == null || val.isBlank() || val.equals("-")) return 0;
-		String c = val.replace(".", "").replaceAll("[^0-9]", "");
+		String c = cleanNbsps(val).replace(".", "").replaceAll("[^0-9]", "");
 		return c.isEmpty() ? 0 : Integer.parseInt(c);
 	}
 
 	private static double parseDouble(String val) {
-		if (val == null || val.isBlank() || val.equals("-")) return 0.0;
-		boolean isPercent = val.contains("%");
-		String c = val.replace(",", ".").replaceAll("[^0-9.]", "");
+		if (val == null || val.isBlank() || val.equals("-") || val.equals("—")) return 0.0;
+		String c = cleanNbsps(val).replace(",", ".").replaceAll("[^0-9.]", "");
 		if (c.isEmpty()) return 0.0;
 		try {
-			double parsed = Double.parseDouble(c);
-			return (isPercent && parsed > 1.0) ? (parsed / 100.0) : parsed;
+			return Double.parseDouble(c);
 		} catch (NumberFormatException e) {
 			return 0.0;
 		}
@@ -221,16 +239,15 @@ public class FmExportParser {
 
 	private static long parseMoney(String val) {
 		if (val == null || val.isBlank() || val.equals("-")) return 0L;
-		String clean = val.toLowerCase().replace("€", "").trim();
+		String clean = cleanNbsps(val).toLowerCase().replace("€", "").trim();
 
-		// Wenn eine Spanne vorliegt (z. B. "111mio - 133mio" oder "4,5m - 6m")
 		if (clean.contains("-")) {
 			String[] parts = clean.split("-");
 			if (parts.length == 2) {
 				long minVal = parseSingleAmount(parts[0].trim());
 				long maxVal = parseSingleAmount(parts[1].trim());
 				if (minVal > 0 && maxVal > 0) {
-					return (minVal + maxVal) / 2; // Arithmetischer Mittelwert
+					return (minVal + maxVal) / 2;
 				} else if (maxVal > 0) {
 					return maxVal;
 				} else {
@@ -255,7 +272,6 @@ public class FmExportParser {
 			factor = 1_000.0;
 			clean = clean.replaceAll("[a-z ]", "");
 		} else {
-			// Tausendertrennzeichen entfernen (z. B. 1.107.000)
 			clean = clean.replace(".", "");
 		}
 

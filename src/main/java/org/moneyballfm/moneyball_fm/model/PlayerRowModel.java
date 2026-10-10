@@ -62,8 +62,16 @@ public class PlayerRowModel {
 		this.statValue1.set(s1);
 		this.statValue2.set(s2);
 		this.statValue3.set(s3);
+
+		// Synchronisation: Wenn die Rolle im Model geändert wird, auch das Player-Objekt anpassen
+		this.role.addListener((obs, oldV, newV) -> {
+			if (this.rawPlayer != null && newV != null) {
+				this.rawPlayer.setRole(newV);
+			}
+		});
 	}
 
+	public Player getPlayer() { return rawPlayer; }
 	public Player getRawPlayer() { return rawPlayer; }
 
 	public StringProperty nameProperty() { return name; }

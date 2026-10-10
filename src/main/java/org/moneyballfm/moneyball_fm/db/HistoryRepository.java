@@ -1,10 +1,6 @@
 package org.moneyballfm.moneyball_fm.db;
 
-import org.moneyballfm.moneyball_fm.model.LoanPlayerModel;
-import org.moneyballfm.moneyball_fm.model.Player;
-import org.moneyballfm.moneyball_fm.model.PlayerRowModel;
-import org.moneyballfm.moneyball_fm.model.ScoutingPlayerModel;
-import org.moneyballfm.moneyball_fm.model.YouthPlayerModel;
+import org.moneyballfm.moneyball_fm.model.*;
 
 import java.sql.*;
 import java.time.format.DateTimeFormatter;
@@ -381,5 +377,44 @@ public class HistoryRepository {
 			e.printStackTrace();
 			return null;
 		}
+	}
+
+	// Lädt alle historischen Snapshots für einen konkreten Spieler chronologisch sortiert
+	public static List<PlayerHistoryEntry> getPlayerHistory(String playerName) {
+		List<PlayerHistoryEntry> list = new java.util.ArrayList<>();
+		String sql = """
+            SELECT s.imported_at, s.in_game_season, p.tactical_role, p.age,
+                   p.market_value, p.monthly_salary, p.minutes_played,
+                   p.moneyball_score, p.recommendation
+            FROM player_history p
+            JOIN snapshots s ON p.snapshot_id = s.id
+            WHERE LOWER(p.player_name) = LOWER(?)
+            ORDER BY s.imported_at ASC
+        """;
+
+		try (Connection conn = DatabaseManager.getConnection();
+		     PreparedStatement ps = conn.prepareStatement(sql)) {
+			ps.setString(1, playerName);
+			try (ResultSet rs = ps.executeQuery()) {
+				DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
+				while (rs.next()) {
+					Timestamp ts = rs.getTimestamp("imported_at");
+					String dateStr = (ts != null) ? ts.toLocalDateTime().format(dtf) : "-";
+					String season = rs.getString("in_game_season");
+					String role = rs.getString("tactical_role");
+					int age = rs.getInt("age");
+					long mv = rs.getLong("market_value");
+					long sal = rs.getLong("monthly_salary");
+					int min = rs.getInt("minutes_played");
+					double score = rs.getDouble("moneyball_score");
+					String rec = rs.getString("recommendation");
+
+					list.add(new PlayerHistoryEntry(dateStr, season, role, age, mv, sal, min, score, rec));
+				}
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return list;
 	}
 }

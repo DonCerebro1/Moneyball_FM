@@ -5,14 +5,51 @@ import org.moneyballfm.moneyball_fm.config.MetricConfig;
 import org.moneyballfm.moneyball_fm.config.SalaryTierConfig;
 import org.moneyballfm.moneyball_fm.config.SlotConfig;
 import org.moneyballfm.moneyball_fm.config.TacticConfig;
+import org.moneyballfm.moneyball_fm.model.Player;
 import org.moneyballfm.moneyball_fm.model.PlayerRowModel;
+import org.moneyballfm.moneyball_fm.model.TacticRole;
 
 public class MoneyballCalculator {
 
 	public static void recalculate(PlayerRowModel row, AppConfig config) {
 		if (row == null) return;
 
-		SlotConfig slot = findMatchingSlot(row.roleProperty().get(), config);
+		// 1. Stats dynamisch aus dem intern gespeicherten FM-Export aktualisieren, falls die Rolle gewechselt wurde
+		String currentRoleStr = row.roleProperty().get();
+		TacticRole tacticRole = TacticRole.fromDisplayName(currentRoleStr);
+		Player player = row.getPlayer();
+
+		if (tacticRole != null && player != null) {
+			double newS1 = player.getStat(tacticRole.getStat1Header().toLowerCase());
+			double newS2 = player.getStat(tacticRole.getStat2Header().toLowerCase());
+			double newS3 = player.getStat(tacticRole.getStat3Header().toLowerCase());
+
+			// Nur überschreiben, wenn tatsächliche Werte in den Exportdaten vorhanden sind
+			if (newS1 > 0.0 || newS2 > 0.0 || newS3 > 0.0) {
+				row.statValue1Property().set(newS1);
+				row.statValue2Property().set(newS2);
+				row.statValue3Property().set(newS3);
+				row.setStatLabels(tacticRole.getStat1Header(), tacticRole.getStat2Header(), tacticRole.getStat3Header());
+			}
+		}
+
+		int mins = row.minutesPlayedProperty().get();
+		double s1 = row.statValue1Property().get();
+		double s2 = row.statValue2Property().get();
+		double s3 = row.statValue3Property().get();
+
+		// 2. Spieler ohne relevante Spielzeit oder komplett ohne Stats nicht künstlich bewerten
+		if (mins < 90 || (s1 == 0.0 && s2 == 0.0 && s3 == 0.0)) {
+			row.moneyballScoreProperty().set(0.0);
+			row.sampleQualityProperty().set("⚪ Keine Spielzeit (< 90 Min.)");
+			row.salaryTierProperty().set("Keine Bewertung");
+			row.maxSalaryProperty().set(0L);
+			row.salaryCheckProperty().set("— Zu wenig Spielzeit");
+			calculateFairMarketValue(row, 0.0);
+			return;
+		}
+
+		SlotConfig slot = findMatchingSlot(currentRoleStr, config);
 		double finalScore;
 
 		if (slot != null && slot.getMetrics() != null && !slot.getMetrics().isEmpty()) {
@@ -22,9 +59,9 @@ public class MoneyballCalculator {
 			for (int i = 0; i < slot.getMetrics().size(); i++) {
 				MetricConfig metric = slot.getMetrics().get(i);
 				double val = switch (i) {
-					case 0 -> row.statValue1Property().get();
-					case 1 -> row.statValue2Property().get();
-					case 2 -> row.statValue3Property().get();
+					case 0 -> s1;
+					case 1 -> s2;
+					case 2 -> s3;
 					default -> 0.0;
 				};
 
@@ -46,31 +83,30 @@ public class MoneyballCalculator {
 
 			double rawScore = (totalWeight > 0) ? (totalWeightedScore / totalWeight) : 50.0;
 
-			// Sanfte Dämpfung bei geringer Spielzeit (< 450 Min), um Verzerrungen zu dämpfen
-			int mins = row.minutesPlayedProperty().get();
-			if (mins < 450 && mins > 0) {
+			// Sanfte Dämpfung bei geringer Spielzeit (< 450 Min), um extreme Ausreißer zu glätten
+			if (mins < 450) {
 				double confidence = Math.min(1.0, mins / 450.0);
-				rawScore = (rawScore * confidence) + (65.0 * (1.0 - confidence));
+				rawScore = (rawScore * confidence) + (50.0 * (1.0 - confidence));
 			}
 
 			finalScore = Math.round(rawScore * 10.0) / 10.0;
 		} else {
-			finalScore = 70.0;
+			// Kein Slot in Taktik gefunden
+			finalScore = 0.0;
 		}
 
 		row.moneyballScoreProperty().set(finalScore);
 
-		// 2. Gehalts-Tier & Max-Gehalt zuweisen
+		// 3. Gehalts-Tier & Max-Gehalt zuweisen
 		assignSalaryTier(row, finalScore, config);
 
-		// 3. Fairer Marktwert berechnen
+		// 4. Fairer Marktwert berechnen
 		calculateFairMarketValue(row, finalScore);
 
-		// 4. Stichproben-Qualität (Spielzeit)
-		int min = row.minutesPlayedProperty().get();
-		if (min >= 900) {
+		// 5. Stichproben-Qualität (Spielzeit)
+		if (mins >= 900) {
 			row.sampleQualityProperty().set("🟢 Hohe Aussagekraft (>= 10 Spiele)");
-		} else if (min >= 450) {
+		} else if (mins >= 450) {
 			row.sampleQualityProperty().set("🟡 Solide Basis (5-9 Spiele)");
 		} else {
 			row.sampleQualityProperty().set("🔴 Geringe Stichprobe (< 5 Spiele)");
@@ -79,14 +115,13 @@ public class MoneyballCalculator {
 
 	private static void calculateFairMarketValue(PlayerRowModel row, double score) {
 		long currentMarketValue = row.marketValueProperty().get();
-		if (currentMarketValue <= 0) {
+		if (currentMarketValue <= 0 || score <= 0.0) {
 			row.fairMarketValueProperty().set(0L);
 			return;
 		}
 
 		int age = row.ageProperty().get();
 
-		// Altersmultiplikator: Talente mit Potenzialbonus, ältere Spieler mit Wertverlust
 		double ageFactor = 1.0;
 		if (age > 0 && age <= 21) {
 			ageFactor = 1.25;
@@ -98,7 +133,6 @@ public class MoneyballCalculator {
 			ageFactor = 0.90;
 		}
 
-		// Verhältnis zum Benchmark-Score (85.0 entspricht dem Marktwert-Standard)
 		double performanceRatio = Math.max(0.3, score / 85.0);
 		long fairValue = Math.round(currentMarketValue * performanceRatio * ageFactor);
 
@@ -115,19 +149,73 @@ public class MoneyballCalculator {
 
 		if (activeTactic == null || activeTactic.getSlots() == null) return null;
 
-		String roleClean = playerRole.toLowerCase().trim();
-		return activeTactic.getSlots().stream()
-				.filter(s -> {
-					String slotName = (s.getSlotName() != null) ? s.getSlotName().toLowerCase().trim() : "";
-					String roleLabel = (s.getRoleLabel() != null) ? s.getRoleLabel().toLowerCase().trim() : "";
-					return roleClean.contains(slotName) || slotName.contains(roleClean)
-							|| roleClean.contains(roleLabel) || roleLabel.contains(roleClean);
-				})
-				.findFirst()
-				.orElse(null);
+		// Normalisieren: Abkürzungen expandieren und Trennzeichen glätten
+		String p = playerRole.toLowerCase()
+				.replace("zurückgez.", "zurückgezogener")
+				.replace("zurückgez", "zurückgezogener")
+				.replace("komp.", "kompletter")
+				.replace("vert.", "verteidiger")
+				.replace("vert", "verteidiger")
+				.replaceAll("[\\.\\(\\)\\[\\]\\-]", " ")
+				.replaceAll("\\s+", " ")
+				.trim();
+
+		for (SlotConfig slot : activeTactic.getSlots()) {
+			String sName = (slot.getSlotName() != null) ? slot.getSlotName().toLowerCase()
+					.replaceAll("[\\.\\(\\)\\[\\]\\-]", " ").replaceAll("\\s+", " ").trim() : "";
+			String rLabel = (slot.getRoleLabel() != null) ? slot.getRoleLabel().toLowerCase()
+					.replaceAll("[\\.\\(\\)\\[\\]\\-]", " ").replaceAll("\\s+", " ").trim() : "";
+
+			// 1. Kürzel-Check (z.B. "zsm", "mtw", "iv", "kfv", "bsv", "hrv")
+			if (!sName.isEmpty() && (p.startsWith(sName) || p.contains(sName))) {
+				return slot;
+			}
+
+			// 2. Rollenname-Check (z.B. "ballspielender vert. links")
+			if (!rLabel.isEmpty() && (p.contains(rLabel) || rLabel.contains(p))) {
+				return slot;
+			}
+
+			// 3. Semantischer Schlagwort-Check
+			if (p.contains("ballspiel") && (rLabel.contains("ballspiel") || sName.contains("bsv") || rLabel.contains("bsv"))) {
+				return slot;
+			}
+			if (p.contains("halbraum") && (rLabel.contains("halbraum") || sName.contains("hrv") || rLabel.contains("hrv"))) {
+				return slot;
+			}
+			if (p.contains("spielmacher") && rLabel.contains("spielmacher")) {
+				return slot;
+			}
+			if (p.contains("regista") && (rLabel.contains("regista") || sName.contains("reg"))) {
+				return slot;
+			}
+			if (p.contains("flügelvert") && rLabel.contains("flügelvert")) {
+				if (p.contains("links") == rLabel.contains("links") || p.contains("rechts") == rLabel.contains("rechts")) {
+					return slot;
+				}
+			}
+			if (p.contains("stürmer") && rLabel.contains("stürmer")) {
+				return slot;
+			}
+			if (p.contains("torwart") && rLabel.contains("torwart")) {
+				return slot;
+			}
+			if (p.contains("innenvert") && (rLabel.contains("innenvert") || sName.contains("iv"))) {
+				return slot;
+			}
+		}
+
+		return null;
 	}
 
 	private static void assignSalaryTier(PlayerRowModel row, double score, AppConfig config) {
+		if (score <= 0.0) {
+			row.salaryTierProperty().set("Keine Bewertung");
+			row.maxSalaryProperty().set(0L);
+			row.salaryCheckProperty().set("— Zu wenig Spielzeit");
+			return;
+		}
+
 		if (config != null && config.getSalaryTiers() != null && !config.getSalaryTiers().isEmpty()) {
 			SalaryTierConfig matchedTier = config.getSalaryTiers().stream()
 					.sorted((a, b) -> Double.compare(b.getTargetScoreMin(), a.getTargetScoreMin()))
@@ -151,7 +239,6 @@ public class MoneyballCalculator {
 			}
 		}
 
-		// Fallback-Stufen
 		long maxSal = 150_000L;
 		String tier = "Tier 4 (Verkauf)";
 
