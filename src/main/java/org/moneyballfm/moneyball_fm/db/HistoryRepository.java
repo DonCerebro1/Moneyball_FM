@@ -183,7 +183,7 @@ public class HistoryRepository {
 				ps.addBatch();
 			}
 
-			// Outgoing Loans
+			// Outgoing Loans (stat1 = Goals, stat2 = Assists)
 			for (LoanPlayerModel l : outgoingLoans) {
 				ps.setLong(1, snapshotId);
 				ps.setString(2, l.playerNameProperty().get());
@@ -203,8 +203,8 @@ public class HistoryRepository {
 				ps.setDouble(16, 0.0);
 				ps.setDouble(17, 0.0);
 				ps.setDouble(18, l.moneyballScoreProperty().get());
-				ps.setDouble(19, 0.0);
-				ps.setDouble(20, 0.0);
+				ps.setDouble(19, (double) l.getGoals());
+				ps.setDouble(20, (double) l.getAssists());
 				ps.setDouble(21, 0.0);
 				ps.setString(22, l.recommendationProperty().get());
 				ps.setString(23, l.clubAndLeagueProperty().get());
@@ -212,7 +212,7 @@ public class HistoryRepository {
 				ps.addBatch();
 			}
 
-			// Incoming Loans
+			// Incoming Loans (stat1 = Goals, stat2 = Assists)
 			for (LoanPlayerModel l : incomingLoans) {
 				ps.setLong(1, snapshotId);
 				ps.setString(2, l.playerNameProperty().get());
@@ -232,8 +232,8 @@ public class HistoryRepository {
 				ps.setDouble(16, 0.0);
 				ps.setDouble(17, 0.0);
 				ps.setDouble(18, l.moneyballScoreProperty().get());
-				ps.setDouble(19, 0.0);
-				ps.setDouble(20, 0.0);
+				ps.setDouble(19, (double) l.getGoals());
+				ps.setDouble(20, (double) l.getAssists());
 				ps.setDouble(21, 0.0);
 				ps.setString(22, l.recommendationProperty().get());
 				ps.setString(23, l.clubAndLeagueProperty().get());
@@ -324,15 +324,19 @@ public class HistoryRepository {
 							PlayerRowModel row = new PlayerRowModel(p, s1, s2, s3);
 							squadTarget.add(row);
 						} else if ("OUTGOING_LOAN".equals(category)) {
+							int goals = (int) Math.round(s1);
+							int assists = (int) Math.round(s2);
 							LoanPlayerModel loan = new LoanPlayerModel(
 									LoanPlayerModel.LoanType.OUTGOING, name, role, age, club,
-									games, minutes, rating, 0.0, marketVal, clause
+									games, minutes, rating, goals, assists, 0.0, marketVal, clause
 							);
 							outgoingLoansTarget.add(loan);
 						} else if ("INCOMING_LOAN".equals(category)) {
+							int goals = (int) Math.round(s1);
+							int assists = (int) Math.round(s2);
 							LoanPlayerModel loan = new LoanPlayerModel(
 									LoanPlayerModel.LoanType.INCOMING, name, role, age, club,
-									games, minutes, rating, 0.0, marketVal, clause
+									games, minutes, rating, goals, assists, 0.0, marketVal, clause
 							);
 							incomingLoansTarget.add(loan);
 						} else if ("YOUTH".equals(category)) {
@@ -379,7 +383,6 @@ public class HistoryRepository {
 		}
 	}
 
-	// Lädt alle historischen Snapshots für einen konkreten Spieler chronologisch sortiert
 	public static List<PlayerHistoryEntry> getPlayerHistory(String playerName) {
 		List<PlayerHistoryEntry> list = new java.util.ArrayList<>();
 		String sql = """
