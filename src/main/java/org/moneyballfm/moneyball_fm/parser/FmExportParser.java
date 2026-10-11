@@ -114,7 +114,7 @@ public class FmExportParser {
 		String name = getVal(cols, map, "name", "person", "spieler");
 		if (name.isBlank()) return null;
 
-		// 1. Primär: Detaillierte Rollen-Spalte prüfen
+		// 1. Detaillierte Rollenspalte (z. B. "Kompletter Flügelverteidiger (Unterstützen)")
 		String roleDetail = getVal(cols, map,
 				"position/rolle/aufgabe",
 				"position / rolle / aufgabe",
@@ -123,20 +123,33 @@ public class FmExportParser {
 				"taktische rolle"
 		);
 
-		// 2. Sekundär: Ausgewählte Position (Startelfkürzel)
+		// 2. Ausgewählte Position im aktuellen Spieltagskader (z. B. "TW", "FVR", "E1")
 		String rawPos = getVal(cols, map, "ausgewählte position", "ausgew. pos.", "ausgew. pos");
 
-		// Gelernte Position auslesen
+		// 3. Gelernte Stammposition(en) (z. B. "V (RZ), FV (R)" oder "DM, M/OM (Z)")
 		String naturalPosRaw = getVal(cols, map, "position", "pos", "natürliche position");
 
 		String targetPositionStr = "";
 
-		if (!roleDetail.isBlank() && !roleDetail.equals("-") && !roleDetail.equals("—")) {
+		// Gültige Rolle prüfen (generische Dummy-Texte wie "– Spielposition" ausschließen)
+		boolean hasValidRoleDetail = !roleDetail.isBlank()
+				&& !roleDetail.equals("-")
+				&& !roleDetail.equals("—")
+				&& !roleDetail.toLowerCase().contains("spielposition");
+
+		boolean hasValidRawPos = !rawPos.isBlank()
+				&& !rawPos.toUpperCase().matches("^[EB]\\d+$")
+				&& !rawPos.equals("-")
+				&& !rawPos.equals("—");
+
+		if (hasValidRoleDetail) {
+			// Priorität 1: Reale Taktikrolle aus der Taktik-Ansicht
 			targetPositionStr = roleDetail;
-		} else if (!rawPos.isBlank() && !rawPos.toUpperCase().matches("^[EB]\\d+$") && !rawPos.equals("-") && !rawPos.equals("—")) {
+		} else if (hasValidRawPos) {
+			// Priorität 2: Startelfposition
 			targetPositionStr = rawPos;
 		} else {
-			// Fallback für Verliehene: Bei Mehrfachpositionen (z. B. "OM (R), ST (Z)") die Erstposition nehmen
+			// Priorität 3: Fallback für Leihspieler / Reservisten -> Erste gelernte Hauptposition
 			if (naturalPosRaw.contains(",")) {
 				targetPositionStr = naturalPosRaw.split(",")[0].trim();
 			} else {
@@ -165,7 +178,7 @@ public class FmExportParser {
 
 		double contractYears = parseContractYears(getVal(cols, map, "endet", "vertrag"));
 
-		// Neue Leih- und Scorer-Felder parsen
+		// Leih- und Scorer-Felder parsen
 		double loanRating = parseDouble(getVal(cols, map, "ø note", "note", "d-note", "drschn."));
 		int goals = parseInt(getVal(cols, map, "tore", "goals"));
 		int assists = parseInt(getVal(cols, map, "vor", "vorlagen", "assists"));

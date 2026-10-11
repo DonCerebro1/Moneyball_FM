@@ -16,6 +16,7 @@ import javafx.util.converter.IntegerStringConverter;
 import org.moneyballfm.moneyball_fm.config.AppConfig;
 import org.moneyballfm.moneyball_fm.config.ConfigLoader;
 import org.moneyballfm.moneyball_fm.db.HistoryRepository;
+import org.moneyballfm.moneyball_fm.controller.PlayerDetailDialog;
 import org.moneyballfm.moneyball_fm.model.DepthChartRowModel;
 import org.moneyballfm.moneyball_fm.model.LoanPlayerModel;
 import org.moneyballfm.moneyball_fm.model.Player;
@@ -39,9 +40,11 @@ import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 public class MainController {
 
@@ -1424,7 +1427,16 @@ public class MainController {
 
 					String clubPrefix = myClub.substring(0, Math.min(3, myClub.length()));
 
-					// Lookup-Maps für schnelles Auffinden bestehender Einträge per Name
+					// 1. Alle Namen aus der neu gedroppten Datei erfassen (für die Abgangs-/Verkaufsprüfung)
+					Set<String> importedNames = new HashSet<>();
+					for (PlayerRowModel row : rows) {
+						String n = row.nameProperty().get();
+						if (n != null && !n.isBlank()) {
+							importedNames.add(n.trim().toLowerCase());
+						}
+					}
+
+					// Lookup-Maps für bestehende Daten
 					Map<String, PlayerRowModel> existingKader = new HashMap<>();
 					for (PlayerRowModel p : playerDataList) {
 						String n = p.nameProperty().get();
@@ -1467,7 +1479,7 @@ public class MainController {
 						)) || (row.ageProperty().get() <= 18 && row.minutesPlayedProperty().get() < 300);
 
 						if (isOutgoingLoan) {
-							// Status: Spieler ist verliehen -> Aus A-Kader und Jugend austragen
+							// Status: Verliehen
 							removeFromOtherLists(pNameKey, playerDataList, youthDataList);
 							existingKader.remove(pNameKey);
 							existingYouth.remove(pNameKey);
@@ -1510,7 +1522,7 @@ public class MainController {
 							}
 
 						} else if (isReserveOrYouthTeam) {
-							// Status: Spieler ist in der Jugend -> Aus A-Kader und Leihliste austragen
+							// Status: Jugend/Reserve
 							removeFromOtherLists(pNameKey, playerDataList, outgoingLoanDataList);
 							existingKader.remove(pNameKey);
 							existingLoans.remove(pNameKey);
@@ -1543,7 +1555,7 @@ public class MainController {
 							}
 
 						} else {
-							// Status: A-Kader (Normalfall oder Rückkehrer) -> Aus Leihliste und Jugend austragen
+							// Status: A-Kader
 							removeFromOtherLists(pNameKey, outgoingLoanDataList, youthDataList);
 							existingLoans.remove(pNameKey);
 							existingYouth.remove(pNameKey);
@@ -1552,7 +1564,14 @@ public class MainController {
 
 							if (existingKader.containsKey(pNameKey)) {
 								PlayerRowModel existing = existingKader.get(pNameKey);
+
+								// Bisherige manuelle Rolle beibehalten, falls sie vom Benutzer festgelegt wurde
+								String currentRole = existing.roleProperty().get();
 								existing.updateFromFresh(row);
+								if (currentRole != null && !currentRole.isBlank()) {
+									existing.roleProperty().set(currentRole);
+								}
+
 								MoneyballCalculator.recalculate(existing, appConfig);
 								updatedCount++;
 							} else {
@@ -1562,6 +1581,28 @@ public class MainController {
 								addedCount++;
 							}
 						}
+					}
+
+					// 2. Abgangs-Prüfung: Wer existiert im Verein gar nicht mehr (verkauft / Vertrag beendet)?
+					int removedCount = 0;
+					if (!importedNames.isEmpty()) {
+						List<PlayerRowModel> soldFromKader = playerDataList.stream()
+								.filter(p -> {
+									String k = p.nameProperty().get() != null ? p.nameProperty().get().trim().toLowerCase() : "";
+									return !importedNames.contains(k);
+								})
+								.toList();
+						removedCount += soldFromKader.size();
+						playerDataList.removeAll(soldFromKader);
+
+						List<YouthPlayerModel> soldFromYouth = youthDataList.stream()
+								.filter(y -> {
+									String k = y.getName() != null ? y.getName().trim().toLowerCase() : "";
+									return !importedNames.contains(k);
+								})
+								.toList();
+						removedCount += soldFromYouth.size();
+						youthDataList.removeAll(soldFromYouth);
 					}
 
 					refreshSquadNeeds();
@@ -1585,7 +1626,12 @@ public class MainController {
 						lblImportTimestamp.setText("Importiert am: " + LocalDateTime.now().format(timeFormatter));
 					}
 
-					statusLabel.setText("Partieller Merge: " + updatedCount + " aktualisiert, " + addedCount + " neu hinzugefügt (aus " + droppedFile.getName() + ").");
+					String status = "Partieller Merge: " + updatedCount + " aktualisiert, " + addedCount + " neu hinzugefügt";
+					if (removedCount > 0) {
+						status += ", " + removedCount + " Abgänge/Verkäufe entfernt";
+					}
+					status += " (aus " + droppedFile.getName() + ").";
+					statusLabel.setText(status);
 					success = true;
 				} catch (Exception e) {
 					statusLabel.setText("Fehler beim Laden: " + e.getMessage());
