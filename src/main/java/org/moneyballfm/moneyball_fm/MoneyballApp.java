@@ -3,21 +3,30 @@ package org.moneyballfm.moneyball_fm;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
+import javafx.scene.image.Image;
 import javafx.stage.Stage;
 
 import java.io.IOException;
+import java.io.InputStream;
 
 public class MoneyballApp extends Application {
-	@Override
-	public void start(Stage stage) throws IOException {
-		FXMLLoader fxmlLoader = new FXMLLoader(MoneyballApp.class.getResource("main-view.fxml"));
-		Scene scene = new Scene(fxmlLoader.load(), 1100, 700);
-		stage.setTitle("FM Moneyball Suite");
-		stage.setScene(scene);
-		stage.show();
-	}
+		@Override
+		public void start(Stage stage) throws IOException {
+				FXMLLoader fxmlLoader = new FXMLLoader(MoneyballApp.class.getResource("main-view.fxml"));
+				Scene scene = new Scene(fxmlLoader.load(), 1100, 700);
 
-	public static void main(String[] args) {
-		launch();
-	}
+				// App-Icon für Titelleiste und Windows-Taskleiste setzen
+				InputStream iconStream = MoneyballApp.class.getResourceAsStream("/icons/tactic.png");
+				if (iconStream != null) {
+						stage.getIcons().add(new Image(iconStream));
+				}
+
+				stage.setTitle("FM Moneyball Suite");
+				stage.setScene(scene);
+				stage.show();
+		}
+
+		public static void main(String[] args) {
+				launch();
+		}
 }

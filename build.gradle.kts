@@ -1,8 +1,8 @@
 plugins {
     java
     application
-    id("org.javamodularity.moduleplugin") version "1.8.15"
     id("org.openjfx.javafxplugin") version "0.0.13"
+    id("org.beryx.jlink") version "3.0.1"
 }
 
 group = "org.moneyballfm"
@@ -16,7 +16,7 @@ val junitVersion = "5.10.2"
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
+        languageVersion.set(JavaLanguageVersion.of(17))
     }
 }
 
@@ -34,6 +34,28 @@ javafx {
     modules = listOf("javafx.controls", "javafx.fxml")
 }
 
+jlink {
+    options.set(listOf("--strip-debug", "--compress", "2", "--no-header-files", "--no-man-pages"))
+
+    // Zwingt badass-jlink dazu, die Log4j-JARs sauber zusammenzuführen:
+    forceMerge("log4j-api", "log4j-to-slf4j")
+
+    launcher {
+        name = "FMMoneyball"
+    }
+
+    jpackage {
+        // Absoluter Pfad stellt sicher, dass der jpackage-Prozess das Icon findet:
+        imageOptions = listOf(
+            "--icon", file("src/main/resources/icons/tactic.ico").absolutePath
+        )
+        installerOptions = listOf(
+            "--win-shortcut",
+            "--win-menu"
+        )
+    }
+}
+
 dependencies {
     // Schicke UI-Komponenten & Moderne Icons
     implementation("org.controlsfx:controlsfx:11.2.1")
@@ -41,10 +63,10 @@ dependencies {
     implementation("org.kordamp.ikonli:ikonli-feather-pack:12.3.1")
 
     // Moneyball Core-Tools
-    implementation("org.jsoup:jsoup:1.17.2")                                  // FM HTML-Export Parser
+    implementation("org.jsoup:jsoup:1.17.2")                                          // FM HTML-Export Parser
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.16.1") // YAML-Parser
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.16.1")     // Objekt-Mapping
-    implementation("org.apache.poi:poi-ooxml:5.2.5")                          // Excel (.xlsx) Erstellung
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.16.1")             // Objekt-Mapping
+    implementation("org.apache.poi:poi-ooxml:5.2.5")                                  // Excel (.xlsx) Erstellung
 
     testImplementation("org.junit.jupiter:junit-jupiter-api:${junitVersion}")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:${junitVersion}")
