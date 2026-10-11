@@ -45,10 +45,9 @@ jlink {
     }
 
     jpackage {
-        // Absoluter Pfad stellt sicher, dass der jpackage-Prozess das Icon findet:
-        imageOptions = listOf(
-            "--icon", file("src/main/resources/icons/tactic.ico").absolutePath
-        )
+        // jpackage holt sich das Launcher-Icon direkt aus dem Ressourcenordner:
+        resourceDir = file("src/main/package/windows")
+
         installerOptions = listOf(
             "--win-shortcut",
             "--win-menu"
@@ -59,8 +58,8 @@ jlink {
 dependencies {
     // Schicke UI-Komponenten & Moderne Icons
     implementation("org.controlsfx:controlsfx:11.2.1")
-    implementation("org.kordamp.ikonli:ikonli-javafx:12.3.1")
     implementation("org.kordamp.ikonli:ikonli-feather-pack:12.3.1")
+    implementation("org.kordamp.ikonli:ikonli-javafx:12.3.1")
 
     // Moneyball Core-Tools
     implementation("org.jsoup:jsoup:1.17.2")                                          // FM HTML-Export Parser

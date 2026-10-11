@@ -13,8 +13,9 @@ module org.moneyballfm.moneyball_fm {
 	requires org.apache.poi.poi;
 	requires org.apache.poi.ooxml;
 	requires java.desktop;
+		requires java.net.http;
 
-	opens org.moneyballfm.moneyball_fm to javafx.fxml;
+		opens org.moneyballfm.moneyball_fm to javafx.fxml;
 	opens org.moneyballfm.moneyball_fm.controller to javafx.fxml;
 	opens org.moneyballfm.moneyball_fm.config to com.fasterxml.jackson.databind;
 	opens org.moneyballfm.moneyball_fm.model to javafx.base;
