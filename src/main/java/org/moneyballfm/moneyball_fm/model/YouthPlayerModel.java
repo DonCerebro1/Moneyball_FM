@@ -85,4 +85,17 @@ public class YouthPlayerModel {
 	public StringProperty forecastFirstTeamProperty() { return forecastFirstTeam; }
 	public StringProperty pipelineRecommendationProperty() { return pipelineRecommendation; }
 	public LongProperty maxYouthSalaryProperty() { return maxYouthSalary; }
+
+	// Partieller Merge: Physis, Stats und Alter aktualisieren;
+	// targetRole sowie manuell bewertete FM-Sterne (potentialStars, currentStars) bleiben erhalten!
+	public void updateFromFresh(YouthPlayerModel fresh) {
+		this.age.set(fresh.getAge());
+		this.agility.set(fresh.getAgility());
+		this.pace.set(fresh.getPace());
+		this.stamina.set(fresh.getStamina());
+		this.determination.set(fresh.getDetermination());
+		this.statValue1.set(fresh.statValue1Property().get());
+		this.statValue2.set(fresh.statValue2Property().get());
+		this.statValue3.set(fresh.statValue3Property().get());
+	}
 }

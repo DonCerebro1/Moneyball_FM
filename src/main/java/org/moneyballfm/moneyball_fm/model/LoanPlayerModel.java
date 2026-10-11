@@ -103,4 +103,16 @@ public class LoanPlayerModel {
 	public void setRecommendation(String rec) { this.recommendation.set(rec); }
 	public String getFuturePlan() { return futurePlan.get(); }
 	public void setFuturePlan(String plan) { this.futurePlan.set(plan); }
+
+	// Partieller Merge: Nur dynamische Leistungsdaten aktualisieren; targetRole & clauseFulfilled bleiben unangetastet
+	public void updateFromFresh(LoanPlayerModel fresh) {
+		this.age.set(fresh.getAge());
+		this.clubAndLeague.set(fresh.getClubAndLeague());
+		this.gamesPlayed.set(fresh.getGamesPlayed());
+		this.minutesPlayed.set(fresh.getMinutesPlayed());
+		this.averageRating.set(fresh.getAverageRating());
+		this.goals.set(fresh.getGoals());
+		this.assists.set(fresh.getAssists());
+		this.marketValue.set(fresh.getMarketValue());
+	}
 }

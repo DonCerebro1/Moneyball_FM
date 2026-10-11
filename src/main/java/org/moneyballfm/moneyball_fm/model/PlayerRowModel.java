@@ -141,4 +141,44 @@ public class PlayerRowModel {
 	public String getNaturalPosition() {
 		return rawPlayer != null ? rawPlayer.getNaturalPosition() : "";
 	}
+
+	// Partieller Merge: Nur FM-Daten aktualisieren, manuelle Rolle behalten
+	public void updateFromFresh(PlayerRowModel fresh) {
+		this.age.set(fresh.ageProperty().get());
+		this.marketValue.set(fresh.marketValueProperty().get());
+		this.monthlySalary.set(fresh.monthlySalaryProperty().get());
+		this.contractYears.set(fresh.contractYearsProperty().get());
+		this.minutesPlayed.set(fresh.minutesPlayedProperty().get());
+		this.contractType.set(fresh.contractTypeProperty().get());
+		this.currentClub.set(fresh.currentClubProperty().get());
+		this.onLoan.set(fresh.onLoanProperty().get());
+
+		this.agility.set(fresh.agilityProperty().get());
+		this.pace.set(fresh.paceProperty().get());
+		this.stamina.set(fresh.staminaProperty().get());
+		this.determination.set(fresh.determinationProperty().get());
+
+		this.statValue1.set(fresh.statValue1Property().get());
+		this.statValue2.set(fresh.statValue2Property().get());
+		this.statValue3.set(fresh.statValue3Property().get());
+
+		if (this.rawPlayer != null && fresh.getRawPlayer() != null) {
+			Player fp = fresh.getRawPlayer();
+			this.rawPlayer.setAge(fp.getAge())
+					.setMarketValue(fp.getMarketValue())
+					.setMonthlySalary(fp.getMonthlySalary())
+					.setContractYears(fp.getContractYears())
+					.setMinutesPlayed(fp.getMinutesPlayed())
+					.setContractType(fp.getContractType())
+					.setCurrentClub(fp.getCurrentClub())
+					.setAgility(fp.getAgility())
+					.setPace(fp.getPace())
+					.setStamina(fp.getStamina())
+					.setDetermination(fp.getDetermination())
+					.setLoanRating(fp.getLoanRating())
+					.setLeague(fp.getLeague())
+					.setGoals(fp.getGoals())
+					.setAssists(fp.getAssists());
+		}
+	}
 }

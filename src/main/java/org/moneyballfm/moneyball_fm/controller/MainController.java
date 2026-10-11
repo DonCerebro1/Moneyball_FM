@@ -37,8 +37,10 @@ import java.io.File;
 import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 public class MainController {
 
@@ -1363,10 +1365,6 @@ public class MainController {
 				File droppedFile = db.getFiles().get(0);
 				try {
 					List<PlayerRowModel> rows = FmExportParser.parseFile(droppedFile);
-					playerDataList.clear();
-					outgoingLoanDataList.clear();
-					incomingLoanDataList.clear();
-					youthDataList.clear();
 
 					String myClub = (txtMyClub != null && !txtMyClub.getText().isBlank())
 							? txtMyClub.getText().trim().toLowerCase()
@@ -1374,7 +1372,33 @@ public class MainController {
 
 					String clubPrefix = myClub.substring(0, Math.min(3, myClub.length()));
 
+					// Lookup-Maps für schnelles Auffinden bestehender Einträge per Name
+					Map<String, PlayerRowModel> existingKader = new HashMap<>();
+					for (PlayerRowModel p : playerDataList) {
+						String n = p.nameProperty().get();
+						if (n != null) existingKader.put(n.trim().toLowerCase(), p);
+					}
+
+					Map<String, LoanPlayerModel> existingLoans = new HashMap<>();
+					for (LoanPlayerModel l : outgoingLoanDataList) {
+						String n = l.getPlayerName();
+						if (n != null) existingLoans.put(n.trim().toLowerCase(), l);
+					}
+
+					Map<String, YouthPlayerModel> existingYouth = new HashMap<>();
+					for (YouthPlayerModel y : youthDataList) {
+						String n = y.getName();
+						if (n != null) existingYouth.put(n.trim().toLowerCase(), y);
+					}
+
+					int updatedCount = 0;
+					int addedCount = 0;
+
 					for (PlayerRowModel row : rows) {
+						String pName = row.nameProperty().get();
+						if (pName == null || pName.isBlank()) continue;
+						String pNameKey = pName.trim().toLowerCase();
+
 						String club = row.currentClubProperty().get() != null
 								? row.currentClubProperty().get().trim().toLowerCase() : "";
 						String art = row.contractTypeProperty().get() != null
@@ -1400,7 +1424,7 @@ public class MainController {
 							int minutes = row.minutesPlayedProperty().get();
 							int estimatedGames = minutes > 0 ? Math.max(1, minutes / 80) : 0;
 
-							LoanPlayerModel outgoing = new LoanPlayerModel(
+							LoanPlayerModel freshLoan = new LoanPlayerModel(
 									LoanPlayerModel.LoanType.OUTGOING,
 									row.nameProperty().get(),
 									row.roleProperty().get(),
@@ -1415,10 +1439,21 @@ public class MainController {
 									row.marketValueProperty().get(),
 									minutes >= 900
 							);
-							LoanAnalysisService.evaluate(outgoing);
-							outgoingLoanDataList.add(outgoing);
+
+							if (existingLoans.containsKey(pNameKey)) {
+								LoanPlayerModel existing = existingLoans.get(pNameKey);
+								existing.updateFromFresh(freshLoan);
+								LoanAnalysisService.evaluate(existing);
+								updatedCount++;
+							} else {
+								LoanAnalysisService.evaluate(freshLoan);
+								outgoingLoanDataList.add(freshLoan);
+								existingLoans.put(pNameKey, freshLoan);
+								addedCount++;
+							}
+
 						} else if (isReserveOrYouthTeam) {
-							YouthPlayerModel youth = new YouthPlayerModel(
+							YouthPlayerModel freshYouth = new YouthPlayerModel(
 									row.nameProperty().get(),
 									row.roleProperty().get(),
 									row.ageProperty().get(),
@@ -1432,12 +1467,33 @@ public class MainController {
 									row.statValue2Property().get(),
 									row.statValue3Property().get()
 							);
-							YouthAnalysisService.evaluate(youth);
-							youthDataList.add(youth);
+
+							if (existingYouth.containsKey(pNameKey)) {
+								YouthPlayerModel existing = existingYouth.get(pNameKey);
+								existing.updateFromFresh(freshYouth);
+								YouthAnalysisService.evaluate(existing);
+								updatedCount++;
+							} else {
+								YouthAnalysisService.evaluate(freshYouth);
+								youthDataList.add(freshYouth);
+								existingYouth.put(pNameKey, freshYouth);
+								addedCount++;
+							}
+
 						} else {
 							row.onLoanProperty().set(isIncomingLoan);
-							MoneyballCalculator.recalculate(row, appConfig);
-							playerDataList.add(row);
+
+							if (existingKader.containsKey(pNameKey)) {
+								PlayerRowModel existing = existingKader.get(pNameKey);
+								existing.updateFromFresh(row);
+								MoneyballCalculator.recalculate(existing, appConfig);
+								updatedCount++;
+							} else {
+								MoneyballCalculator.recalculate(row, appConfig);
+								playerDataList.add(row);
+								existingKader.put(pNameKey, row);
+								addedCount++;
+							}
 						}
 					}
 
@@ -1462,7 +1518,7 @@ public class MainController {
 						lblImportTimestamp.setText("Importiert am: " + LocalDateTime.now().format(timeFormatter));
 					}
 
-					statusLabel.setText("Geladen & archiviert: " + droppedFile.getName() + " (" + playerDataList.size() + " Kader, " + outgoingLoanDataList.size() + " verliehen, " + youthDataList.size() + " Talente)");
+					statusLabel.setText("Partieller Merge: " + updatedCount + " aktualisiert, " + addedCount + " neu hinzugefügt (aus " + droppedFile.getName() + ").");
 					success = true;
 				} catch (Exception e) {
 					statusLabel.setText("Fehler beim Laden: " + e.getMessage());
