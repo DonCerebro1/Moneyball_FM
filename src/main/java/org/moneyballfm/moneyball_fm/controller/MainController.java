@@ -525,11 +525,11 @@ public class MainController {
 			});
 		}
 
-		StringConverter<Long> euroStringConverter = createEuroConverter();
+		StringConverter<Long> euroConv = createEuroConverter();
 
 		if (colMarketValue != null) {
 			colMarketValue.setCellValueFactory(cell -> cell.getValue().marketValueProperty().asObject());
-			colMarketValue.setCellFactory(TextFieldTableCell.forTableColumn(euroStringConverter));
+			colMarketValue.setCellFactory(TextFieldTableCell.forTableColumn(euroConv));
 			colMarketValue.setOnEditCommit(e -> {
 				e.getRowValue().marketValueProperty().set(e.getNewValue());
 				recalc(e.getRowValue());
@@ -538,13 +538,13 @@ public class MainController {
 
 		if (colFairMarketValue != null) {
 			colFairMarketValue.setCellValueFactory(cell -> cell.getValue().fairMarketValueProperty().asObject());
-			colFairMarketValue.setCellFactory(TextFieldTableCell.forTableColumn(euroStringConverter));
+			colFairMarketValue.setCellFactory(TextFieldTableCell.forTableColumn(euroConv));
 			colFairMarketValue.setEditable(false);
 		}
 
 		if (colSalary != null) {
 			colSalary.setCellValueFactory(cell -> cell.getValue().monthlySalaryProperty().asObject());
-			colSalary.setCellFactory(TextFieldTableCell.forTableColumn(euroStringConverter));
+			colSalary.setCellFactory(TextFieldTableCell.forTableColumn(euroConv));
 			colSalary.setOnEditCommit(e -> {
 				e.getRowValue().monthlySalaryProperty().set(e.getNewValue());
 				recalc(e.getRowValue());
@@ -553,7 +553,7 @@ public class MainController {
 
 		if (colMaxSalary != null) {
 			colMaxSalary.setCellValueFactory(cell -> cell.getValue().maxSalaryProperty().asObject());
-			colMaxSalary.setCellFactory(TextFieldTableCell.forTableColumn(euroStringConverter));
+			colMaxSalary.setCellFactory(TextFieldTableCell.forTableColumn(euroConv));
 			colMaxSalary.setEditable(false);
 		}
 
@@ -626,6 +626,16 @@ public class MainController {
 					colOutLoanClause, colOutLoanMarketValue, colOutLoanRecommendation, colOutLoanFuturePlan,
 					euroConv
 			);
+
+			outgoingLoanTable.setRowFactory(tv -> {
+				TableRow<LoanPlayerModel> row = new TableRow<>();
+				row.setOnMouseClicked(event -> {
+					if (event.getClickCount() == 2 && !row.isEmpty()) {
+						PlayerDetailDialog.show(row.getItem(), (Stage) rootPane.getScene().getWindow());
+					}
+				});
+				return row;
+			});
 		}
 
 		if (incomingLoanTable != null) {
@@ -635,6 +645,16 @@ public class MainController {
 					colInLoanClause, colInLoanMarketValue, colInLoanRecommendation, colInLoanFuturePlan,
 					euroConv
 			);
+
+			incomingLoanTable.setRowFactory(tv -> {
+				TableRow<LoanPlayerModel> row = new TableRow<>();
+				row.setOnMouseClicked(event -> {
+					if (event.getClickCount() == 2 && !row.isEmpty()) {
+						PlayerDetailDialog.show(row.getItem(), (Stage) rootPane.getScene().getWindow());
+					}
+				});
+				return row;
+			});
 		}
 	}
 
@@ -1008,6 +1028,16 @@ public class MainController {
 		colYouthMaxSalary.setCellValueFactory(cell -> cell.getValue().maxYouthSalaryProperty().asObject());
 		colYouthMaxSalary.setCellFactory(TextFieldTableCell.forTableColumn(euroConv));
 		colYouthMaxSalary.setEditable(false);
+
+		youthTable.setRowFactory(tv -> {
+			TableRow<YouthPlayerModel> row = new TableRow<>();
+			row.setOnMouseClicked(event -> {
+				if (event.getClickCount() == 2 && !row.isEmpty()) {
+					PlayerDetailDialog.show(row.getItem(), (Stage) rootPane.getScene().getWindow());
+				}
+			});
+			return row;
+		});
 	}
 
 	private void recalcYouth(YouthPlayerModel youth) {
@@ -1357,6 +1387,21 @@ public class MainController {
 		if (lblOptimalNeeds != null) lblOptimalNeeds.setText(optimalCount + " Positionen");
 	}
 
+	private void removeFromOtherLists(String nameKey, ObservableList<?>... targetLists) {
+		for (ObservableList<?> list : targetLists) {
+			list.removeIf(item -> {
+				if (item instanceof PlayerRowModel p) {
+					return p.nameProperty().get() != null && p.nameProperty().get().trim().equalsIgnoreCase(nameKey);
+				} else if (item instanceof LoanPlayerModel l) {
+					return l.getPlayerName() != null && l.getPlayerName().trim().equalsIgnoreCase(nameKey);
+				} else if (item instanceof YouthPlayerModel y) {
+					return y.getName() != null && y.getName().trim().equalsIgnoreCase(nameKey);
+				}
+				return false;
+			});
+		}
+	}
+
 	private void setupDragAndDrop() {
 		rootPane.setOnDragOver(event -> {
 			if (event.getGestureSource() != rootPane && event.getDragboard().hasFiles()) {
@@ -1422,6 +1467,11 @@ public class MainController {
 						)) || (row.ageProperty().get() <= 18 && row.minutesPlayedProperty().get() < 300);
 
 						if (isOutgoingLoan) {
+							// Status: Spieler ist verliehen -> Aus A-Kader und Jugend austragen
+							removeFromOtherLists(pNameKey, playerDataList, youthDataList);
+							existingKader.remove(pNameKey);
+							existingYouth.remove(pNameKey);
+
 							String clubStr = row.currentClubProperty().get() != null ? row.currentClubProperty().get() : "";
 							String leagueStr = row.getLeague();
 							String clubAndLeague = (leagueStr != null && !leagueStr.isBlank())
@@ -1460,6 +1510,11 @@ public class MainController {
 							}
 
 						} else if (isReserveOrYouthTeam) {
+							// Status: Spieler ist in der Jugend -> Aus A-Kader und Leihliste austragen
+							removeFromOtherLists(pNameKey, playerDataList, outgoingLoanDataList);
+							existingKader.remove(pNameKey);
+							existingLoans.remove(pNameKey);
+
 							YouthPlayerModel freshYouth = new YouthPlayerModel(
 									row.nameProperty().get(),
 									row.roleProperty().get(),
@@ -1488,6 +1543,11 @@ public class MainController {
 							}
 
 						} else {
+							// Status: A-Kader (Normalfall oder Rückkehrer) -> Aus Leihliste und Jugend austragen
+							removeFromOtherLists(pNameKey, outgoingLoanDataList, youthDataList);
+							existingLoans.remove(pNameKey);
+							existingYouth.remove(pNameKey);
+
 							row.onLoanProperty().set(isIncomingLoan);
 
 							if (existingKader.containsKey(pNameKey)) {

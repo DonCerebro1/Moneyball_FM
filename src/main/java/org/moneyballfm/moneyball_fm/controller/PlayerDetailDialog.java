@@ -14,8 +14,10 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import org.moneyballfm.moneyball_fm.db.HistoryRepository;
+import org.moneyballfm.moneyball_fm.model.LoanPlayerModel;
 import org.moneyballfm.moneyball_fm.model.PlayerHistoryEntry;
 import org.moneyballfm.moneyball_fm.model.PlayerRowModel;
+import org.moneyballfm.moneyball_fm.model.YouthPlayerModel;
 
 import java.text.NumberFormat;
 import java.util.List;
@@ -27,20 +29,35 @@ public class PlayerDetailDialog {
 
 	public static void show(PlayerRowModel player, Stage ownerStage) {
 		if (player == null) return;
+		showGeneric(player.nameProperty().get(), player.roleProperty().get(), ownerStage);
+	}
+
+	public static void show(LoanPlayerModel player, Stage ownerStage) {
+		if (player == null) return;
+		showGeneric(player.getPlayerName(), player.targetRoleProperty().get(), ownerStage);
+	}
+
+	public static void show(YouthPlayerModel player, Stage ownerStage) {
+		if (player == null) return;
+		showGeneric(player.getName(), player.targetRoleProperty().get(), ownerStage);
+	}
+
+	public static void showGeneric(String playerName, String role, Stage ownerStage) {
+		if (playerName == null || playerName.isBlank()) return;
 
 		Stage dialog = new Stage();
 		dialog.initModality(Modality.WINDOW_MODAL);
 		dialog.initOwner(ownerStage);
-		dialog.setTitle("Spieler-Historie: " + player.nameProperty().get());
+		dialog.setTitle("Spieler-Historie: " + playerName);
 
-		List<PlayerHistoryEntry> history = HistoryRepository.getPlayerHistory(player.nameProperty().get());
+		List<PlayerHistoryEntry> history = HistoryRepository.getPlayerHistory(playerName);
 
 		VBox root = new VBox(15);
 		root.setPadding(new Insets(15));
 		root.setPrefSize(800, 600);
 
 		// 1. Header-Info
-		Label title = new Label(player.nameProperty().get() + " (" + player.roleProperty().get() + ")");
+		Label title = new Label(playerName + (role != null && !role.isBlank() ? " (" + role + ")" : ""));
 		title.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #0f172a;");
 
 		// 2. LineChart für Moneyball-Score
