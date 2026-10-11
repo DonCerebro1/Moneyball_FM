@@ -116,10 +116,11 @@ public class SquadAnalysisService {
 
 			// Ränge 1 bis 4 abbilden
 			for (int r = 1; r <= 4; r++) {
-				DepthChartRowModel row = new DepthChartRowModel(roleName, r);
+				// Für Übersichtlichkeit: Rollenname nur bei Rang 1 anzeigen, darunter leer lassen
+				String displayRole = (r == 1) ? roleName : "";
+				DepthChartRowModel row = new DepthChartRowModel(displayRole, r);
 
 				if (proIndex < matchingPros.size()) {
-					// A-Kader Profi belegt den Platz
 					PlayerRowModel p = matchingPros.get(proIndex++);
 					row.playerNameProperty().set(p.nameProperty().get());
 					row.moneyballScoreProperty().set(String.valueOf(Math.round(p.moneyballScoreProperty().get() * 10.0) / 10.0));
@@ -134,18 +135,17 @@ public class SquadAnalysisService {
 					} else if (r == 3) {
 						row.teamRoleProperty().set("🌱 Rotation (P3)");
 					} else {
-						row.teamRoleProperty().set("📋 Kader-Ergänzung (P4)");
+						row.teamRoleProperty().set("📋 Ergänzung (P4)");
 					}
 				} else if (youthIndex < matchingYouth.size()) {
-					// Kein Profi vorhanden -> Talent aus B/C/Jugend springt als Aushilfe ein
 					YouthPlayerModel y = matchingYouth.get(youthIndex++);
-					row.playerNameProperty().set(y.nameProperty().get() + " (🌱 B/C-Aushilfe)");
+					String teamTag = y.ageProperty().get() <= 18 ? " [U19]" : " [B-Team]";
+					row.playerNameProperty().set(y.nameProperty().get() + teamTag);
 					row.moneyballScoreProperty().set(String.valueOf(Math.round(y.talentScoreProperty().get() * 10.0) / 10.0));
 					row.ageProperty().set(String.valueOf(y.ageProperty().get()));
 					row.monthlySalaryProperty().set("Jugendvertrag");
-					row.teamRoleProperty().set("⚠️ Nachwuchs-Backup (Kein Profi vorhanden)");
+					row.teamRoleProperty().set("🌱 Nachwuchs-Backup");
 				} else {
-					// Weder Profi noch Nachwuchsspieler vorhanden
 					row.playerNameProperty().set("—");
 					row.moneyballScoreProperty().set("—");
 					row.teamRoleProperty().set("Offene Planstelle");

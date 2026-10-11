@@ -4,7 +4,7 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
-<VBox fx:id="rootPane" spacing="10.0" prefHeight="780.0" prefWidth="1380.0"
+<VBox fx:id="rootPane" spacing="10.0" prefHeight="820.0" prefWidth="1420.0"
       xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="org.moneyballfm.moneyball_fm.controller.MainController">
     <padding>
@@ -32,8 +32,10 @@
                style="-fx-font-size: 11px; -fx-text-fill: #64748b; -fx-font-weight: bold;" />
     </HBox>
 
-    <!-- Tabs -->
-    <TabPane fx:id="mainTabPane" VBox.vgrow="ALWAYS" tabClosingPolicy="UNAVAILABLE">
+    <!-- Tabs mit leicht optimiertem Tab-Spacing -->
+    <TabPane fx:id="mainTabPane" VBox.vgrow="ALWAYS" tabClosingPolicy="UNAVAILABLE"
+             style="-fx-tab-min-height: 28px; -fx-tab-max-height: 28px; -fx-font-size: 12px;">
+
         <!-- TAB 1: Kader & Performance -->
         <Tab text="📋 Kader &amp; Performance">
             <VBox spacing="10.0">
@@ -96,7 +98,7 @@
         </Tab>
 
         <!-- TAB 2: Positions-Bedarf & Scouting -->
-        <Tab text="🎯 Positions-Bedarf &amp; Scouting">
+        <Tab text="🎯 Positions-Bedarf">
             <VBox spacing="12.0">
                 <padding>
                     <Insets top="10.0" />
@@ -140,7 +142,7 @@
         </Tab>
 
         <!-- TAB 3: Gehalts-Kalkulator -->
-        <Tab text="💰 Gehalts-Kalkulator">
+        <Tab text="💰 Gehalt">
             <HBox spacing="25.0">
                 <padding>
                     <Insets top="15.0" bottom="15.0" left="10.0" right="10.0" />
@@ -215,20 +217,20 @@
                 </padding>
                 <TableView fx:id="depthChartTable" VBox.vgrow="ALWAYS">
                     <columns>
-                        <TableColumn fx:id="colDepthRole" text="Taktische Rolle" prefWidth="180.0" />
-                        <TableColumn fx:id="colDepthRank" text="Rang" prefWidth="60.0" />
-                        <TableColumn fx:id="colDepthPlayerName" text="Spielername" prefWidth="180.0" />
-                        <TableColumn fx:id="colDepthScore" text="Moneyball-Score" prefWidth="130.0" />
-                        <TableColumn fx:id="colDepthTeamRole" text="Rolle im Team" prefWidth="200.0" />
-                        <TableColumn fx:id="colDepthAge" text="Alter" prefWidth="70.0" />
-                        <TableColumn fx:id="colDepthSalary" text="Monatsgehalt (€)" prefWidth="150.0" />
+                        <TableColumn fx:id="colDepthRole" text="Taktische Rolle" prefWidth="190.0" />
+                        <TableColumn fx:id="colDepthRank" text="Rang" prefWidth="55.0" style="-fx-alignment: CENTER;" />
+                        <TableColumn fx:id="colDepthPlayerName" text="Spielername" prefWidth="220.0" />
+                        <TableColumn fx:id="colDepthScore" text="Moneyball-Score" prefWidth="120.0" style="-fx-alignment: CENTER;" />
+                        <TableColumn fx:id="colDepthTeamRole" text="Rolle im Team" prefWidth="230.0" />
+                        <TableColumn fx:id="colDepthAge" text="Alter" prefWidth="65.0" style="-fx-alignment: CENTER;" />
+                        <TableColumn fx:id="colDepthSalary" text="Monatsgehalt (€)" prefWidth="145.0" />
                     </columns>
                 </TableView>
             </VBox>
         </Tab>
 
-        <!-- TAB 5: Leihspieler-Entscheidung (Aufgeteilt in Verliehen & Geliehen) -->
-        <Tab text="🔄 Leihspieler-Entscheidung">
+        <!-- TAB 5: Leihspieler-Entscheidung -->
+        <Tab text="🔄 Leihspieler">
             <VBox spacing="10.0">
                 <padding>
                     <Insets top="10.0" />
@@ -355,7 +357,7 @@
         </Tab>
 
         <!-- TAB 7: Moneyball Scouting -->
-        <Tab text="🔭 Moneyball Scouting">
+        <Tab text="🔭 Scouting">
             <VBox spacing="12.0">
                 <padding>
                     <Insets top="10.0" />
@@ -440,7 +442,7 @@
                 <!-- Schattenkader Tabelle -->
                 <TableView fx:id="shadowSquadTable" VBox.vgrow="ALWAYS" editable="true">
                     <columns>
-                        <TableColumn fx:id="colShadowRole" text="Taktische Taktik-Rolle" prefWidth="120.0" />
+                        <TableColumn fx:id="colShadowRole" text="Taktische Rolle" prefWidth="130.0" />
                         <TableColumn fx:id="colShadowStarter" text="Aktueller Stammspieler" prefWidth="150.0" />
                         <TableColumn fx:id="colShadowStarterSalary" text="Stamm-Gehalt (€)" prefWidth="110.0" />
                         <TableColumn fx:id="colShadowStarterValue" text="Stamm-Marktwert (€)" prefWidth="130.0" />
@@ -450,15 +452,15 @@
                         <TableColumn fx:id="colShadowC2Name" text="Schatten-Kandidat 2" prefWidth="150.0" />
                         <TableColumn fx:id="colShadowC2Fee" text="Scout-Ablöse 2 (€)" prefWidth="120.0" />
                         <TableColumn fx:id="colShadowC2Salary" text="Scout-Gehalt 2 (€)" prefWidth="110.0" />
-                        <TableColumn fx:id="colShadowNetGain" text="Netto-Transfergewinn bei Verkauf (€)" prefWidth="190.0" />
-                        <TableColumn fx:id="colShadowWageSavings" text="Gehaltsersparnis / Monat (€)" prefWidth="160.0" />
+                        <TableColumn fx:id="colShadowNetGain" text="Netto-Transfergewinn (€)" prefWidth="170.0" />
+                        <TableColumn fx:id="colShadowWageSavings" text="Gehaltsersparnis / Mon. (€)" prefWidth="160.0" />
                     </columns>
                 </TableView>
             </VBox>
         </Tab>
 
         <!-- TAB 9: Saisonvorbereitung & Registrierung -->
-        <Tab text="⏱️ Vorbereitung &amp; Registrierung">
+        <Tab text="⏱️ Registrierung &amp; Form">
             <VBox spacing="12.0">
                 <padding>
                     <Insets top="10.0" />
