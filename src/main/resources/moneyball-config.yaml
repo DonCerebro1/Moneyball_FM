@@ -1,6 +1,7 @@
 # Moneyball Konfiguration für Football Manager (V7 Exakt)
 
 my_club_name: "Villarreal"
+youth_wage_threshold: 10000   # < 10.000 €/Monat -> Nachwuchs-Gehaltsschwelle
 
 thresholds:
   sample_low_minutes: 450      # < 5 Spiele -> Rote Markierung (Geringe Stichprobe)
@@ -193,7 +194,7 @@ tactics:
             column_aliases: ["Zweikampfquote %", "Stats Wert 2"]
           - name: "Fehler mit Torfolge"
             weight: 0.20
-            benchmark: 0.0      # Je niedriger desto besser
+            benchmark: 0.0
             column_aliases: ["Fehler mit Torfolge", "Stats Wert 3", "Fehler"]
 
       # 11. Halbraumverteidiger Rechts

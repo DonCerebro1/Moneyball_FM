@@ -1635,8 +1635,6 @@ public class MainController {
 												boolean isOutgoingLoan = !club.isBlank() && !club.startsWith(clubPrefix);
 												boolean isIncomingLoan = art.contains("leihe");
 
-												boolean isMainTeamClub = club.equalsIgnoreCase(myClub);
-
 												boolean isInLowerTeam = club.startsWith(clubPrefix) && (
 																club.contains(" b") || club.contains(" c") ||
 																				club.contains("u19") || club.contains("u21") ||
@@ -1644,8 +1642,14 @@ public class MainController {
 																				club.contains("juvenil")
 												);
 
+												// Gehaltsschwelle aus AppConfig abrufen (Standard: 10.000 € / Monat)
+												long wageThreshold = (appConfig != null) ? appConfig.getYouthWageThreshold() : 10000L;
+												boolean isYouthContractWage = row.monthlySalaryProperty().get() < wageThreshold;
+
+												// Einteilung: Spieler gehört zur Jugend, wenn er in einer Unter-Mannschaft steht
+												// ODER jung ist (<= 18, < 300 Min) UND noch ein typisches Jugendgehalt bezieht
 												boolean isReserveOrYouthTeam = isInLowerTeam ||
-																(!isMainTeamClub && row.ageProperty().get() <= 18 && row.minutesPlayedProperty().get() < 300);
+																(isYouthContractWage && row.ageProperty().get() <= 18 && row.minutesPlayedProperty().get() < 300);
 
 												if (isOutgoingLoan) {
 														removeFromOtherListsByKey(pKey, playerDataList, youthDataList);

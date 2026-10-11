@@ -5,33 +5,44 @@ import java.util.List;
 import java.util.Map;
 
 public class AppConfig {
-	private Map<String, Object> thresholds;
+		private Map<String, Object> thresholds;
 
-	@JsonProperty("salary_tiers")
-	private List<SalaryTierConfig> salaryTiers;
+		@JsonProperty("salary_tiers")
+		private List<SalaryTierConfig> salaryTiers;
 
-	@JsonProperty("active_tactic")
-	private String activeTactic;
+		@JsonProperty("active_tactic")
+		private String activeTactic;
 
-	private List<TacticConfig> tactics;
+		private List<TacticConfig> tactics;
 
-	@JsonProperty("my_club_name")
-	private String myClubName = "Villarreal";
+		@JsonProperty("my_club_name")
+		private String myClubName = "Villarreal";
 
-	public AppConfig() {}
+		@JsonProperty("youth_wage_threshold")
+		private long youthWageThreshold = 10000L;
 
-	public Map<String, Object> getThresholds() { return thresholds; }
-	public void setThresholds(Map<String, Object> thresholds) { this.thresholds = thresholds; }
+		public AppConfig() {}
 
-	public List<SalaryTierConfig> getSalaryTiers() { return salaryTiers; }
-	public void setSalaryTiers(List<SalaryTierConfig> salaryTiers) { this.salaryTiers = salaryTiers; }
+		public Map<String, Object> getThresholds() { return thresholds; }
+		public void setThresholds(Map<String, Object> thresholds) { this.thresholds = thresholds; }
 
-	public String getActiveTactic() { return activeTactic; }
-	public void setActiveTactic(String activeTactic) { this.activeTactic = activeTactic; }
+		public List<SalaryTierConfig> getSalaryTiers() { return salaryTiers; }
+		public void setSalaryTiers(List<SalaryTierConfig> salaryTiers) { this.salaryTiers = salaryTiers; }
 
-	public List<TacticConfig> getTactics() { return tactics; }
-	public void setTactics(List<TacticConfig> tactics) { this.tactics = tactics; }
+		public String getActiveTactic() { return activeTactic; }
+		public void setActiveTactic(String activeTactic) { this.activeTactic = activeTactic; }
 
-	public String getMyClubName() { return myClubName; }
-	public void setMyClubName(String myClubName) { this.myClubName = myClubName; }
+		public List<TacticConfig> getTactics() { return tactics; }
+		public void setTactics(List<TacticConfig> tactics) { this.tactics = tactics; }
+
+		public String getMyClubName() { return myClubName; }
+		public void setMyClubName(String myClubName) { this.myClubName = myClubName; }
+
+		public long getYouthWageThreshold() {
+				return youthWageThreshold <= 0 ? 10000L : youthWageThreshold;
+		}
+
+		public void setYouthWageThreshold(long youthWageThreshold) {
+				this.youthWageThreshold = youthWageThreshold;
+		}
 }
