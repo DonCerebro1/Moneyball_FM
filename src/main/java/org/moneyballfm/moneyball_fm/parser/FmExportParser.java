@@ -101,7 +101,7 @@ public class FmExportParser {
 		}
 
 		for (int r = 1; r < rows.size(); r++) {
-			Elements tds = rows.get(r).select("td");
+			Elements tds = rows.select("td");
 			if (tds.isEmpty()) continue;
 			String[] cols = tds.stream().map(td -> cleanNbsps(td.text()).trim()).toArray(String[]::new);
 			PlayerRowModel model = extractRow(cols, colMap);
@@ -126,6 +126,9 @@ public class FmExportParser {
 		// 2. Sekundär: Ausgewählte Position (Startelfkürzel)
 		String rawPos = getVal(cols, map, "ausgewählte position", "ausgew. pos.", "ausgew. pos");
 
+		// Gelernte Position auslesen
+		String naturalPosRaw = getVal(cols, map, "position", "pos", "natürliche position");
+
 		String targetPositionStr = "";
 
 		if (!roleDetail.isBlank() && !roleDetail.equals("-") && !roleDetail.equals("—")) {
@@ -133,8 +136,12 @@ public class FmExportParser {
 		} else if (!rawPos.isBlank() && !rawPos.toUpperCase().matches("^[EB]\\d+$") && !rawPos.equals("-") && !rawPos.equals("—")) {
 			targetPositionStr = rawPos;
 		} else {
-			// Fallback für Verliehene oder Ersatzspieler ohne feste Zuweisung
-			targetPositionStr = getVal(cols, map, "position", "pos", "natürliche position");
+			// Fallback für Verliehene: Bei Mehrfachpositionen (z. B. "OM (R), ST (Z)") die Erstposition nehmen
+			if (naturalPosRaw.contains(",")) {
+				targetPositionStr = naturalPosRaw.split(",")[0].trim();
+			} else {
+				targetPositionStr = naturalPosRaw;
+			}
 		}
 
 		String cleanPos = cleanNbsps(targetPositionStr).replaceAll("[\\.]+$", "").trim();
@@ -149,6 +156,7 @@ public class FmExportParser {
 		if (art.isBlank()) art = "Vollzeitvertrag";
 
 		String club = getVal(cols, map, "verein", "club");
+		String league = getVal(cols, map, "liga", "wettbewerb", "division");
 
 		int bew = parseInt(getVal(cols, map, "bew", "bewegung"));
 		int ant = parseInt(getVal(cols, map, "ant", "antritt"));
@@ -156,6 +164,11 @@ public class FmExportParser {
 		int zie = parseInt(getVal(cols, map, "zie", "ziel", "zielstrebigkeit"));
 
 		double contractYears = parseContractYears(getVal(cols, map, "endet", "vertrag"));
+
+		// Neue Leih- und Scorer-Felder parsen
+		double loanRating = parseDouble(getVal(cols, map, "ø note", "note", "d-note", "drschn."));
+		int goals = parseInt(getVal(cols, map, "tore", "goals"));
+		int assists = parseInt(getVal(cols, map, "vor", "vorlagen", "assists"));
 
 		Player player = new Player(
 				name,
@@ -172,6 +185,12 @@ public class FmExportParser {
 				art,
 				club
 		);
+
+		player.setLeague(league);
+		player.setNaturalPosition(naturalPosRaw);
+		player.setLoanRating(loanRating);
+		player.setGoals(goals);
+		player.setAssists(assists);
 
 		for (Map.Entry<String, Integer> entry : map.entrySet()) {
 			int idx = entry.getValue();

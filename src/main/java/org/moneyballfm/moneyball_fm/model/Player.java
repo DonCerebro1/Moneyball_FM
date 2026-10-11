@@ -16,9 +16,16 @@ public class Player {
 	private int determination;
 	private int minutesPlayed;
 
-	// Neu: Vertragsart ("Leihe", "Vollzeitvertrag") und aktueller Verein
+	// Vertragsart ("Leihe", "Vollzeitvertrag") und aktueller Verein
 	private String contractType = "Vollzeitvertrag";
 	private String currentClub = "";
+
+	// Neu für Leihspieler & Rollen-Fallback
+	private String league = "";
+	private String naturalPosition = "";
+	private double loanRating = 0.0;
+	private int goals = 0;
+	private int assists = 0;
 
 	// Beliebig viele Stats dynamisch erweiterbar
 	private final Map<String, Double> stats = new HashMap<>();
@@ -65,6 +72,51 @@ public class Player {
 
 	public Player setCurrentClub(String currentClub) {
 		this.currentClub = currentClub;
+		return this;
+	}
+
+	public String getLeague() {
+		return league;
+	}
+
+	public Player setLeague(String league) {
+		this.league = (league != null) ? league.trim() : "";
+		return this;
+	}
+
+	public String getNaturalPosition() {
+		return naturalPosition;
+	}
+
+	public Player setNaturalPosition(String naturalPosition) {
+		this.naturalPosition = (naturalPosition != null) ? naturalPosition.trim() : "";
+		return this;
+	}
+
+	public double getLoanRating() {
+		return loanRating;
+	}
+
+	public Player setLoanRating(double loanRating) {
+		this.loanRating = loanRating;
+		return this;
+	}
+
+	public int getGoals() {
+		return goals;
+	}
+
+	public Player setGoals(int goals) {
+		this.goals = goals;
+		return this;
+	}
+
+	public int getAssists() {
+		return assists;
+	}
+
+	public Player setAssists(int assists) {
+		this.assists = assists;
 		return this;
 	}
 

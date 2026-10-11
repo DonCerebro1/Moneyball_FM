@@ -123,7 +123,7 @@ public class MainController {
 	@FXML private TableColumn<DepthChartRowModel, String> colDepthAge;
 	@FXML private TableColumn<DepthChartRowModel, String> colDepthSalary;
 
-	// TAB 5: Leihspieler-Entscheidung (Aufgeteilt)
+	// TAB 5: Leihspieler-Entscheidung
 	@FXML private Label lblLoanReturnCount;
 	@FXML private Label lblLoanExtendCount;
 	@FXML private Label lblLoanSellCount;
@@ -276,7 +276,6 @@ public class MainController {
 			shadowSquadTable.setEditable(true);
 		}
 
-		// Zuletzt gespeicherten Stand direkt aus H2 laden (inkl. Scouting)
 		String lastImportDate = HistoryRepository.loadLatestSnapshot(
 				playerDataList,
 				outgoingLoanDataList,
@@ -285,7 +284,6 @@ public class MainController {
 				scoutDataList
 		);
 
-		// Automatische Bereinigung alter DB-Stände: U18 ohne Minuten direkt in die Jugend schieben
 		List<PlayerRowModel> promoteToYouth = playerDataList.stream()
 				.filter(p -> p.ageProperty().get() <= 18 && p.minutesPlayedProperty().get() < 300)
 				.toList();
@@ -313,12 +311,10 @@ public class MainController {
 		}
 
 		if (!playerDataList.isEmpty() || !youthDataList.isEmpty() || !outgoingLoanDataList.isEmpty() || !scoutDataList.isEmpty()) {
-			// 1. A-Kader durchrechnen
 			for (PlayerRowModel row : playerDataList) {
 				MoneyballCalculator.recalculate(row, appConfig);
 			}
 
-			// 2. Leihspieler durchrechnen
 			for (LoanPlayerModel l : outgoingLoanDataList) {
 				LoanAnalysisService.evaluate(l);
 			}
@@ -326,12 +322,10 @@ public class MainController {
 				LoanAnalysisService.evaluate(l);
 			}
 
-			// 3. Talente durchrechnen (Prognose & Handlungsempfehlung wiederherstellen)
 			for (YouthPlayerModel y : youthDataList) {
 				YouthAnalysisService.evaluate(y);
 			}
 
-			// 4. Scouting-Kandidaten durchrechnen
 			for (ScoutingPlayerModel s : scoutDataList) {
 				ScoutingAnalysisService.evaluate(s, appConfig);
 			}
@@ -587,7 +581,6 @@ public class MainController {
 		colSalaryCheck.setCellValueFactory(cell -> cell.getValue().salaryCheckProperty());
 		colQuality.setCellValueFactory(cell -> cell.getValue().sampleQualityProperty());
 
-		// Doppelklick auf eine Zeile öffnet das Verlaufs-Popup
 		playerTable.setRowFactory(tv -> {
 			TableRow<PlayerRowModel> row = new TableRow<>();
 			row.setOnMouseClicked(event -> {
@@ -851,6 +844,8 @@ public class MainController {
 				18,
 				1450,
 				7.12,
+				0,
+				0,
 				0.0,
 				2500000L,
 				true
@@ -876,6 +871,8 @@ public class MainController {
 						p.minutesPlayedProperty().get() > 0 ? (p.minutesPlayedProperty().get() / 80) : 0,
 						p.minutesPlayedProperty().get(),
 						0.0,
+						p.getGoals(),
+						p.getAssists(),
 						p.moneyballScoreProperty().get(),
 						p.marketValueProperty().get(),
 						true
@@ -887,7 +884,6 @@ public class MainController {
 		refreshLoanKPIs();
 	}
 
-	// --- TAB 6: JUGEND & TALENT-PIPELINE SETUP ---
 	private void setupYouthTableColumns() {
 		if (youthTable == null) return;
 
@@ -1057,7 +1053,6 @@ public class MainController {
 		if (youthTable != null) youthTable.scrollTo(y);
 	}
 
-	// --- TAB 7: MONEYBALL SCOUTING SETUP ---
 	private void setupScoutTableColumns() {
 		if (scoutTable == null) return;
 
@@ -1211,7 +1206,6 @@ public class MainController {
 		if (scoutTable != null) scoutTable.scrollTo(s);
 	}
 
-	// --- TAB 8: SCHATTENKADER SETUP ---
 	private void setupShadowSquadTableColumns() {
 		if (shadowSquadTable == null) return;
 		StringConverter<Long> euroConv = createEuroConverter();
@@ -1286,7 +1280,6 @@ public class MainController {
 		}
 	}
 
-	// --- TAB 1: KADER-KPI BERECHNUNG ---
 	private void refreshSquadKPIs() {
 		if (playerDataList.isEmpty()) {
 			if (lblSquadAvgAge != null) lblSquadAvgAge.setText("0,0");
@@ -1398,18 +1391,29 @@ public class MainController {
 						)) || (row.ageProperty().get() <= 18 && row.minutesPlayedProperty().get() < 300);
 
 						if (isOutgoingLoan) {
+							String clubStr = row.currentClubProperty().get() != null ? row.currentClubProperty().get() : "";
+							String leagueStr = row.getLeague();
+							String clubAndLeague = (leagueStr != null && !leagueStr.isBlank())
+									? clubStr + " (" + leagueStr + ")"
+									: clubStr;
+
+							int minutes = row.minutesPlayedProperty().get();
+							int estimatedGames = minutes > 0 ? Math.max(1, minutes / 80) : 0;
+
 							LoanPlayerModel outgoing = new LoanPlayerModel(
 									LoanPlayerModel.LoanType.OUTGOING,
 									row.nameProperty().get(),
 									row.roleProperty().get(),
 									row.ageProperty().get(),
-									row.currentClubProperty().get(),
-									row.minutesPlayedProperty().get() > 0 ? (row.minutesPlayedProperty().get() / 80) : 0,
-									row.minutesPlayedProperty().get(),
-									7.00,
+									clubAndLeague,
+									estimatedGames,
+									minutes,
+									row.getLoanRating(),
+									row.getGoals(),
+									row.getAssists(),
 									0.0,
 									row.marketValueProperty().get(),
-									true
+									minutes >= 900
 							);
 							LoanAnalysisService.evaluate(outgoing);
 							outgoingLoanDataList.add(outgoing);
@@ -1444,7 +1448,6 @@ public class MainController {
 					refreshShadowSquad();
 					refreshSquadKPIs();
 
-					// Dauerhaft in H2-Datenbank archivieren
 					HistoryRepository.saveSquadSnapshot(
 							myClub,
 							"Aktuell",
@@ -1455,7 +1458,6 @@ public class MainController {
 							youthDataList
 					);
 
-					// Zeitstempel oben rechts aktualisieren
 					if (lblImportTimestamp != null) {
 						lblImportTimestamp.setText("Importiert am: " + LocalDateTime.now().format(timeFormatter));
 					}

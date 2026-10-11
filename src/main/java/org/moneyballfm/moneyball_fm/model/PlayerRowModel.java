@@ -120,4 +120,25 @@ public class PlayerRowModel {
 	public StringProperty salaryTierProperty() { return salaryTier; }
 	public StringProperty salaryCheckProperty() { return salaryCheck; }
 	public StringProperty sampleQualityProperty() { return sampleQuality; }
+
+	// Delegations-Getter für Leihspieler-Werte aus Player
+	public double getLoanRating() {
+		return rawPlayer != null ? rawPlayer.getLoanRating() : 0.0;
+	}
+
+	public String getLeague() {
+		return rawPlayer != null ? rawPlayer.getLeague() : "";
+	}
+
+	public int getGoals() {
+		return rawPlayer != null ? rawPlayer.getGoals() : 0;
+	}
+
+	public int getAssists() {
+		return rawPlayer != null ? rawPlayer.getAssists() : 0;
+	}
+
+	public String getNaturalPosition() {
+		return rawPlayer != null ? rawPlayer.getNaturalPosition() : "";
+	}
 }

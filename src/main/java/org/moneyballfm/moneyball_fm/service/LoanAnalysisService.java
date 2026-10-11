@@ -7,9 +7,6 @@ public class LoanAnalysisService {
 	public static void evaluate(LoanPlayerModel player) {
 		boolean isOutgoing = player.getLoanType() == LoanPlayerModel.LoanType.OUTGOING;
 
-		// 1. Score-Ermittlung:
-		// Für eigene, verliehene Spieler (extern) berechnen wir den Leih-Score aus Note & Minuten.
-		// Für eingehend geliehene Kaderspieler bleibt der echte Moneyball-Score aus Tab 1 erhalten.
 		if (isOutgoing) {
 			double calculatedScore = calculateLoanScore(player);
 			player.moneyballScoreProperty().set(calculatedScore);
@@ -22,35 +19,39 @@ public class LoanAnalysisService {
 		int age = player.getAge();
 		boolean clauseOk = player.isClauseFulfilled();
 
-		boolean hasSolidPlaytime = minutes >= 900 || games >= 12;
+		boolean hasSolidPlaytime = minutes >= 1200 || games >= 15;
+		boolean hasMinimalPlaytime = minutes >= 450 || games >= 6;
 
 		// 2. Regelbasierte Handlungsempfehlung & Zukunftsplan
 		if (isOutgoing) {
 			// EIGENER SPIELER (VERLIEHEN)
-			if (!clauseOk || (!hasSolidPlaytime && (games > 0 || minutes > 0))) {
+			if (minutes == 0 && games == 0) {
+				player.recommendationProperty().set("⚠️ KEINE SPIELPRAXIS (0 Min)");
+				player.futurePlanProperty().set("Keine Einsätze auf der Leihstation. Leih-Flop analysieren; neuen Verein suchen oder verkaufen.");
+			} else if (!hasMinimalPlaytime || !clauseOk) {
 				player.recommendationProperty().set("🚨 LEIHE ABBRECHEN & VERKAUFEN");
-				player.futurePlanProperty().set("Entwicklung stagniert mangels Spielpraxis. Sofort abbrechen oder Marktwert realisieren.");
-			} else if ((score >= 75.0 || rating >= 7.05) && hasSolidPlaytime) {
+				player.futurePlanProperty().set("Entwicklung stagniert mangels Spielpraxis (< 450 Min). Leihvertrag kündigen oder Marktwert realisieren.");
+			} else if ((score >= 75.0 || (rating >= 7.05 && hasSolidPlaytime))) {
 				if (age <= 21) {
 					player.recommendationProperty().set("📦 KADER-RÜCKKEHR (Als Backup/Rotation einplanen)");
-					player.futurePlanProperty().set("Reif für 1. Mannschaft; spart teuren externen Transfer.");
+					player.futurePlanProperty().set("Reif für 1. Mannschaft; starke Leih-Leistung spart teuren externen Transfer.");
 				} else {
 					player.recommendationProperty().set("⭐ KADER-RÜCKKEHR (Stammplatz-Duell)");
 					player.futurePlanProperty().set("Leistungsträger auf Leihstation; fester Konkurrenzkampf in der Sommervorbereitung.");
 				}
-			} else if (age <= 22 && (score >= 60.0 || rating >= 6.75)) {
+			} else if (age <= 22 && (score >= 55.0 || rating >= 6.75)) {
 				player.recommendationProperty().set("🔄 WEITER VERLEIHEN (Noch 1 Jahr Spielpraxis)");
 				player.futurePlanProperty().set("Guter Entwicklungstrend; benötigt eine weitere volle Saison als Stammkraft.");
 			} else {
 				player.recommendationProperty().set("💰 NACH LEIHE VERKAUFEN");
-				player.futurePlanProperty().set("Niveau reicht perspektivisch nicht; Marktwert nach Leihende mitnehmen.");
+				player.futurePlanProperty().set("Niveau reicht perspektivisch nicht für den Kader; Marktwert nach Leihende mitnehmen.");
 			}
 		} else {
 			// FREMDER SPIELER (GELIEHEN) -> Reiner Moneyball-Score & Spielzeit
 			if (hasSolidPlaytime && score >= 75.0) {
 				player.recommendationProperty().set("✅ KAUFOPTION ZIEHEN / VERPFLICHTEN");
 				player.futurePlanProperty().set("Fester Leistungsträger (Score: " + score + "); Gehaltsgefüge prüfen und fest binden.");
-			} else if (hasSolidPlaytime && score >= 65.0) {
+			} else if (hasMinimalPlaytime && score >= 65.0) {
 				player.recommendationProperty().set("🟡 LEIHE VERLÄNGERN (oder Schnäppchen-Kauf)");
 				player.futurePlanProperty().set("Solide Ergänzung (Score: " + score + "); Festkauf nur unter Marktwert sinnvoll.");
 			} else {
@@ -61,43 +62,62 @@ public class LoanAnalysisService {
 	}
 
 	private static double calculateLoanScore(LoanPlayerModel player) {
-		double rating = player.getAverageRating();
 		int minutes = player.getMinutesPlayed();
 		int games = player.getGamesPlayed();
-		boolean clauseOk = player.isClauseFulfilled();
-		String clubLeague = player.clubAndLeagueProperty().get() != null
+		double rating = player.getAverageRating();
+
+		// 1. Wenn keine Spielzeit oder keine Note vorhanden -> strikt 0.0
+		if ((minutes == 0 && games == 0) || rating <= 0.0) {
+			return 0.0;
+		}
+
+		// 2. Basis-Punkte über FM-Note (6.00 = 0 Pkt, 6.70 = 49 Pkt, 7.00 = 70 Pkt, 7.30 = 91 Pkt)
+		double baseScore = Math.max(0.0, (rating - 6.0) * 70.0);
+
+		// 3. Scorer-Bonus (nur für Offensive / Mittelfeld)
+		int goals = player.getGoals();
+		int assists = player.getAssists();
+		double scorerBonus = Math.min(15.0, (goals + assists) * 1.5);
+
+		// 4. Liga-Faktor (Reputation des Wettbewerbs)
+		String league = player.clubAndLeagueProperty().get() != null
 				? player.clubAndLeagueProperty().get().toLowerCase() : "";
 
-		// Basis-Punkte über FM-Note:
-		// 6.00 = 0 Pkt, 6.70 = 42 Pkt, 7.00 = 60 Pkt, 7.30 = 78 Pkt, 7.50 = 90 Pkt
-		double baseScore = Math.max(0.0, (rating - 6.0) * 60.0);
+		double leagueFactor = 1.0;
+		if (league.contains("first division") || league.contains("serie a") || league.contains("bundesliga")
+				|| league.contains("premier league") || league.contains("la liga") || league.contains("ligue 1")) {
+			// Vorsicht: Nicht mit Federation First Division verwechseln
+			if (league.contains("federation first")) {
+				leagueFactor = 0.85; // 3. Liga Spanien
+			} else {
+				leagueFactor = 1.10; // Top-Ligen
+			}
+		} else if (league.contains("second division") || league.contains("2. bundesliga")
+				|| league.contains("championship") || league.contains("premiership") || league.contains("portugal")) {
+			leagueFactor = 1.00; // Starke 2. Ligen / gute europäische Ligen
+		} else if (league.contains("federation first") || league.contains("3. liga")) {
+			leagueFactor = 0.85; // 3. Liga
+		} else if (league.contains("federation second") || league.contains("federation third") || league.contains("regionalliga")) {
+			leagueFactor = 0.70; // 4. & 5. Liga
+		} else if (league.contains("u21") || league.contains("u19") || league.contains("reserve")) {
+			leagueFactor = 0.60; // Nachwuchsligen
+		}
 
-		// Spielzeit-Bonus / Malus (harte Einsatzminuten wiegen am schwersten)
-		double playtimeModifier = 0.0;
+		// 5. Spielzeit-Dämpfung
+		double playtimeFactor;
 		if (minutes >= 1800 || games >= 22) {
-			playtimeModifier = 15.0; // Absoluter Dauerbrenner
+			playtimeFactor = 1.0;  // Fester Stammspieler / volle Aussagekraft
 		} else if (minutes >= 1200 || games >= 15) {
-			playtimeModifier = 10.0; // Fester Stammspieler
+			playtimeFactor = 0.90; // Regelmäßiger Starter
 		} else if (minutes >= 600 || games >= 8) {
-			playtimeModifier = 2.0;  // Rotationsspieler
-		} else if (games > 0 || minutes > 0) {
-			playtimeModifier = -12.0; // Kaum Einsatzzeit
+			playtimeFactor = 0.75; // Rotationsspieler
+		} else if (minutes >= 200 || games >= 3) {
+			playtimeFactor = 0.50; // Ergänzungsspieler
+		} else {
+			playtimeFactor = 0.25; // Kaum gespielt
 		}
 
-		// Klausel-Malus
-		double clauseModifier = clauseOk ? 2.0 : -15.0;
-
-		// Liga-Niveau-Faktor (Erkennung von 2./3. Liga oder U21)
-		double leagueModifier = 0.0;
-		if (clubLeague.contains("2.") || clubLeague.contains("liga 2") || clubLeague.contains("segunda") || clubLeague.contains("championship")) {
-			leagueModifier = -3.0; // Leichte Anpassung für Zweitklassigkeit
-		} else if (clubLeague.contains("3.") || clubLeague.contains("liga 3") || clubLeague.contains("u21") || clubLeague.contains("reserve")) {
-			leagueModifier = -8.0; // Deutlicher Abschlag für 3. Liga oder Jugendliga
-		} else if (!clubLeague.isBlank()) {
-			leagueModifier = 3.0;  // Erstliga-Bonus
-		}
-
-		double total = baseScore + playtimeModifier + clauseModifier + leagueModifier;
+		double total = (baseScore + scorerBonus) * leagueFactor * playtimeFactor;
 		total = Math.max(0.0, Math.min(100.0, total));
 
 		return Math.round(total * 10.0) / 10.0;
