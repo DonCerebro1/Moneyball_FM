@@ -228,4 +228,14 @@ public class Player {
 		this.name = name;
 		return this;
 	}
+
+	public Map<String, Double> getAllStats() {
+		return stats;
+	}
+
+	public void putAllStats(Map<String, Double> newStats) {
+		if (newStats != null) {
+			newStats.forEach(this::putStat);
+		}
+	}
 }

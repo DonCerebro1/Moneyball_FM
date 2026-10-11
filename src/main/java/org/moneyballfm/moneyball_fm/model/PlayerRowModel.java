@@ -142,6 +142,24 @@ public class PlayerRowModel {
 		return rawPlayer != null ? rawPlayer.getNaturalPosition() : "";
 	}
 
+	// Rollenwechsel: Holt dynamisch Stat 1, Stat 2 und Stat 3 aus der Map des Spielers
+	public void applyRoleStats(TacticRole newRole) {
+		if (newRole == null || this.rawPlayer == null) return;
+
+		this.role.set(newRole.getDisplayName());
+		this.rawPlayer.setRole(newRole.getDisplayName());
+
+		double s1 = this.rawPlayer.getStat(newRole.getStat1Header());
+		double s2 = this.rawPlayer.getStat(newRole.getStat2Header());
+		double s3 = this.rawPlayer.getStat(newRole.getStat3Header());
+
+		this.statValue1.set(s1);
+		this.statValue2.set(s2);
+		this.statValue3.set(s3);
+
+		this.setStatLabels(newRole.getStat1Header(), newRole.getStat2Header(), newRole.getStat3Header());
+	}
+
 	// Partieller Merge: Nur FM-Daten aktualisieren, manuelle Rolle behalten
 	public void updateFromFresh(PlayerRowModel fresh) {
 		this.age.set(fresh.ageProperty().get());
@@ -157,10 +175,6 @@ public class PlayerRowModel {
 		this.pace.set(fresh.paceProperty().get());
 		this.stamina.set(fresh.staminaProperty().get());
 		this.determination.set(fresh.determinationProperty().get());
-
-		this.statValue1.set(fresh.statValue1Property().get());
-		this.statValue2.set(fresh.statValue2Property().get());
-		this.statValue3.set(fresh.statValue3Property().get());
 
 		if (this.rawPlayer != null && fresh.getRawPlayer() != null) {
 			Player fp = fresh.getRawPlayer();
@@ -179,6 +193,19 @@ public class PlayerRowModel {
 					.setLeague(fp.getLeague())
 					.setGoals(fp.getGoals())
 					.setAssists(fp.getAssists());
+
+			// Komplette Map mit allen neuen FM-Kennzahlen übertragen
+			this.rawPlayer.putAllStats(fp.getAllStats());
+		}
+
+		// Nach dem Kopieren der neuen Stats die Werte für die aktuelle Rolle des Spielers neu ziehen
+		TacticRole currentTacticRole = TacticRole.fromDisplayName(this.role.get());
+		if (currentTacticRole != null) {
+			applyRoleStats(currentTacticRole);
+		} else {
+			this.statValue1.set(fresh.statValue1Property().get());
+			this.statValue2.set(fresh.statValue2Property().get());
+			this.statValue3.set(fresh.statValue3Property().get());
 		}
 	}
 }

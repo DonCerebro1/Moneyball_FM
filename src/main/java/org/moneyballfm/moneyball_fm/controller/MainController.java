@@ -23,6 +23,7 @@ import org.moneyballfm.moneyball_fm.model.PlayerRowModel;
 import org.moneyballfm.moneyball_fm.model.PositionNeedModel;
 import org.moneyballfm.moneyball_fm.model.ScoutingPlayerModel;
 import org.moneyballfm.moneyball_fm.model.ShadowSquadRowModel;
+import org.moneyballfm.moneyball_fm.model.TacticRole;
 import org.moneyballfm.moneyball_fm.model.YouthPlayerModel;
 import org.moneyballfm.moneyball_fm.parser.FmExportParser;
 import org.moneyballfm.moneyball_fm.service.LoanAnalysisService;
@@ -463,7 +464,13 @@ public class MainController {
 		colRole.setCellValueFactory(cell -> cell.getValue().roleProperty());
 		colRole.setCellFactory(ComboBoxTableCell.forTableColumn(getAvailableRoles()));
 		colRole.setOnEditCommit(e -> {
-			e.getRowValue().roleProperty().set(e.getNewValue());
+			String selectedRole = e.getNewValue();
+			TacticRole tacticRole = TacticRole.fromDisplayName(selectedRole);
+			if (tacticRole != null) {
+				e.getRowValue().applyRoleStats(tacticRole);
+			} else {
+				e.getRowValue().roleProperty().set(selectedRole);
+			}
 			recalc(e.getRowValue());
 		});
 
