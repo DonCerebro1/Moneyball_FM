@@ -17,6 +17,8 @@ import java.util.Map;
 
 public class FmExportParser {
 
+	public record PreseasonData(String name, int estimatedMinutes, double rating) {}
+
 	public static List<PlayerRowModel> parseFile(File file) throws IOException {
 		String name = file.getName().toLowerCase();
 		if (name.endsWith(".html") || name.endsWith(".htm")) {
@@ -24,6 +26,99 @@ public class FmExportParser {
 		} else {
 			return parsePlainTextFile(file);
 		}
+	}
+
+	public static boolean isPreseasonFile(File file) {
+		try (BufferedReader reader = new BufferedReader(new FileReader(file, StandardCharsets.UTF_8))) {
+			String line;
+			int checkedLines = 0;
+			while ((line = reader.readLine()) != null && checkedLines < 25) {
+				String lower = line.toLowerCase();
+				if (lower.contains("eins") && (lower.contains("ø note") || lower.contains("note"))
+						&& !lower.contains("transferwert") && !lower.contains("marktwert") && !lower.contains("gehalt")) {
+					return true;
+				}
+				checkedLines++;
+			}
+		} catch (Exception ignored) {}
+		return false;
+	}
+
+	public static List<PreseasonData> parsePreseasonFile(File file) throws IOException {
+		List<PreseasonData> result = new ArrayList<>();
+
+		try (BufferedReader reader = new BufferedReader(new FileReader(file, StandardCharsets.UTF_8))) {
+			String line;
+			Map<String, Integer> colMap = null;
+
+			while ((line = reader.readLine()) != null) {
+				line = cleanNbsps(line).trim();
+				if (line.isEmpty() || line.startsWith("---") || line.matches("^[\\s\\|\\-]+$")) {
+					continue;
+				}
+
+				String delimiter = line.contains("|") ? "\\|" : "\t";
+				String[] rawCols = line.split(delimiter);
+				List<String> colsList = new ArrayList<>();
+				for (String col : rawCols) {
+					colsList.add(cleanNbsps(col).trim());
+				}
+
+				if (!colsList.isEmpty() && colsList.get(0).isEmpty()) {
+					colsList.remove(0);
+				}
+				if (!colsList.isEmpty() && colsList.get(colsList.size() - 1).isEmpty()) {
+					colsList.remove(colsList.size() - 1);
+				}
+
+				String[] cols = colsList.toArray(new String[0]);
+
+				if (colMap == null) {
+					boolean isHeader = false;
+					for (String c : cols) {
+						String lower = c.toLowerCase();
+						if (lower.equals("name") || lower.equals("person") || lower.equals("spieler")) {
+							isHeader = true;
+							break;
+						}
+					}
+					if (isHeader) {
+						colMap = new HashMap<>();
+						for (int i = 0; i < cols.length; i++) {
+							colMap.put(cleanNbsps(cols[i]).toLowerCase().trim(), i);
+						}
+					}
+					continue;
+				}
+
+				String name = getVal(cols, colMap, "name", "person", "spieler");
+				if (name.isBlank()) continue;
+
+				String einsStr = getVal(cols, colMap, "eins", "spiele", "apps");
+				double rating = parseDouble(getVal(cols, colMap, "ø note", "note", "d-note", "drschn."));
+				int minutes = calculateMinutesFromAppearances(einsStr);
+
+				result.add(new PreseasonData(name, minutes, rating));
+			}
+		}
+		return result;
+	}
+
+	private static int calculateMinutesFromAppearances(String einsStr) {
+		if (einsStr == null || einsStr.isBlank() || einsStr.equals("-")) return 0;
+
+		int starts = 0;
+		int subs = 0;
+
+		if (einsStr.contains("(")) {
+			String[] parts = einsStr.split("\\(");
+			starts = parseInt(parts[0].trim());
+			subs = parseInt(parts[1].replace(")", "").trim());
+		} else {
+			starts = parseInt(einsStr.trim());
+		}
+
+		return (starts * 75) + (subs * 30);
 	}
 
 	private static List<PlayerRowModel> parsePlainTextFile(File file) throws IOException {
@@ -114,7 +209,6 @@ public class FmExportParser {
 		String name = getVal(cols, map, "name", "person", "spieler");
 		if (name.isBlank()) return null;
 
-		// 1. Detaillierte Rollenspalte (z. B. "Kompletter Flügelverteidiger (Unterstützen)")
 		String roleDetail = getVal(cols, map,
 				"position/rolle/aufgabe",
 				"position / rolle / aufgabe",
@@ -123,15 +217,11 @@ public class FmExportParser {
 				"taktische rolle"
 		);
 
-		// 2. Ausgewählte Position im aktuellen Spieltagskader (z. B. "TW", "FVR", "E1")
 		String rawPos = getVal(cols, map, "ausgewählte position", "ausgew. pos.", "ausgew. pos");
-
-		// 3. Gelernte Stammposition(en) (z. B. "V (RZ), FV (R)" oder "DM, M/OM (Z)")
 		String naturalPosRaw = getVal(cols, map, "position", "pos", "natürliche position");
 
 		String targetPositionStr = "";
 
-		// Gültige Rolle prüfen (generische Dummy-Texte wie "– Spielposition" ausschließen)
 		boolean hasValidRoleDetail = !roleDetail.isBlank()
 				&& !roleDetail.equals("-")
 				&& !roleDetail.equals("—")
@@ -143,13 +233,10 @@ public class FmExportParser {
 				&& !rawPos.equals("—");
 
 		if (hasValidRoleDetail) {
-			// Priorität 1: Reale Taktikrolle aus der Taktik-Ansicht
 			targetPositionStr = roleDetail;
 		} else if (hasValidRawPos) {
-			// Priorität 2: Startelfposition
 			targetPositionStr = rawPos;
 		} else {
-			// Priorität 3: Fallback für Leihspieler / Reservisten -> Erste gelernte Hauptposition
 			if (naturalPosRaw.contains(",")) {
 				targetPositionStr = naturalPosRaw.split(",")[0].trim();
 			} else {
@@ -178,7 +265,6 @@ public class FmExportParser {
 
 		double contractYears = parseContractYears(getVal(cols, map, "endet", "vertrag"));
 
-		// Leih- und Scorer-Felder parsen
 		double loanRating = parseDouble(getVal(cols, map, "ø note", "note", "d-note", "drschn."));
 		int goals = parseInt(getVal(cols, map, "tore", "goals"));
 		int assists = parseInt(getVal(cols, map, "vor", "vorlagen", "assists"));

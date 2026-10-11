@@ -16,12 +16,12 @@ import javafx.util.converter.IntegerStringConverter;
 import org.moneyballfm.moneyball_fm.config.AppConfig;
 import org.moneyballfm.moneyball_fm.config.ConfigLoader;
 import org.moneyballfm.moneyball_fm.db.HistoryRepository;
-import org.moneyballfm.moneyball_fm.controller.PlayerDetailDialog;
 import org.moneyballfm.moneyball_fm.model.DepthChartRowModel;
 import org.moneyballfm.moneyball_fm.model.LoanPlayerModel;
 import org.moneyballfm.moneyball_fm.model.Player;
 import org.moneyballfm.moneyball_fm.model.PlayerRowModel;
 import org.moneyballfm.moneyball_fm.model.PositionNeedModel;
+import org.moneyballfm.moneyball_fm.model.RegistrationRowModel;
 import org.moneyballfm.moneyball_fm.model.ScoutingPlayerModel;
 import org.moneyballfm.moneyball_fm.model.ShadowSquadRowModel;
 import org.moneyballfm.moneyball_fm.model.TacticRole;
@@ -231,6 +231,23 @@ public class MainController {
 	@FXML private TableColumn<ShadowSquadRowModel, Long> colShadowNetGain;
 	@FXML private TableColumn<ShadowSquadRowModel, Long> colShadowWageSavings;
 
+	// TAB 9: Saisonvorbereitung & Registrierung
+	@FXML private Label lblRegisteredCount;
+	@FXML private Label lblU21ExemptCount;
+	@FXML private Label lblRegistrationWages;
+
+	@FXML private TableView<RegistrationRowModel> registrationTable;
+	@FXML private TableColumn<RegistrationRowModel, Boolean> colRegActive;
+	@FXML private TableColumn<RegistrationRowModel, String> colRegName;
+	@FXML private TableColumn<RegistrationRowModel, String> colRegRole;
+	@FXML private TableColumn<RegistrationRowModel, Integer> colRegAge;
+	@FXML private TableColumn<RegistrationRowModel, Boolean> colRegU21;
+	@FXML private TableColumn<RegistrationRowModel, Integer> colRegMinutes;
+	@FXML private TableColumn<RegistrationRowModel, Double> colRegRating;
+	@FXML private TableColumn<RegistrationRowModel, String> colRegTrend;
+	@FXML private TableColumn<RegistrationRowModel, Long> colRegSalary;
+	@FXML private TableColumn<RegistrationRowModel, String> colRegRecommendation;
+
 	private final ObservableList<PlayerRowModel> playerDataList = FXCollections.observableArrayList();
 	private final ObservableList<PositionNeedModel> needsDataList = FXCollections.observableArrayList();
 	private final ObservableList<DepthChartRowModel> depthChartDataList = FXCollections.observableArrayList();
@@ -239,6 +256,7 @@ public class MainController {
 	private final ObservableList<YouthPlayerModel> youthDataList = FXCollections.observableArrayList();
 	private final ObservableList<ScoutingPlayerModel> scoutDataList = FXCollections.observableArrayList();
 	private final ObservableList<ShadowSquadRowModel> shadowSquadDataList = FXCollections.observableArrayList();
+	private final ObservableList<RegistrationRowModel> registrationDataList = FXCollections.observableArrayList();
 
 	private AppConfig appConfig;
 	private final NumberFormat euroFormat = NumberFormat.getNumberInstance(Locale.GERMANY);
@@ -266,6 +284,7 @@ public class MainController {
 		setupYouthTableColumns();
 		setupScoutTableColumns();
 		setupShadowSquadTableColumns();
+		setupRegistrationTableColumns();
 		setupDragAndDrop();
 
 		playerTable.setItems(playerDataList);
@@ -280,6 +299,10 @@ public class MainController {
 		if (shadowSquadTable != null) {
 			shadowSquadTable.setItems(shadowSquadDataList);
 			shadowSquadTable.setEditable(true);
+		}
+		if (registrationTable != null) {
+			registrationTable.setItems(registrationDataList);
+			registrationTable.setEditable(true);
 		}
 
 		String lastImportDate = HistoryRepository.loadLatestSnapshot(
@@ -340,6 +363,7 @@ public class MainController {
 			refreshLoanKPIs();
 			refreshYouthKPIs();
 			refreshScoutKPIs();
+			refreshRegistrationData();
 
 			if (statusLabel != null) {
 				statusLabel.setText("Stand aus H2 geladen (" + playerDataList.size() + " Kader, " + youthDataList.size() + " Talente, " + scoutDataList.size() + " Scouts).");
@@ -1036,6 +1060,7 @@ public class MainController {
 			TableRow<YouthPlayerModel> row = new TableRow<>();
 			row.setOnMouseClicked(event -> {
 				if (event.getClickCount() == 2 && !row.isEmpty()) {
+					PlayerRowModel selected = null;
 					PlayerDetailDialog.show(row.getItem(), (Stage) rootPane.getScene().getWindow());
 				}
 			});
@@ -1322,6 +1347,87 @@ public class MainController {
 		}
 	}
 
+	private void setupRegistrationTableColumns() {
+		if (registrationTable == null) return;
+		StringConverter<Long> euroConv = createEuroConverter();
+
+		colRegActive.setCellValueFactory(cell -> cell.getValue().registeredProperty());
+		colRegActive.setCellFactory(ComboBoxTableCell.forTableColumn(true, false));
+		colRegActive.setOnEditCommit(e -> {
+			e.getRowValue().registeredProperty().set(e.getNewValue());
+			refreshRegistrationKPIs();
+		});
+
+		colRegName.setCellValueFactory(cell -> cell.getValue().nameProperty());
+		colRegRole.setCellValueFactory(cell -> cell.getValue().roleProperty());
+		colRegAge.setCellValueFactory(cell -> cell.getValue().ageProperty().asObject());
+
+		colRegU21.setCellValueFactory(cell -> cell.getValue().u21ExemptProperty());
+		colRegU21.setCellFactory(ComboBoxTableCell.forTableColumn(true, false));
+		colRegU21.setOnEditCommit(e -> {
+			e.getRowValue().u21ExemptProperty().set(e.getNewValue());
+			e.getRowValue().evaluate();
+			refreshRegistrationKPIs();
+		});
+
+		colRegMinutes.setCellValueFactory(cell -> cell.getValue().testMinutesProperty().asObject());
+		colRegMinutes.setCellFactory(TextFieldTableCell.forTableColumn(new IntegerStringConverter()));
+		colRegMinutes.setOnEditCommit(e -> {
+			e.getRowValue().testMinutesProperty().set(e.getNewValue());
+			e.getRowValue().evaluate();
+			refreshRegistrationKPIs();
+		});
+
+		colRegRating.setCellValueFactory(cell -> cell.getValue().testRatingProperty().asObject());
+		colRegRating.setCellFactory(TextFieldTableCell.forTableColumn(new DoubleStringConverter()));
+		colRegRating.setOnEditCommit(e -> {
+			e.getRowValue().testRatingProperty().set(e.getNewValue());
+			e.getRowValue().evaluate();
+			refreshRegistrationKPIs();
+		});
+
+		colRegTrend.setCellValueFactory(cell -> cell.getValue().fitnessTrendProperty());
+
+		colRegSalary.setCellValueFactory(cell -> cell.getValue().salaryProperty().asObject());
+		colRegSalary.setCellFactory(TextFieldTableCell.forTableColumn(euroConv));
+
+		colRegRecommendation.setCellValueFactory(cell -> cell.getValue().recommendationProperty());
+	}
+
+	private void refreshRegistrationData() {
+		registrationDataList.clear();
+		for (PlayerRowModel p : playerDataList) {
+			registrationDataList.add(new RegistrationRowModel(p));
+		}
+		refreshRegistrationKPIs();
+	}
+
+	private void refreshRegistrationKPIs() {
+		long registeredSlots = registrationDataList.stream().filter(r -> r.registeredProperty().get()).count();
+		long u21Count = registrationDataList.stream().filter(r -> r.u21ExemptProperty().get()).count();
+		long totalRegWage = registrationDataList.stream()
+				.filter(r -> r.registeredProperty().get())
+				.mapToLong(r -> r.salaryProperty().get())
+				.sum();
+
+		if (lblRegisteredCount != null) {
+			lblRegisteredCount.setText(registeredSlots + " / 25 Slots");
+			if (registeredSlots > 25) {
+				lblRegisteredCount.setStyle("-fx-text-fill: #dc2626; -fx-font-weight: bold;");
+			} else {
+				lblRegisteredCount.setStyle("-fx-text-fill: #16a34a; -fx-font-weight: bold;");
+			}
+		}
+
+		if (lblU21ExemptCount != null) {
+			lblU21ExemptCount.setText(u21Count + " U21 frei");
+		}
+
+		if (lblRegistrationWages != null) {
+			lblRegistrationWages.setText("€ " + euroFormat.format(totalRegWage) + " / Mon.");
+		}
+	}
+
 	private void refreshSquadKPIs() {
 		if (playerDataList.isEmpty()) {
 			if (lblSquadAvgAge != null) lblSquadAvgAge.setText("0,0");
@@ -1355,6 +1461,7 @@ public class MainController {
 		syncIncomingLoans();
 		refreshShadowSquad();
 		refreshSquadKPIs();
+		refreshRegistrationData();
 		autoSaveToDatabase();
 	}
 
@@ -1419,6 +1526,39 @@ public class MainController {
 			if (db.hasFiles()) {
 				File droppedFile = db.getFiles().get(0);
 				try {
+					// 1. Prüfen, ob es eine dedizierte Testspiel-Exportdatei ist
+					if (FmExportParser.isPreseasonFile(droppedFile)) {
+						List<FmExportParser.PreseasonData> preData = FmExportParser.parsePreseasonFile(droppedFile);
+						int updated = 0;
+
+						for (FmExportParser.PreseasonData p : preData) {
+							String pName = p.name().trim().toLowerCase();
+							for (RegistrationRowModel regRow : registrationDataList) {
+								if (regRow.nameProperty().get() != null && regRow.nameProperty().get().trim().toLowerCase().equals(pName)) {
+									regRow.testMinutesProperty().set(p.estimatedMinutes());
+									regRow.testRatingProperty().set(p.rating());
+									regRow.evaluate();
+									updated++;
+									break;
+								}
+							}
+						}
+
+						refreshRegistrationKPIs();
+
+						// Direkt auf den Registrierungs-Tab (Tab 9) fokussieren
+						if (mainTabPane != null && mainTabPane.getTabs().size() >= 9) {
+							mainTabPane.getSelectionModel().select(8);
+						}
+
+						statusLabel.setText("Testspiel-Stats gemerged: " + updated + " Spieler aktualisiert (aus " + droppedFile.getName() + ").");
+						success = true;
+						event.setDropCompleted(success);
+						event.consume();
+						return;
+					}
+
+					// 2. Regulärer Kader-Merge
 					List<PlayerRowModel> rows = FmExportParser.parseFile(droppedFile);
 
 					String myClub = (txtMyClub != null && !txtMyClub.getText().isBlank())
@@ -1427,7 +1567,7 @@ public class MainController {
 
 					String clubPrefix = myClub.substring(0, Math.min(3, myClub.length()));
 
-					// 1. Alle Namen aus der neu gedroppten Datei erfassen (für die Abgangs-/Verkaufsprüfung)
+					// 1. Alle Namen aus der neu gedroppten Datei erfassen
 					Set<String> importedNames = new HashSet<>();
 					for (PlayerRowModel row : rows) {
 						String n = row.nameProperty().get();
@@ -1565,7 +1705,7 @@ public class MainController {
 							if (existingKader.containsKey(pNameKey)) {
 								PlayerRowModel existing = existingKader.get(pNameKey);
 
-								// Bisherige manuelle Rolle beibehalten, falls sie vom Benutzer festgelegt wurde
+								// Bisherige manuelle Rolle beibehalten
 								String currentRole = existing.roleProperty().get();
 								existing.updateFromFresh(row);
 								if (currentRole != null && !currentRole.isBlank()) {
@@ -1583,7 +1723,7 @@ public class MainController {
 						}
 					}
 
-					// 2. Abgangs-Prüfung: Wer existiert im Verein gar nicht mehr (verkauft / Vertrag beendet)?
+					// 2. Abgangs-Prüfung
 					int removedCount = 0;
 					if (!importedNames.isEmpty()) {
 						List<PlayerRowModel> soldFromKader = playerDataList.stream()
@@ -1611,6 +1751,7 @@ public class MainController {
 					refreshLoanKPIs();
 					refreshShadowSquad();
 					refreshSquadKPIs();
+					refreshRegistrationData();
 
 					HistoryRepository.saveSquadSnapshot(
 							myClub,
@@ -1691,6 +1832,7 @@ public class MainController {
 		syncIncomingLoans();
 		refreshShadowSquad();
 		refreshSquadKPIs();
+		refreshRegistrationData();
 		autoSaveToDatabase();
 		playerTable.scrollTo(row);
 	}
@@ -1705,6 +1847,7 @@ public class MainController {
 		youthDataList.clear();
 		scoutDataList.clear();
 		shadowSquadDataList.clear();
+		registrationDataList.clear();
 
 		if (lblCriticalNeeds != null) lblCriticalNeeds.setText("0 Positionen");
 		if (lblWarningNeeds != null) lblWarningNeeds.setText("0 Positionen");
@@ -1712,6 +1855,9 @@ public class MainController {
 		if (lblShadowTotalProfit != null) lblShadowTotalProfit.setText("€ 0");
 		if (lblShadowTotalSavings != null) lblShadowTotalSavings.setText("€ 0 / Mon.");
 		if (lblShadowCoveredSlots != null) lblShadowCoveredSlots.setText("0 / 0");
+		if (lblRegisteredCount != null) lblRegisteredCount.setText("0 / 25 Slots");
+		if (lblU21ExemptCount != null) lblU21ExemptCount.setText("0 U21 frei");
+		if (lblRegistrationWages != null) lblRegistrationWages.setText("€ 0 / Mon.");
 
 		if (lblImportTimestamp != null) {
 			lblImportTimestamp.setText("Stand: Noch kein Import");

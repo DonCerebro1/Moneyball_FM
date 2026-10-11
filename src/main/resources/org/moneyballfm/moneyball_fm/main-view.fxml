@@ -456,5 +456,48 @@
                 </TableView>
             </VBox>
         </Tab>
+
+        <!-- TAB 9: Saisonvorbereitung & Registrierung -->
+        <Tab text="⏱️ Vorbereitung &amp; Registrierung">
+            <VBox spacing="12.0">
+                <padding>
+                    <Insets top="10.0" />
+                </padding>
+
+                <!-- KPI-Karten oben: 25er Slots, U21-Ausnahmen, Gehaltsvolumen -->
+                <HBox spacing="15.0" alignment="CENTER_LEFT">
+                    <VBox spacing="4.0" style="-fx-background-color: #dcfce7; -fx-padding: 10 16; -fx-background-radius: 8; -fx-border-color: #86efac; -fx-border-radius: 8;">
+                        <Label text="REGISTRIERTE SLOTS (MAX. 25)" style="-fx-font-size: 11px; -fx-text-fill: #166534; -fx-font-weight: bold;" />
+                        <Label fx:id="lblRegisteredCount" text="0 / 25 Slots" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #15803d;" />
+                    </VBox>
+
+                    <VBox spacing="4.0" style="-fx-background-color: #dbeafe; -fx-padding: 10 16; -fx-background-radius: 8; -fx-border-color: #bfdbfe; -fx-border-radius: 8;">
+                        <Label text="U21 / B-TEAM AUSNAHMEN" style="-fx-font-size: 11px; -fx-text-fill: #1e40af; -fx-font-weight: bold;" />
+                        <Label fx:id="lblU21ExemptCount" text="0 U21 frei" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #1d4ed8;" />
+                    </VBox>
+
+                    <VBox spacing="4.0" style="-fx-background-color: #f1f5f9; -fx-padding: 10 16; -fx-background-radius: 8; -fx-border-color: #cbd5e1; -fx-border-radius: 8;">
+                        <Label text="REGISTRIERTE GEHÄLTER" style="-fx-font-size: 11px; -fx-text-fill: #475569; -fx-font-weight: bold;" />
+                        <Label fx:id="lblRegistrationWages" text="€ 0 / Mon." style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #0f172a;" />
+                    </VBox>
+                </HBox>
+
+                <!-- Registrierungs-Tabelle -->
+                <TableView fx:id="registrationTable" VBox.vgrow="ALWAYS" editable="true">
+                    <columns>
+                        <TableColumn fx:id="colRegActive" text="Registrieren?" prefWidth="105.0" />
+                        <TableColumn fx:id="colRegName" text="Spielername" prefWidth="160.0" />
+                        <TableColumn fx:id="colRegRole" text="Taktische Rolle" prefWidth="150.0" />
+                        <TableColumn fx:id="colRegAge" text="Alter" prefWidth="55.0" />
+                        <TableColumn fx:id="colRegU21" text="U21 Frei?" prefWidth="80.0" />
+                        <TableColumn fx:id="colRegMinutes" text="Test-Minuten" prefWidth="95.0" />
+                        <TableColumn fx:id="colRegRating" text="Ø Note" prefWidth="75.0" />
+                        <TableColumn fx:id="colRegTrend" text="Fitness- &amp; Formtrend" prefWidth="180.0" />
+                        <TableColumn fx:id="colRegSalary" text="Gehalt / Mon. (€)" prefWidth="125.0" />
+                        <TableColumn fx:id="colRegRecommendation" text="Moneyball-Urteil" prefWidth="230.0" />
+                    </columns>
+                </TableView>
+            </VBox>
+        </Tab>
     </TabPane>
 </VBox>
