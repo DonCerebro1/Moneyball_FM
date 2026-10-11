@@ -1396,9 +1396,39 @@ public class MainController {
 
 	private void refreshRegistrationData() {
 		registrationDataList.clear();
+
+		// 1. A-Kader hinzufügen
 		for (PlayerRowModel p : playerDataList) {
 			registrationDataList.add(new RegistrationRowModel(p));
 		}
+
+		// 2. Auch Jugend- & B-Team-Spieler aufnehmen (für U21-Ausnahmen)
+		for (YouthPlayerModel y : youthDataList) {
+			boolean exists = registrationDataList.stream()
+					.anyMatch(r -> r.nameProperty().get().equalsIgnoreCase(y.getName())
+							&& r.ageProperty().get() == y.ageProperty().get());
+			if (!exists) {
+				Player p = new Player(
+						y.getName(),
+						y.targetRoleProperty().get(),
+						y.ageProperty().get(),
+						0L,
+						0L,
+						1.0,
+						y.agilityProperty().get(),
+						y.paceProperty().get(),
+						y.staminaProperty().get(),
+						y.determinationProperty().get(),
+						0
+				);
+				PlayerRowModel dummy = new PlayerRowModel(p, 0.0, 0.0, 0.0);
+				RegistrationRowModel reg = new RegistrationRowModel(dummy);
+				reg.u21ExemptProperty().set(y.ageProperty().get() <= 21);
+				reg.evaluate();
+				registrationDataList.add(reg);
+			}
+		}
+
 		refreshRegistrationKPIs();
 	}
 
@@ -1512,6 +1542,27 @@ public class MainController {
 		}
 	}
 
+	private void removeFromOtherListsByKey(String key, ObservableList<?>... targetLists) {
+		for (ObservableList<?> list : targetLists) {
+			list.removeIf(item -> {
+				if (item instanceof PlayerRowModel p) {
+					String k = (p.nameProperty().get() != null ? p.nameProperty().get().trim().toLowerCase() : "")
+							+ "_" + p.ageProperty().get();
+					return k.equalsIgnoreCase(key);
+				} else if (item instanceof LoanPlayerModel l) {
+					String k = (l.getPlayerName() != null ? l.getPlayerName().trim().toLowerCase() : "")
+							+ "_" + l.ageProperty().get();
+					return k.equalsIgnoreCase(key);
+				} else if (item instanceof YouthPlayerModel y) {
+					String k = (y.getName() != null ? y.getName().trim().toLowerCase() : "")
+							+ "_" + y.ageProperty().get();
+					return k.equalsIgnoreCase(key);
+				}
+				return false;
+			});
+		}
+	}
+
 	private void setupDragAndDrop() {
 		rootPane.setOnDragOver(event -> {
 			if (event.getGestureSource() != rootPane && event.getDragboard().hasFiles()) {
@@ -1532,6 +1583,8 @@ public class MainController {
 						int updated = 0;
 
 						for (FmExportParser.PreseasonData p : preData) {
+							if (p.estimatedMinutes() == 0 && p.rating() == 0.0) continue;
+
 							String pName = p.name().trim().toLowerCase();
 							for (RegistrationRowModel regRow : registrationDataList) {
 								if (regRow.nameProperty().get() != null && regRow.nameProperty().get().trim().toLowerCase().equals(pName)) {
@@ -1546,7 +1599,6 @@ public class MainController {
 
 						refreshRegistrationKPIs();
 
-						// Direkt auf den Registrierungs-Tab (Tab 9) fokussieren
 						if (mainTabPane != null && mainTabPane.getTabs().size() >= 9) {
 							mainTabPane.getSelectionModel().select(8);
 						}
@@ -1558,7 +1610,7 @@ public class MainController {
 						return;
 					}
 
-					// 2. Regulärer Kader-Merge
+					// 2. Regulärer Kader-Merge mit zusammengesetztem Key (Name + Alter)
 					List<PlayerRowModel> rows = FmExportParser.parseFile(droppedFile);
 
 					String myClub = (txtMyClub != null && !txtMyClub.getText().isBlank())
@@ -1567,32 +1619,30 @@ public class MainController {
 
 					String clubPrefix = myClub.substring(0, Math.min(3, myClub.length()));
 
-					// 1. Alle Namen aus der neu gedroppten Datei erfassen
-					Set<String> importedNames = new HashSet<>();
+					Set<String> importedKeys = new HashSet<>();
 					for (PlayerRowModel row : rows) {
 						String n = row.nameProperty().get();
 						if (n != null && !n.isBlank()) {
-							importedNames.add(n.trim().toLowerCase());
+							importedKeys.add(n.trim().toLowerCase() + "_" + row.ageProperty().get());
 						}
 					}
 
-					// Lookup-Maps für bestehende Daten
 					Map<String, PlayerRowModel> existingKader = new HashMap<>();
 					for (PlayerRowModel p : playerDataList) {
 						String n = p.nameProperty().get();
-						if (n != null) existingKader.put(n.trim().toLowerCase(), p);
+						if (n != null) existingKader.put(n.trim().toLowerCase() + "_" + p.ageProperty().get(), p);
 					}
 
 					Map<String, LoanPlayerModel> existingLoans = new HashMap<>();
 					for (LoanPlayerModel l : outgoingLoanDataList) {
 						String n = l.getPlayerName();
-						if (n != null) existingLoans.put(n.trim().toLowerCase(), l);
+						if (n != null) existingLoans.put(n.trim().toLowerCase() + "_" + l.ageProperty().get(), l);
 					}
 
 					Map<String, YouthPlayerModel> existingYouth = new HashMap<>();
 					for (YouthPlayerModel y : youthDataList) {
 						String n = y.getName();
-						if (n != null) existingYouth.put(n.trim().toLowerCase(), y);
+						if (n != null) existingYouth.put(n.trim().toLowerCase() + "_" + y.ageProperty().get(), y);
 					}
 
 					int updatedCount = 0;
@@ -1601,7 +1651,8 @@ public class MainController {
 					for (PlayerRowModel row : rows) {
 						String pName = row.nameProperty().get();
 						if (pName == null || pName.isBlank()) continue;
-						String pNameKey = pName.trim().toLowerCase();
+
+						String pKey = pName.trim().toLowerCase() + "_" + row.ageProperty().get();
 
 						String club = row.currentClubProperty().get() != null
 								? row.currentClubProperty().get().trim().toLowerCase() : "";
@@ -1619,10 +1670,9 @@ public class MainController {
 						)) || (row.ageProperty().get() <= 18 && row.minutesPlayedProperty().get() < 300);
 
 						if (isOutgoingLoan) {
-							// Status: Verliehen
-							removeFromOtherLists(pNameKey, playerDataList, youthDataList);
-							existingKader.remove(pNameKey);
-							existingYouth.remove(pNameKey);
+							removeFromOtherListsByKey(pKey, playerDataList, youthDataList);
+							existingKader.remove(pKey);
+							existingYouth.remove(pKey);
 
 							String clubStr = row.currentClubProperty().get() != null ? row.currentClubProperty().get() : "";
 							String leagueStr = row.getLeague();
@@ -1649,23 +1699,22 @@ public class MainController {
 									minutes >= 900
 							);
 
-							if (existingLoans.containsKey(pNameKey)) {
-								LoanPlayerModel existing = existingLoans.get(pNameKey);
+							if (existingLoans.containsKey(pKey)) {
+								LoanPlayerModel existing = existingLoans.get(pKey);
 								existing.updateFromFresh(freshLoan);
 								LoanAnalysisService.evaluate(existing);
 								updatedCount++;
 							} else {
 								LoanAnalysisService.evaluate(freshLoan);
 								outgoingLoanDataList.add(freshLoan);
-								existingLoans.put(pNameKey, freshLoan);
+								existingLoans.put(pKey, freshLoan);
 								addedCount++;
 							}
 
 						} else if (isReserveOrYouthTeam) {
-							// Status: Jugend/Reserve
-							removeFromOtherLists(pNameKey, playerDataList, outgoingLoanDataList);
-							existingKader.remove(pNameKey);
-							existingLoans.remove(pNameKey);
+							removeFromOtherListsByKey(pKey, playerDataList, outgoingLoanDataList);
+							existingKader.remove(pKey);
+							existingLoans.remove(pKey);
 
 							YouthPlayerModel freshYouth = new YouthPlayerModel(
 									row.nameProperty().get(),
@@ -1682,30 +1731,28 @@ public class MainController {
 									row.statValue3Property().get()
 							);
 
-							if (existingYouth.containsKey(pNameKey)) {
-								YouthPlayerModel existing = existingYouth.get(pNameKey);
+							if (existingYouth.containsKey(pKey)) {
+								YouthPlayerModel existing = existingYouth.get(pKey);
 								existing.updateFromFresh(freshYouth);
 								YouthAnalysisService.evaluate(existing);
 								updatedCount++;
 							} else {
 								YouthAnalysisService.evaluate(freshYouth);
 								youthDataList.add(freshYouth);
-								existingYouth.put(pNameKey, freshYouth);
+								existingYouth.put(pKey, freshYouth);
 								addedCount++;
 							}
 
 						} else {
-							// Status: A-Kader
-							removeFromOtherLists(pNameKey, outgoingLoanDataList, youthDataList);
-							existingLoans.remove(pNameKey);
-							existingYouth.remove(pNameKey);
+							removeFromOtherListsByKey(pKey, outgoingLoanDataList, youthDataList);
+							existingLoans.remove(pKey);
+							existingYouth.remove(pKey);
 
 							row.onLoanProperty().set(isIncomingLoan);
 
-							if (existingKader.containsKey(pNameKey)) {
-								PlayerRowModel existing = existingKader.get(pNameKey);
+							if (existingKader.containsKey(pKey)) {
+								PlayerRowModel existing = existingKader.get(pKey);
 
-								// Bisherige manuelle Rolle beibehalten
 								String currentRole = existing.roleProperty().get();
 								existing.updateFromFresh(row);
 								if (currentRole != null && !currentRole.isBlank()) {
@@ -1717,19 +1764,20 @@ public class MainController {
 							} else {
 								MoneyballCalculator.recalculate(row, appConfig);
 								playerDataList.add(row);
-								existingKader.put(pNameKey, row);
+								existingKader.put(pKey, row);
 								addedCount++;
 							}
 						}
 					}
 
-					// 2. Abgangs-Prüfung
+					// 3. Abgangs-Prüfung über eindeutigen Key
 					int removedCount = 0;
-					if (!importedNames.isEmpty()) {
+					if (!importedKeys.isEmpty()) {
 						List<PlayerRowModel> soldFromKader = playerDataList.stream()
 								.filter(p -> {
-									String k = p.nameProperty().get() != null ? p.nameProperty().get().trim().toLowerCase() : "";
-									return !importedNames.contains(k);
+									String k = (p.nameProperty().get() != null ? p.nameProperty().get().trim().toLowerCase() : "")
+											+ "_" + p.ageProperty().get();
+									return !importedKeys.contains(k);
 								})
 								.toList();
 						removedCount += soldFromKader.size();
@@ -1737,8 +1785,9 @@ public class MainController {
 
 						List<YouthPlayerModel> soldFromYouth = youthDataList.stream()
 								.filter(y -> {
-									String k = y.getName() != null ? y.getName().trim().toLowerCase() : "";
-									return !importedNames.contains(k);
+									String k = (y.getName() != null ? y.getName().trim().toLowerCase() : "")
+											+ "_" + y.ageProperty().get();
+									return !importedKeys.contains(k);
 								})
 								.toList();
 						removedCount += soldFromYouth.size();

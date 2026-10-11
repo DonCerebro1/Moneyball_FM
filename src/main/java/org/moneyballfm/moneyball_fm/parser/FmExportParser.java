@@ -17,7 +17,7 @@ import java.util.Map;
 
 public class FmExportParser {
 
-	public record PreseasonData(String name, int estimatedMinutes, double rating) {}
+	public record PreseasonData(String name, String position, int estimatedMinutes, double rating) {}
 
 	public static List<PlayerRowModel> parseFile(File file) throws IOException {
 		String name = file.getName().toLowerCase();
@@ -94,11 +94,12 @@ public class FmExportParser {
 				String name = getVal(cols, colMap, "name", "person", "spieler");
 				if (name.isBlank()) continue;
 
+				String pos = getVal(cols, colMap, "ausgewählte position", "ausgew. pos.", "pos", "position");
 				String einsStr = getVal(cols, colMap, "eins", "spiele", "apps");
 				double rating = parseDouble(getVal(cols, colMap, "ø note", "note", "d-note", "drschn."));
 				int minutes = calculateMinutesFromAppearances(einsStr);
 
-				result.add(new PreseasonData(name, minutes, rating));
+				result.add(new PreseasonData(name, pos, minutes, rating));
 			}
 		}
 		return result;
@@ -237,15 +238,20 @@ public class FmExportParser {
 		} else if (hasValidRawPos) {
 			targetPositionStr = rawPos;
 		} else {
-			if (naturalPosRaw.contains(",")) {
+			if (naturalPosRaw != null && naturalPosRaw.contains(",")) {
 				targetPositionStr = naturalPosRaw.split(",")[0].trim();
-			} else {
+			} else if (naturalPosRaw != null && !naturalPosRaw.isBlank() && !naturalPosRaw.equals("-")) {
 				targetPositionStr = naturalPosRaw;
+			} else {
+				targetPositionStr = "FVR"; // Sicherer Fallback, falls weder Position noch Rolle angegeben ist
 			}
 		}
 
 		String cleanPos = cleanNbsps(targetPositionStr).replaceAll("[\\.]+$", "").trim();
 		TacticRole tacticRole = TacticRole.fromPosition(cleanPos);
+		if (tacticRole == null) {
+			tacticRole = TacticRole.values()[0];
+		}
 
 		int age = parseInt(getVal(cols, map, "alter", "age"));
 		long value = parseMoney(getVal(cols, map, "transferwert", "marktwert", "wert"));
