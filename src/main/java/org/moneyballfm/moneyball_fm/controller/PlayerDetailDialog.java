@@ -25,98 +25,108 @@ import java.util.Locale;
 
 public class PlayerDetailDialog {
 
-	private static final NumberFormat EURO_FORMAT = NumberFormat.getNumberInstance(Locale.GERMANY);
+		private static final NumberFormat EURO_FORMAT = NumberFormat.getNumberInstance(Locale.GERMANY);
 
-	public static void show(PlayerRowModel player, Stage ownerStage) {
-		if (player == null) return;
-		showGeneric(player.nameProperty().get(), player.roleProperty().get(), ownerStage);
-	}
-
-	public static void show(LoanPlayerModel player, Stage ownerStage) {
-		if (player == null) return;
-		showGeneric(player.getPlayerName(), player.targetRoleProperty().get(), ownerStage);
-	}
-
-	public static void show(YouthPlayerModel player, Stage ownerStage) {
-		if (player == null) return;
-		showGeneric(player.getName(), player.targetRoleProperty().get(), ownerStage);
-	}
-
-	public static void showGeneric(String playerName, String role, Stage ownerStage) {
-		if (playerName == null || playerName.isBlank()) return;
-
-		Stage dialog = new Stage();
-		dialog.initModality(Modality.WINDOW_MODAL);
-		dialog.initOwner(ownerStage);
-		dialog.setTitle("Spieler-Historie: " + playerName);
-
-		List<PlayerHistoryEntry> history = HistoryRepository.getPlayerHistory(playerName);
-
-		VBox root = new VBox(15);
-		root.setPadding(new Insets(15));
-		root.setPrefSize(800, 600);
-
-		// 1. Header-Info
-		Label title = new Label(playerName + (role != null && !role.isBlank() ? " (" + role + ")" : ""));
-		title.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #0f172a;");
-
-		// 2. LineChart für Moneyball-Score
-		CategoryAxis xAxis = new CategoryAxis();
-		xAxis.setLabel("Snapshot / Datum");
-
-		NumberAxis yAxis = new NumberAxis(0, 100, 10);
-		yAxis.setLabel("Moneyball-Score");
-
-		LineChart<String, Number> lineChart = new LineChart<>(xAxis, yAxis);
-		lineChart.setTitle("Entwicklung: Moneyball-Score");
-		lineChart.setLegendVisible(false);
-		lineChart.setPrefHeight(250);
-
-		XYChart.Series<String, Number> series = new XYChart.Series<>();
-		for (PlayerHistoryEntry entry : history) {
-			series.getData().add(new XYChart.Data<>(entry.snapshotDateProperty().get(), entry.moneyballScoreProperty().get()));
+		public static void show(PlayerRowModel player, Stage ownerStage) {
+				if (player == null) return;
+				showGeneric(player.nameProperty().get(), player.roleProperty().get(), player.ageProperty().get(), ownerStage);
 		}
-		lineChart.getData().add(series);
 
-		// 3. Verlaufs-Tabelle
-		TableView<PlayerHistoryEntry> table = new TableView<>();
-		table.setItems(FXCollections.observableArrayList(history));
+		public static void show(LoanPlayerModel player, Stage ownerStage) {
+				if (player == null) return;
+				showGeneric(player.getPlayerName(), player.targetRoleProperty().get(), player.ageProperty().get(), ownerStage);
+		}
 
-		TableColumn<PlayerHistoryEntry, String> colDate = new TableColumn<>("Datum");
-		colDate.setCellValueFactory(c -> c.getValue().snapshotDateProperty());
-		colDate.setPrefWidth(120);
+		public static void show(YouthPlayerModel player, Stage ownerStage) {
+				if (player == null) return;
+				showGeneric(player.getName(), player.targetRoleProperty().get(), player.ageProperty().get(), ownerStage);
+		}
 
-		TableColumn<PlayerHistoryEntry, String> colRole = new TableColumn<>("Rolle");
-		colRole.setCellValueFactory(c -> c.getValue().roleProperty());
-		colRole.setPrefWidth(120);
+		// Fallback-Überladung, falls irgendwo noch showGeneric ohne Alter aufgerufen wird
+		public static void showGeneric(String playerName, String role, Stage ownerStage) {
+				showGeneric(playerName, role, -1, ownerStage);
+		}
 
-		TableColumn<PlayerHistoryEntry, Integer> colAge = new TableColumn<>("Alter");
-		colAge.setCellValueFactory(c -> c.getValue().ageProperty().asObject());
-		colAge.setPrefWidth(50);
+		public static void showGeneric(String playerName, String role, int age, Stage ownerStage) {
+				if (playerName == null || playerName.isBlank()) return;
 
-		TableColumn<PlayerHistoryEntry, Double> colScore = new TableColumn<>("Score");
-		colScore.setCellValueFactory(c -> c.getValue().moneyballScoreProperty().asObject());
-		colScore.setPrefWidth(65);
+				Stage dialog = new Stage();
+				dialog.initModality(Modality.WINDOW_MODAL);
+				dialog.initOwner(ownerStage);
+				dialog.setTitle("Spieler-Historie: " + playerName + (age > 0 ? " (" + age + " J.)" : ""));
 
-		TableColumn<PlayerHistoryEntry, String> colVal = new TableColumn<>("Marktwert");
-		colVal.setCellValueFactory(c -> new javafx.beans.property.SimpleStringProperty("€ " + EURO_FORMAT.format(c.getValue().marketValueProperty().get())));
-		colVal.setPrefWidth(110);
+				// Eindeutige Abfrage mit Alter, falls vorhanden
+				List<PlayerHistoryEntry> history = (age > 0)
+								? HistoryRepository.getPlayerHistory(playerName, age)
+								: HistoryRepository.getPlayerHistory(playerName);
 
-		TableColumn<PlayerHistoryEntry, Integer> colMin = new TableColumn<>("Minuten");
-		colMin.setCellValueFactory(c -> c.getValue().minutesPlayedProperty().asObject());
-		colMin.setPrefWidth(70);
+				VBox root = new VBox(15);
+				root.setPadding(new Insets(15));
+				root.setPrefSize(800, 600);
 
-		TableColumn<PlayerHistoryEntry, String> colRec = new TableColumn<>("Status / Gehalt");
-		colRec.setCellValueFactory(c -> c.getValue().recommendationProperty());
-		colRec.setPrefWidth(150);
+				// 1. Header-Info
+				String rolePart = (role != null && !role.isBlank()) ? " (" + role + ")" : "";
+				String agePart = (age > 0) ? " • " + age + " Jahre" : "";
+				Label title = new Label(playerName + rolePart + agePart);
+				title.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #0f172a;");
 
-		table.getColumns().addAll(colDate, colRole, colAge, colScore, colVal, colMin, colRec);
-		VBox.setVgrow(table, javafx.scene.layout.Priority.ALWAYS);
+				// 2. LineChart für Moneyball-Score
+				CategoryAxis xAxis = new CategoryAxis();
+				xAxis.setLabel("Snapshot / Datum");
 
-		root.getChildren().addAll(title, lineChart, table);
+				NumberAxis yAxis = new NumberAxis(0, 100, 10);
+				yAxis.setLabel("Moneyball-Score");
 
-		Scene scene = new Scene(root);
-		dialog.setScene(scene);
-		dialog.show();
-	}
+				LineChart<String, Number> lineChart = new LineChart<>(xAxis, yAxis);
+				lineChart.setTitle("Entwicklung: Moneyball-Score");
+				lineChart.setLegendVisible(false);
+				lineChart.setPrefHeight(250);
+
+				XYChart.Series<String, Number> series = new XYChart.Series<>();
+				for (PlayerHistoryEntry entry : history) {
+						series.getData().add(new XYChart.Data<>(entry.snapshotDateProperty().get(), entry.moneyballScoreProperty().get()));
+				}
+				lineChart.getData().add(series);
+
+				// 3. Verlaufs-Tabelle
+				TableView<PlayerHistoryEntry> table = new TableView<>();
+				table.setItems(FXCollections.observableArrayList(history));
+
+				TableColumn<PlayerHistoryEntry, String> colDate = new TableColumn<>("Datum");
+				colDate.setCellValueFactory(c -> c.getValue().snapshotDateProperty());
+				colDate.setPrefWidth(120);
+
+				TableColumn<PlayerHistoryEntry, String> colRole = new TableColumn<>("Rolle");
+				colRole.setCellValueFactory(c -> c.getValue().roleProperty());
+				colRole.setPrefWidth(120);
+
+				TableColumn<PlayerHistoryEntry, Integer> colAge = new TableColumn<>("Alter");
+				colAge.setCellValueFactory(c -> c.getValue().ageProperty().asObject());
+				colAge.setPrefWidth(50);
+
+				TableColumn<PlayerHistoryEntry, Double> colScore = new TableColumn<>("Score");
+				colScore.setCellValueFactory(c -> c.getValue().moneyballScoreProperty().asObject());
+				colScore.setPrefWidth(65);
+
+				TableColumn<PlayerHistoryEntry, String> colVal = new TableColumn<>("Marktwert");
+				colVal.setCellValueFactory(c -> new javafx.beans.property.SimpleStringProperty("€ " + EURO_FORMAT.format(c.getValue().marketValueProperty().get())));
+				colVal.setPrefWidth(110);
+
+				TableColumn<PlayerHistoryEntry, Integer> colMin = new TableColumn<>("Minuten");
+				colMin.setCellValueFactory(c -> c.getValue().minutesPlayedProperty().asObject());
+				colMin.setPrefWidth(70);
+
+				TableColumn<PlayerHistoryEntry, String> colRec = new TableColumn<>("Status / Gehalt");
+				colRec.setCellValueFactory(c -> c.getValue().recommendationProperty());
+				colRec.setPrefWidth(150);
+
+				table.getColumns().addAll(colDate, colRole, colAge, colScore, colVal, colMin, colRec);
+				VBox.setVgrow(table, javafx.scene.layout.Priority.ALWAYS);
+
+				root.getChildren().addAll(title, lineChart, table);
+
+				Scene scene = new Scene(root);
+				dialog.setScene(scene);
+				dialog.show();
+		}
 }
