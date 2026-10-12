@@ -1,3 +1,4 @@
+
 # FM Moneyball Suite ⚽📊
 
 Willkommen zum ersten offiziellen Release der **FM Moneyball Suite**! 
@@ -20,6 +21,10 @@ Dieses Tool hilft dir dabei, deine Squad- und Scouting-Daten aus dem Football Ma
 1. Lade die unten angehängte Datei **`FMMoneyball.zip`** herunter.
 2. Entpacke das Archiv an einen beliebigen Ort (z. B. Desktop oder Dokumente – *nicht* in `C:\Program Files`).
 3. Starte die Anwendung über die Datei **`FMMoneyball.exe`**.
+
+### Ab 1.0.2
+Kommt der Export Button für die Views die man braucht zum Exportieren damit alle Daten richtig eingelesen werden. Wichtig ist aktuell das für das Scouting nur html funktioniert weil FM bei der .txt aus irgendeinen
+Grund die Namen nicht immer mitliefert. Bei der KaderAnalyse ist das egal da funktionieren alle Dateiendungen
 
 > **Hinweis für zukünftige Updates:**  
 > Deine gespeicherten Daten liegen im Ordner `data/`. Wenn du später auf eine neuere Version aktualisierst, kopiere einfach deinen bestehenden `data/`-Ordner in das neue Verzeichnis, um alle Snapshots und Historien zu behalten.
