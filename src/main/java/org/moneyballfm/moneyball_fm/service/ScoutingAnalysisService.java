@@ -72,7 +72,7 @@ public class ScoutingAnalysisService {
 					+ Math.min(k / 0.74, 1.20) * 22.75
 					+ Math.min(l / 1.30, 1.20) * 19.50;
 
-			// DYNAMISCHER FALLBACK (falls unbekannte Rolle: Stats 1-3 trotzdem werten)
+			// DYNAMISCHER FALLBACK
 		} else {
 			statPoints = Math.min(j / 0.80, 1.20) * 22.0
 					+ Math.min(k / 1.50, 1.20) * 22.0
@@ -106,13 +106,13 @@ public class ScoutingAnalysisService {
 		double finalScore = Math.min(100.0, Math.max(0.0, Math.round(statPoints + athleticPoints + agePoints)));
 		p.scoutingScoreProperty().set(finalScore);
 
-		// 4. MAX-ABLÖSE (€) - Dynamisch nach Score und Vertrag
+		// 4. MAX-ABLÖSE (€) - Ausgelegt auf internationale Top-Clubs
 		long maxFeeBase;
-		if (finalScore >= 95.0) maxFeeBase = 35_000_000L;
-		else if (finalScore >= 90.0) maxFeeBase = 30_000_000L;
-		else if (finalScore >= 80.0) maxFeeBase = 22_000_000L;
-		else if (finalScore >= 70.0) maxFeeBase = 12_000_000L;
-		else maxFeeBase = 4_000_000L;
+		if (finalScore >= 95.0) maxFeeBase = 120_000_000L;
+		else if (finalScore >= 90.0) maxFeeBase = 85_000_000L;
+		else if (finalScore >= 80.0) maxFeeBase = 50_000_000L;
+		else if (finalScore >= 70.0) maxFeeBase = 25_000_000L;
+		else maxFeeBase = 10_000_000L;
 
 		double contractYears = p.contractYearsProperty().get();
 		if (contractYears > 0.0 && contractYears <= 1.0) {
@@ -124,10 +124,11 @@ public class ScoutingAnalysisService {
 
 		// 5. MAX-GEHALT / MONAT (€)
 		long maxWage;
-		if (finalScore >= 90.0) maxWage = 850_000L;
-		else if (finalScore >= 80.0) maxWage = 550_000L;
-		else if (finalScore >= 70.0) maxWage = 350_000L;
-		else maxWage = 180_000L;
+		if (finalScore >= 95.0) maxWage = 1_500_000L;
+		else if (finalScore >= 90.0) maxWage = 1_100_000L;
+		else if (finalScore >= 80.0) maxWage = 750_000L;
+		else if (finalScore >= 70.0) maxWage = 450_000L;
+		else maxWage = 200_000L;
 
 		p.maxWageProperty().set(maxWage);
 
@@ -135,7 +136,10 @@ public class ScoutingAnalysisService {
 		long asking = p.askingPriceProperty().get();
 		long wage = p.wageDemandProperty().get();
 
-		if (asking <= 0) {
+		if (asking >= 900_000_000L) {
+			p.priceCheckProperty().set("🔒 UNVERKÄUFLICH");
+			p.transferActionProperty().set("❌ KEINE FREIGABE");
+		} else if (asking <= 0) {
 			p.priceCheckProperty().set("⚪ KEINE ANGABE");
 			p.transferActionProperty().set("ℹ️ ABLÖSE ANFRAGEN");
 		} else if (asking <= maxFeeBase * 0.50) {

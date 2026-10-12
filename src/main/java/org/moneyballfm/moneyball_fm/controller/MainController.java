@@ -1171,7 +1171,6 @@ public class MainController {
 			recalcScout(e.getRowValue());
 		});
 
-		// Manuelle Werteingaben sichern
 		colScoutStat1.setCellValueFactory(cell -> cell.getValue().statValue1Property().asObject());
 		colScoutStat1.setCellFactory(TextFieldTableCell.forTableColumn(new DoubleStringConverter()));
 		colScoutStat1.setOnEditCommit(e -> {
@@ -2089,15 +2088,23 @@ public class MainController {
 		return new StringConverter<>() {
 			@Override
 			public String toString(Long value) {
-				if (value == null || value <= 0) return "€ 0";
+				if (value == null || value == 0) return "€ 0";
+				if (value >= 900_000_000L) return "Unverkäuflich";
+				if (value < 0) {
+					return "- € " + euroFormat.format(Math.abs(value));
+				}
 				return "€ " + euroFormat.format(value);
 			}
 
 			@Override
 			public Long fromString(String string) {
 				if (string == null || string.isBlank()) return 0L;
+				if (string.toLowerCase().contains("unverkäuflich")) return 999_000_000L;
+				boolean negative = string.contains("-");
 				String clean = string.replaceAll("[^0-9]", "");
-				return clean.isEmpty() ? 0L : Long.parseLong(clean);
+				if (clean.isEmpty()) return 0L;
+				long val = Long.parseLong(clean);
+				return negative ? -val : val;
 			}
 		};
 	}

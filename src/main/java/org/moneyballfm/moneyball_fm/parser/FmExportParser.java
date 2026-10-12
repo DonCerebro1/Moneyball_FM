@@ -18,6 +18,8 @@ import java.util.Map;
 
 public class FmExportParser {
 
+	public static final long UNVERKAEUFLICH_VALUE = 999_000_000L;
+
 	public record PreseasonData(String name, String position, int estimatedMinutes, double rating) {}
 
 	// ==========================================
@@ -556,14 +558,12 @@ public class FmExportParser {
 
 	private static String getVal(String[] cols, Map<String, Integer> map, String... keys) {
 		for (String k : keys) {
-			// 1. Direkter Lookup (lowercase, trimmed)
 			String searchKey = cleanNbsps(k).toLowerCase().trim();
 			Integer idx = map.get(searchKey);
 			if (idx != null && idx < cols.length) {
 				return cols[idx].trim();
 			}
 
-			// 2. Normalisierter Lookup (ohne Leerzeichen, % und /)
 			String normalizedKey = cleanHeaderKey(k);
 			Integer normIdx = map.get(normalizedKey);
 			if (normIdx != null && normIdx < cols.length) {
@@ -593,6 +593,15 @@ public class FmExportParser {
 	private static long parseMoney(String val) {
 		if (val == null || val.isBlank() || val.equals("-") || val.equals("—")) return 0L;
 		String clean = cleanNbsps(val).toLowerCase().replace("€", "").trim();
+
+		// Alle Varianten von "Unverkäuflich" & "Nicht zum Verkauf"
+		if (clean.contains("unverkäuflich")
+				|| clean.contains("unverkaeuflich")
+				|| clean.contains("nicht zum verkauf")
+				|| clean.contains("nicht zu verkaufen")
+				|| clean.contains("not for sale")) {
+			return UNVERKAEUFLICH_VALUE;
+		}
 
 		if (clean.contains("-")) {
 			String[] parts = clean.split("-");
