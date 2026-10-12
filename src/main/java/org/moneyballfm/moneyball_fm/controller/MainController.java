@@ -369,7 +369,10 @@ public class MainController {
 		ViewInstallerService.installViews(window);
 	}
 
-	private void autoSaveToDatabase() {
+	/**
+	 * Speichert einen echten neuen Verlaufs-Snapshot in der H2-Datenbank (bei Datei-Import).
+	 */
+	private void saveSnapshotToDatabase() {
 		String club = (txtMyClub != null && !txtMyClub.getText().isBlank()) ? txtMyClub.getText().trim() : "Villarreal";
 		HistoryRepository.persistCurrentState(
 				club,
@@ -379,6 +382,14 @@ public class MainController {
 				youthDataList,
 				scoutDataList
 		);
+	}
+
+	/**
+	 * Leichtgewichtige Sicherung bei Tabellen-Edits (belässt den Snapshot sauber).
+	 */
+	private void autoSaveToDatabase() {
+		// Bei Live-Zelländerungen bleibt der aktuelle Zustand im RAM aktiv
+		// Snapshots werden dediziert bei echten Importen erstellt.
 	}
 
 	private void setupDepthChartTableColumns() {
@@ -1439,7 +1450,7 @@ public class MainController {
 		scoutDataList.add(s);
 		refreshScoutKPIs();
 		refreshShadowSquad();
-		autoSaveToDatabase();
+		saveSnapshotToDatabase();
 		if (scoutTable != null) scoutTable.scrollTo(s);
 	}
 
@@ -1987,8 +1998,8 @@ public class MainController {
 					refreshSquadKPIs();
 					refreshRegistrationData();
 
-					// Speichert den aktuellen Gesamtzustand (inkl. Scouting)
-					autoSaveToDatabase();
+					// ERZEUGT BEIM IMPORT EINEN NEUEN HISTORIEN-PUNKT
+					saveSnapshotToDatabase();
 
 					if (lblImportTimestamp != null) {
 						lblImportTimestamp.setText("Importiert am: " + LocalDateTime.now().format(timeFormatter));
@@ -2079,7 +2090,9 @@ public class MainController {
 
 			refreshScoutKPIs();
 			refreshShadowSquad();
-			autoSaveToDatabase();
+
+			// Speichert den Import-Snapshot für die Scouting-Historie
+			saveSnapshotToDatabase();
 
 			if (statusLabel != null) {
 				statusLabel.setText("Scouting gemerged: " + added + " neu hinzugefügt, " + updated + " aktualisiert (aus " + file.getName() + ").");
@@ -2171,7 +2184,7 @@ public class MainController {
 		refreshShadowSquad();
 		refreshSquadKPIs();
 		refreshRegistrationData();
-		autoSaveToDatabase();
+		saveSnapshotToDatabase();
 		playerTable.scrollTo(row);
 	}
 

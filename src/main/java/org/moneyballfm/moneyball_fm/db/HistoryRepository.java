@@ -61,30 +61,13 @@ public class HistoryRepository {
 			conn.setAutoCommit(false);
 
 			long snapshotId = -1;
-			String findLatestSql = "SELECT id FROM snapshots WHERE export_type = 'SQUAD' ORDER BY imported_at DESC LIMIT 1";
-			try (Statement st = conn.createStatement();
-			     ResultSet rs = st.executeQuery(findLatestSql)) {
-				if (rs.next()) {
-					snapshotId = rs.getLong("id");
-				}
-			}
-
-			if (snapshotId <= 0) {
-				String insertSnapshot = "INSERT INTO snapshots (club_name, in_game_season, export_type, file_name) VALUES (?, 'Aktuell', 'SQUAD', 'Manuelle Änderung')";
-				try (PreparedStatement ps = conn.prepareStatement(insertSnapshot, Statement.RETURN_GENERATED_KEYS)) {
-					ps.setString(1, clubName);
-					ps.executeUpdate();
-					try (ResultSet rs = ps.getGeneratedKeys()) {
-						if (rs.next()) snapshotId = rs.getLong(1);
-					}
-				}
-			} else {
-				try (PreparedStatement delP = conn.prepareStatement("DELETE FROM player_history WHERE snapshot_id = ?");
-				     PreparedStatement delS = conn.prepareStatement("DELETE FROM scouting_history WHERE snapshot_id = ?")) {
-					delP.setLong(1, snapshotId);
-					delP.executeUpdate();
-					delS.setLong(1, snapshotId);
-					delS.executeUpdate();
+			// Erzeugt bei jedem Aufruf einen neuen Snapshot, damit die Entwicklungshistorie erhalten bleibt
+			String insertSnapshot = "INSERT INTO snapshots (club_name, in_game_season, export_type, file_name, imported_at) VALUES (?, 'Aktuell', 'SQUAD', 'Kader-Import', CURRENT_TIMESTAMP)";
+			try (PreparedStatement ps = conn.prepareStatement(insertSnapshot, Statement.RETURN_GENERATED_KEYS)) {
+				ps.setString(1, clubName);
+				ps.executeUpdate();
+				try (ResultSet rs = ps.getGeneratedKeys()) {
+					if (rs.next()) snapshotId = rs.getLong(1);
 				}
 			}
 
