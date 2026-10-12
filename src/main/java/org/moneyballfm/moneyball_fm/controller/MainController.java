@@ -1212,6 +1212,18 @@ public class MainController {
 
 		colScoutPriceCheck.setCellValueFactory(cell -> cell.getValue().priceCheckProperty());
 		colScoutAction.setCellValueFactory(cell -> cell.getValue().transferActionProperty());
+
+		// Doppelklick auf Zeile öffnet den Detail-Dialog für Scouting-Targets
+		scoutTable.setRowFactory(tv -> {
+			TableRow<ScoutingPlayerModel> row = new TableRow<>();
+			row.setOnMouseClicked(event -> {
+				if (event.getClickCount() == 2 && !row.isEmpty()) {
+					ScoutingPlayerModel selected = row.getItem();
+					PlayerDetailDialog.show(selected, (Stage) rootPane.getScene().getWindow());
+				}
+			});
+			return row;
+		});
 	}
 
 	private void syncManualStatToRaw(ScoutingPlayerModel p, int statSlot, double val) {
