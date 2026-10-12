@@ -252,6 +252,15 @@ public class FmExportParser {
 		String rawPos = getVal(cols, map, "ausgewählte position", "ausgew. pos.", "ausgew. pos");
 		String naturalPosRaw = getVal(cols, map, "position", "pos", "natürliche position");
 
+		// Fallback für zweizeilige FM-Positionszellen (oben Position, unten Rolle)
+		if ((roleDetail.isBlank() || roleDetail.equals("-")) && naturalPosRaw.contains("\n")) {
+			String[] lines = naturalPosRaw.split("\n");
+			if (lines.length > 1 && !lines[1].isBlank()) {
+				roleDetail = lines[1].trim();
+				naturalPosRaw = lines[0].trim();
+			}
+		}
+
 		String targetPositionStr = "";
 
 		boolean hasValidRoleDetail = !roleDetail.isBlank()
@@ -269,12 +278,10 @@ public class FmExportParser {
 		} else if (hasValidRawPos) {
 			targetPositionStr = rawPos;
 		} else {
-			if (naturalPosRaw != null && naturalPosRaw.contains(",")) {
-				targetPositionStr = naturalPosRaw.split(",")[0].trim();
-			} else if (naturalPosRaw != null && !naturalPosRaw.isBlank() && !naturalPosRaw.equals("-")) {
-				targetPositionStr = naturalPosRaw;
+			if (!naturalPosRaw.isBlank() && !naturalPosRaw.equals("-")) {
+				targetPositionStr = naturalPosRaw.contains(",") ? naturalPosRaw.split(",")[0].trim() : naturalPosRaw;
 			} else {
-				targetPositionStr = "FVR";
+				targetPositionStr = "IV";
 			}
 		}
 
@@ -483,6 +490,15 @@ public class FmExportParser {
 		String rawPos = getVal(cols, map, "ausgewählte position", "ausgew. pos.", "ausgew. pos");
 		String naturalPosRaw = getVal(cols, map, "position", "pos", "natürliche position");
 
+		// Zweizeilige FM-Zelle: z. B. "V (RZ), DM\nBallspielender Verteidiger"
+		if ((roleDetail.isBlank() || roleDetail.equals("-")) && naturalPosRaw.contains("\n")) {
+			String[] lines = naturalPosRaw.split("\n");
+			if (lines.length > 1 && !lines[1].isBlank()) {
+				roleDetail = lines[1].trim(); // Ideal-Rolle aus FM übernehmen!
+				naturalPosRaw = lines[0].trim();
+			}
+		}
+
 		String targetPositionStr = "";
 		boolean hasValidRoleDetail = !roleDetail.isBlank() && !roleDetail.equals("-") && !roleDetail.equals("—");
 		boolean hasValidRawPos = !rawPos.isBlank() && !rawPos.toUpperCase().matches("^[EB]\\d+$") && !rawPos.equals("-") && !rawPos.equals("—");
@@ -494,12 +510,12 @@ public class FmExportParser {
 		} else if (!naturalPosRaw.isBlank() && !naturalPosRaw.equals("-")) {
 			targetPositionStr = naturalPosRaw.contains(",") ? naturalPosRaw.split(",")[0].trim() : naturalPosRaw;
 		} else {
-			targetPositionStr = "FVR";
+			targetPositionStr = "IV";
 		}
 
 		String cleanPos = cleanNbsps(targetPositionStr).replaceAll("[\\.]+$", "").trim();
 		TacticRole tacticRole = TacticRole.fromPosition(cleanPos);
-		String resolvedRole = (tacticRole != null) ? tacticRole.getDisplayName() : "Stoßstürmer (Angreifen)";
+		String resolvedRole = (tacticRole != null) ? tacticRole.getDisplayName() : "Ballspielender Vert. Links";
 
 		ScoutingPlayerModel p = new ScoutingPlayerModel();
 		p.nameProperty().set(name);

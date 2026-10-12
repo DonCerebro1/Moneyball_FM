@@ -63,19 +63,19 @@ public enum TacticRole {
 	BSV_L(
 			"BSV (L)",
 			"Ballspielender Vert. Links",
-			List.of("BSV (L)", "VZL", "BSV", "BPD", "V (ZL)", "VZ (L)", "BALLSPIELENDER VERTEIDIGER", "BSV -"),
+			List.of("BSV (L)", "VZL", "BSV", "BPD", "V (ZL)", "VZ (L)", "V (LZ)", "BALLSPIELENDER VERTEIDIGER", "BSV -"),
 			"Pas %", "Zwk %", "Pr Pässe/90"
 	),
 	IV_Z(
 			"IV (Z)",
 			"Innenverteidiger Zentral",
-			List.of("VZ", "IV", "IV (Z)", "V (Z)", "DC", "CB", "CD", "INNENVERTEIDIGER", "IV -"),
+			List.of("VZ", "IV", "IV (Z)", "V (Z)", "DC", "CB", "CD", "INNENVERTEIDIGER", "IV -", "V (RLZ)", "V (RL)", "V (C)"),
 			"Kopf %", "Zwk %", "T Feh"
 	),
 	HRV_R(
 			"HRV (R)",
 			"Halbraumverteidiger Rechts",
-			List.of("VZR", "HRV", "HRV (R)", "WCB", "V (ZR)", "VZ (R)", "HALBRAUMVERTEIDIGER", "HRV -"),
+			List.of("VZR", "HRV", "HRV (R)", "WCB", "V (ZR)", "VZ (R)", "V (RZ)", "HALBRAUMVERTEIDIGER", "HRV -"),
 			"Pas %", "Zwk %", "Drb/90"
 	);
 
@@ -120,14 +120,13 @@ public enum TacticRole {
 
 		String rawUpper = pos.toUpperCase().trim();
 
-		// 1. Aufgaben nach Bindestrich abtrennen (z. B. "FV - Unterstützen" -> "FV")
+		// 1. Aufgaben nach Bindestrich abtrennen
 		String clean = pos;
 		if (clean.contains("-")) {
 			clean = clean.split("-")[0];
 		}
 
-		// 2. Nur Spielaufgaben in Klammern entfernen (Unterstützen, Verteidigen, Angreifen, Rückendeckung, Vorstopper)
-		// Richtungsangaben wie (L), (R), (Z), (RL) bleiben erhalten!
+		// 2. Spielaufgaben in Klammern entfernen
 		clean = clean.replaceAll("(?i)\\s*\\((unterstützen|verteidigen|angreifen|rückendeckung|vorstopper)\\)", "");
 
 		// 3. Normalisieren
@@ -138,12 +137,11 @@ public enum TacticRole {
 				.replaceAll("\\s+", " ")
 				.trim();
 
-		// 4. Bankspieler-Kürzel und leere Werte abfangen
 		if (clean.matches("^[EB]\\d+$") || clean.equals("ERS") || clean.isEmpty()) {
 			return ZSM;
 		}
 
-		// 5. Direkter Match auf Enum-Name, Code oder DisplayName
+		// 4. Direkter Match auf Enum-Name, Code oder DisplayName
 		for (TacticRole r : values()) {
 			String cleanDisplayName = r.displayName.replaceAll("(?i)\\s*\\((unterstützen|verteidigen|angreifen)\\)", "").toUpperCase().replace(".", "").trim();
 			String cleanCode = r.code.replaceAll("(?i)\\s*\\((unterstützen|verteidigen|angreifen)\\)", "").toUpperCase().replace(".", "").trim();
@@ -155,7 +153,7 @@ public enum TacticRole {
 			}
 		}
 
-		// 6. Alias-Match (exakt oder Wortanfang)
+		// 5. Alias-Match
 		for (TacticRole r : values()) {
 			for (String alias : r.aliases) {
 				String cleanAlias = alias.toUpperCase().replace(".", "").trim();
@@ -165,22 +163,22 @@ public enum TacticRole {
 			}
 		}
 
-		// 7. Gezielte Hierarchie-Prüfung (Reihenfolge ist entscheidend!)
+		// 6. Gezielte Hierarchie-Prüfung
 
 		// Torhüter
 		if (clean.contains("TORWART") || clean.contains("TORHÜTER") || clean.contains("TW") || clean.contains("GK") || clean.contains("MTW")) {
 			return MTW;
 		}
 
-		// Spezial-Verteidiger
-		if (clean.contains("HALBRAUM") || clean.contains("HRV") || clean.contains("VZR") || clean.contains("WCB")) {
-			return HRV_R;
-		}
-		if (clean.contains("BALLSPIEL") || clean.contains("BSV") || clean.contains("VZL") || clean.contains("BPD")) {
+		// Explizite Rollennamen
+		if (clean.contains("BALLSPIEL") || clean.contains("BSV") || clean.contains("BPD")) {
 			return BSV_L;
 		}
+		if (clean.contains("HALBRAUM") || clean.contains("HRV") || clean.contains("WCB")) {
+			return HRV_R;
+		}
 
-		// Flügelverteidiger / Komplette Flügelverteidiger (IMMER vor OM/Flügelstürmern prüfen!)
+		// Flügelverteidiger / Komplette Flügelverteidiger (VOR Außenstürmern prüfen!)
 		if (clean.contains("KOMP") || clean.contains("KFV") || (clean.contains("FLÜGELVERT") && (clean.contains("(R)") || clean.contains("RECHTS")))) {
 			return KFV_R;
 		}
@@ -188,17 +186,25 @@ public enum TacticRole {
 			if (clean.contains("(R)") || clean.contains("RECHTS") || rawUpper.contains("(R)")) return KFV_R;
 			return FV_L;
 		}
-		// Reine Außenverteidiger-Kürzel wie V (R) oder V (L)
-		if (clean.startsWith("V (R)") || clean.equals("VR") || clean.equals("DR")) {
+		if (clean.startsWith("V (R)") || clean.equals("VR") || clean.equals("DR") || clean.equals("RB")) {
 			return KFV_R;
 		}
-		if (clean.startsWith("V (L)") || clean.equals("VL") || clean.equals("DL")) {
+		if (clean.startsWith("V (L)") || clean.equals("VL") || clean.equals("DL") || clean.equals("LB")) {
 			return FV_L;
 		}
 
-		// Reine Innenverteidiger
-		if (clean.contains("INNENVERT") || clean.contains("IV") || clean.contains("VZ") || clean.contains("V (Z)") || clean.contains("DC") || clean.contains("CB")) {
-			return IV_Z;
+		// INNENVERTEIDIGER (inkl. V (RZ), V (LZ), V (RLZ), V (ZR), V (ZL), DC, CB)
+		if (clean.contains("INNENVERT") || clean.contains("IV") || clean.contains("VZ") ||
+				clean.contains("V (Z)") || clean.contains("V (RZ)") || clean.contains("V (LZ)") ||
+				clean.contains("V (ZR)") || clean.contains("V (ZL)") || clean.contains("V (RLZ)") ||
+				clean.contains("DC") || clean.contains("CB") || clean.startsWith("V (")) {
+
+			if (clean.contains("RZ") || clean.contains("ZR") || clean.contains("RECHTS")) {
+				return HRV_R; // Nächstgelegene rechte IV-Rolle
+			} else if (clean.contains("LZ") || clean.contains("ZL") || clean.contains("LINKS")) {
+				return BSV_L; // Nächstgelegene linke IV-Rolle
+			}
+			return IV_Z; // Zentraler IV
 		}
 
 		// Regista & Spielmacher
@@ -218,8 +224,8 @@ public enum TacticRole {
 			return OM_R;
 		}
 
-		// Zentrales & Defensives Mittelfeld
-		if (clean.contains("MITTELFELD") || clean.contains("DM") || clean.contains("ZM") || clean.contains("CM") || clean.contains("ZSM") || clean.contains("BEM")) {
+		// Zentrales & Defensives Mittelfeld (DM, ZM, VoSm, BeM)
+		if (clean.contains("MITTELFELD") || clean.contains("DM") || clean.contains("ZM") || clean.contains("CM") || clean.contains("ZSM") || clean.contains("BEM") || clean.contains("VOSM")) {
 			return ZSM;
 		}
 
