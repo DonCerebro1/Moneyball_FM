@@ -8,51 +8,75 @@ public class ScoutingAnalysisService {
 	public static void evaluate(ScoutingPlayerModel p, AppConfig config) {
 		if (p == null) return;
 
-		String role = p.targetRoleProperty().get() != null ? p.targetRoleProperty().get().trim() : "";
+		String roleRaw = p.targetRoleProperty().get() != null ? p.targetRoleProperty().get().trim() : "";
+		String role = roleRaw.toUpperCase();
+
 		double j = p.statValue1Property().get();
 		double k = p.statValue2Property().get();
 		double l = p.statValue3Property().get();
 
-		// 1. ROLLEN-PERFORMANCE (Max. 65 Punkte) - Basiert auf deinen Kern-Benchmarks
+		// 1. ROLLEN-PERFORMANCE (Max. 65 Punkte)
 		double statPoints;
-		if (role.startsWith("Sto")) {
+
+		// STÜRMER
+		if (role.contains("STO") || role.contains("STÜRMER") || role.contains("ST (Z)")) {
 			statPoints = Math.min(j / 0.65, 1.25) * 22.75
 					+ Math.min(k / 0.20, 1.35) * 22.75
 					+ Math.min(l / 0.50, 1.20) * 19.50;
-		} else if (role.startsWith("MTW")) {
+
+			// MITFÜHRENDER / MITSPIELENDER TORWART
+		} else if (role.contains("MTW") || role.contains("TORWART") || role.contains("TW")) {
 			statPoints = Math.min(j / 0.80, 1.20) * 22.75
 					+ Math.min(Math.max(k + 0.5, 0.0) / 0.80, 1.30) * 29.25
 					+ Math.min(l / 0.85, 1.20) * 13.00;
-		} else if (role.startsWith("OM") || role.startsWith("QM")) {
+
+			// OFFENSIVES MITTELFELD / FLÜGELSPIELER
+		} else if (role.contains("OM") || role.contains("QM") || role.contains("FLÜGEL") || role.contains("WINGER")) {
 			statPoints = Math.min(j / 0.20, 1.30) * 26.00
 					+ Math.min(k / 25.0, 1.30) * 22.75
 					+ Math.min(l / 0.85, 1.20) * 16.25;
-		} else if (role.startsWith("Reg")) {
+
+			// REGISTA / TIEFER SPIELMACHER
+		} else if (role.contains("REG") || role.contains("ZURÜCKGEZOGENER") || role.contains("SPIELMACHER")) {
 			statPoints = Math.min(j / 0.88, 1.20) * 19.50
 					+ Math.min(k / 5.0, 1.35) * 29.25
 					+ Math.min(l / 25.0, 1.20) * 16.25;
-		} else if (role.startsWith("ZSM")) {
+
+			// ZENTRALES MITTELFELD / BOX-TO-BOX / DEFENSIVES MITTELFELD
+		} else if (role.contains("ZSM") || role.contains("ZENTRAL") || role.contains("DM") || role.contains("BALLEROBERNDER")) {
 			statPoints = Math.min(j / 0.86, 1.20) * 22.75
 					+ Math.min(k / 2.50, 1.30) * 22.75
 					+ Math.min(l / 0.75, 1.20) * 19.50;
-		} else if (role.startsWith("FV") || role.startsWith("KFV")) {
+
+			// FLÜGELVERTEIDIGER / AUSSENVERTEIDIGER
+		} else if (role.contains("FV") || role.contains("KFV") || role.contains("AUSSENVERTEIDIGER") || role.contains("FLÜGELVERTEIDIGER")) {
 			statPoints = Math.min(j / 2.50, 1.30) * 22.75
 					+ Math.min(k / 0.22, 1.30) * 22.75
 					+ Math.min(l / 1.80, 1.20) * 19.50;
-		} else if (role.startsWith("BSV")) {
+
+			// BALLSPIELENDER VERTEIDIGER
+		} else if (role.contains("BSV") || role.contains("BALLSPIELEND")) {
 			statPoints = Math.min(j / 0.86, 1.20) * 22.75
 					+ Math.min(k / 0.75, 1.20) * 22.75
 					+ Math.min(l / 4.50, 1.30) * 19.50;
-		} else if (role.startsWith("IV")) {
+
+			// INNENVERTEIDIGER
+		} else if (role.contains("IV") || role.contains("INNENVERTEIDIGER") || role.contains("VERTEIDIGER")) {
 			statPoints = Math.min(j / 0.75, 1.20) * 26.00
 					+ Math.min(k / 0.78, 1.20) * 29.25
 					+ (l <= 1.0 ? 9.75 : 0.0);
-		} else if (role.startsWith("HRV")) {
+
+			// HALBRAUMVERTEIDIGER
+		} else if (role.contains("HRV") || role.contains("HALBRAUM")) {
 			statPoints = Math.min(j / 0.82, 1.20) * 22.75
 					+ Math.min(k / 0.74, 1.20) * 22.75
 					+ Math.min(l / 1.30, 1.20) * 19.50;
+
+			// DYNAMISCHER FALLBACK (falls unbekannte Rolle: Stats 1-3 trotzdem werten)
 		} else {
-			statPoints = 48.75;
+			statPoints = Math.min(j / 0.80, 1.20) * 22.0
+					+ Math.min(k / 1.50, 1.20) * 22.0
+					+ Math.min(l / 0.80, 1.20) * 21.0;
 		}
 
 		// 2. ATHLETIK-PROFIL (Max. 20 Punkte)
@@ -67,15 +91,15 @@ public class ScoutingAnalysisService {
 		int age = p.ageProperty().get();
 		double agePoints;
 		if (age <= 21) {
-			agePoints = 15.0; // Top-Entwicklungspotenzial & Wiederverkaufswert
+			agePoints = 15.0;
 		} else if (age <= 24) {
 			agePoints = 13.0;
 		} else if (age <= 27) {
-			agePoints = 10.0; // Bestes Profi-Alter
+			agePoints = 10.0;
 		} else if (age <= 29) {
 			agePoints = 7.0;
 		} else {
-			agePoints = 3.0;  // Kein Wiederverkaufswert, höheres Verletzungsrisiko
+			agePoints = 3.0;
 		}
 
 		// Gesamter Scouting-Score
@@ -90,10 +114,9 @@ public class ScoutingAnalysisService {
 		else if (finalScore >= 70.0) maxFeeBase = 12_000_000L;
 		else maxFeeBase = 4_000_000L;
 
-		// Moneyball-Abschlag bei kurzer Restvertragslaufzeit
 		double contractYears = p.contractYearsProperty().get();
 		if (contractYears > 0.0 && contractYears <= 1.0) {
-			maxFeeBase = (long) (maxFeeBase * 0.70); // Max 70 % bei auslaufendem Vertrag
+			maxFeeBase = (long) (maxFeeBase * 0.70);
 		} else if (contractYears <= 2.0) {
 			maxFeeBase = (long) (maxFeeBase * 0.85);
 		}

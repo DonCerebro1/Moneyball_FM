@@ -6,6 +6,7 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.moneyballfm.moneyball_fm.model.Player;
 import org.moneyballfm.moneyball_fm.model.PlayerRowModel;
+import org.moneyballfm.moneyball_fm.model.ScoutingPlayerModel;
 import org.moneyballfm.moneyball_fm.model.TacticRole;
 
 import java.io.*;
@@ -18,6 +19,10 @@ import java.util.Map;
 public class FmExportParser {
 
 	public record PreseasonData(String name, String position, int estimatedMinutes, double rating) {}
+
+	// ==========================================
+	// 1. KADER-ANALYSE PARSER
+	// ==========================================
 
 	public static List<PlayerRowModel> parseFile(File file) throws IOException {
 		String name = file.getName().toLowerCase();
@@ -85,6 +90,7 @@ public class FmExportParser {
 					if (isHeader) {
 						colMap = new HashMap<>();
 						for (int i = 0; i < cols.length; i++) {
+							colMap.put(cleanHeaderKey(cols[i]), i);
 							colMap.put(cleanNbsps(cols[i]).toLowerCase().trim(), i);
 						}
 					}
@@ -163,6 +169,7 @@ public class FmExportParser {
 					if (isHeader) {
 						colMap = new HashMap<>();
 						for (int i = 0; i < cols.length; i++) {
+							colMap.put(cleanHeaderKey(cols[i]), i);
 							colMap.put(cleanNbsps(cols[i]).toLowerCase().trim(), i);
 						}
 					}
@@ -188,18 +195,18 @@ public class FmExportParser {
 		if (rows.isEmpty()) return result;
 
 		Element headerRow = rows.get(0);
-		Elements headers = headerRow.select("th");
-		if (headers.isEmpty()) headers = headerRow.select("td");
+		Elements headers = headerRow.select("th, td");
 
 		Map<String, Integer> colMap = new HashMap<>();
 		for (int i = 0; i < headers.size(); i++) {
+			colMap.put(cleanHeaderKey(headers.get(i).text()), i);
 			colMap.put(cleanNbsps(headers.get(i).text()).toLowerCase().trim(), i);
 		}
 
 		for (int r = 1; r < rows.size(); r++) {
-			Elements tds = rows.select("td");
-			if (tds.isEmpty()) continue;
-			String[] cols = tds.stream().map(td -> cleanNbsps(td.text()).trim()).toArray(String[]::new);
+			Elements cells = rows.get(r).select("th, td");
+			if (cells.isEmpty()) continue;
+			String[] cols = cells.stream().map(c -> cleanNbsps(c.text()).trim()).toArray(String[]::new);
 			PlayerRowModel model = extractRow(cols, colMap);
 			if (model != null) result.add(model);
 		}
@@ -243,7 +250,7 @@ public class FmExportParser {
 			} else if (naturalPosRaw != null && !naturalPosRaw.isBlank() && !naturalPosRaw.equals("-")) {
 				targetPositionStr = naturalPosRaw;
 			} else {
-				targetPositionStr = "FVR"; // Sicherer Fallback, falls weder Position noch Rolle angegeben ist
+				targetPositionStr = "FVR";
 			}
 		}
 
@@ -315,6 +322,220 @@ public class FmExportParser {
 		return row;
 	}
 
+	// ==========================================
+	// 2. SCOUTING-PARSER
+	// ==========================================
+
+	public static List<ScoutingPlayerModel> parseScoutingFile(File file) throws IOException {
+		String name = file.getName().toLowerCase();
+		if (name.endsWith(".html") || name.endsWith(".htm")) {
+			return parseScoutingHtml(file);
+		} else {
+			return parseScoutingPlainText(file);
+		}
+	}
+
+	private static List<ScoutingPlayerModel> parseScoutingHtml(File file) throws IOException {
+		List<ScoutingPlayerModel> result = new ArrayList<>();
+		Document doc = Jsoup.parse(file, "UTF-8");
+		Element table = doc.selectFirst("table");
+		if (table == null) return result;
+
+		Elements rows = table.select("tr");
+		if (rows.isEmpty()) return result;
+
+		Element headerRow = rows.get(0);
+		Elements headers = headerRow.select("th, td");
+
+		Map<String, Integer> colMap = new HashMap<>();
+		for (int i = 0; i < headers.size(); i++) {
+			colMap.put(cleanHeaderKey(headers.get(i).text()), i);
+			colMap.put(cleanNbsps(headers.get(i).text()).toLowerCase().trim(), i);
+		}
+
+		for (int r = 1; r < rows.size(); r++) {
+			Elements cells = rows.get(r).select("td, th");
+			if (cells.isEmpty()) continue;
+
+			String[] cols = cells.stream()
+					.map(c -> cleanNbsps(c.text()).trim())
+					.toArray(String[]::new);
+
+			ScoutingPlayerModel model = extractScoutingRow(cols, colMap);
+			if (model != null) {
+				result.add(model);
+			}
+		}
+		return result;
+	}
+
+	private static String cleanHeaderKey(String s) {
+		if (s == null) return "";
+		return cleanNbsps(s).toLowerCase().replace(" ", "").replace("/", "").replace("%", "").replace(".", "").trim();
+	}
+
+	private static List<ScoutingPlayerModel> parseScoutingPlainText(File file) throws IOException {
+		List<ScoutingPlayerModel> result = new ArrayList<>();
+
+		try (BufferedReader reader = new BufferedReader(new FileReader(file, StandardCharsets.UTF_8))) {
+			String line;
+			Map<String, Integer> colMap = null;
+
+			while ((line = reader.readLine()) != null) {
+				line = cleanNbsps(line).trim();
+				if (line.isEmpty() || line.startsWith("---") || line.matches("^[\\s\\|\\-]+$")) {
+					continue;
+				}
+
+				String delimiter = line.contains("|") ? "\\|" : "\t";
+				String[] rawCols = line.split(delimiter);
+				List<String> colsList = new ArrayList<>();
+				for (String col : rawCols) {
+					colsList.add(cleanNbsps(col).trim());
+				}
+
+				if (!colsList.isEmpty() && colsList.get(0).isEmpty()) colsList.remove(0);
+				if (!colsList.isEmpty() && colsList.get(colsList.size() - 1).isEmpty()) colsList.remove(colsList.size() - 1);
+
+				String[] cols = colsList.toArray(new String[0]);
+
+				if (colMap == null) {
+					boolean isHeader = false;
+					for (String c : cols) {
+						String lower = c.toLowerCase();
+						if (lower.equals("name") || lower.equals("person") || lower.equals("spieler")) {
+							isHeader = true;
+							break;
+						}
+					}
+					if (isHeader) {
+						colMap = new HashMap<>();
+						for (int i = 0; i < cols.length; i++) {
+							colMap.put(cleanHeaderKey(cols[i]), i);
+							colMap.put(cleanNbsps(cols[i]).toLowerCase().trim(), i);
+						}
+					}
+					continue;
+				}
+
+				ScoutingPlayerModel model = extractScoutingRow(cols, colMap);
+				if (model != null) result.add(model);
+			}
+		}
+		return result;
+	}
+
+	private static ScoutingPlayerModel extractScoutingRow(String[] cols, Map<String, Integer> map) {
+		String name = getVal(cols, map, "name", "person", "spieler");
+		if (name.isBlank() || name.equals("- -") || name.equals("-") || name.equals("—")) return null;
+
+		if (name.contains(" - ")) {
+			name = name.split(" - ")[0].trim();
+		}
+
+		String roleDetail = getVal(cols, map,
+				"position/rolle/aufgabe",
+				"position / rolle / aufgabe",
+				"rolle/aufgabe",
+				"rolle",
+				"taktische rolle"
+		);
+		String rawPos = getVal(cols, map, "ausgewählte position", "ausgew. pos.", "ausgew. pos");
+		String naturalPosRaw = getVal(cols, map, "position", "pos", "natürliche position");
+
+		String targetPositionStr = "";
+		boolean hasValidRoleDetail = !roleDetail.isBlank() && !roleDetail.equals("-") && !roleDetail.equals("—");
+		boolean hasValidRawPos = !rawPos.isBlank() && !rawPos.toUpperCase().matches("^[EB]\\d+$") && !rawPos.equals("-") && !rawPos.equals("—");
+
+		if (hasValidRoleDetail) {
+			targetPositionStr = roleDetail;
+		} else if (hasValidRawPos) {
+			targetPositionStr = rawPos;
+		} else if (!naturalPosRaw.isBlank() && !naturalPosRaw.equals("-")) {
+			targetPositionStr = naturalPosRaw.contains(",") ? naturalPosRaw.split(",")[0].trim() : naturalPosRaw;
+		} else {
+			targetPositionStr = "FVR";
+		}
+
+		String cleanPos = cleanNbsps(targetPositionStr).replaceAll("[\\.]+$", "").trim();
+		TacticRole tacticRole = TacticRole.fromPosition(cleanPos);
+		String resolvedRole = (tacticRole != null) ? tacticRole.getDisplayName() : "Stoßstürmer (Angreifen)";
+
+		ScoutingPlayerModel p = new ScoutingPlayerModel();
+		p.nameProperty().set(name);
+		p.targetRoleProperty().set(resolvedRole);
+		p.clubProperty().set(getVal(cols, map, "verein", "club"));
+		p.positionsProperty().set(naturalPosRaw);
+
+		p.ageProperty().set(parseInt(getVal(cols, map, "alter", "age")));
+		p.askingPriceProperty().set(parseMoney(getVal(cols, map, "transferwert", "marktwert", "wert")));
+		p.wageDemandProperty().set(parseMoney(getVal(cols, map, "gehalt", "monatsgehalt")));
+		p.contractYearsProperty().set(parseContractYears(getVal(cols, map, "endet", "vertrag")));
+		p.minutesProperty().set(parseInt(getVal(cols, map, "min.", "minuten", "min")));
+
+		// Physis & Mentale Werte
+		p.agilityProperty().set(parseInt(getVal(cols, map, "bew", "beweglichkeit")));
+		p.paceProperty().set(parseInt(getVal(cols, map, "ant", "antritt")));
+		p.staminaProperty().set(parseInt(getVal(cols, map, "aus", "ausdauer")));
+		p.determinationProperty().set(parseInt(getVal(cols, map, "zie", "entsch", "zielstrebigkeit", "entschlossenheit")));
+
+		// Detaillierte Leistungsdaten
+		double prP = parseDouble(getVal(cols, map, "pr pässe/90", "pr päs/90", "pr pässe", "prpaesse90", "prpaesse"));
+		double xg = parseDouble(getVal(cols, map, "xg/90", "xg", "xg90"));
+		double xa = parseDouble(getVal(cols, map, "xa/90", "xa", "xa90"));
+		double schussPct = parseDouble(getVal(cols, map, "schüsse %", "schuss %", "schuesse"));
+		double verwPct = parseDouble(getVal(cols, map, "verw. %", "verw %", "verw"));
+		double passPct = parseDouble(getVal(cols, map, "pas %", "pass %", "pas", "pass"));
+		double xgVerh = parseDouble(getVal(cols, map, "xg verh/90", "xgverh90"));
+		double parPct = parseDouble(getVal(cols, map, "par %", "par"));
+		double abb90 = parseDouble(getVal(cols, map, "abb/90", "abb90"));
+		double fpqPct = parseDouble(getVal(cols, map, "fpq %", "fpq"));
+		int tore = parseInt(getVal(cols, map, "tore", "goals"));
+		int vor = parseInt(getVal(cols, map, "vor", "vorlagen", "assists"));
+		double note = parseDouble(getVal(cols, map, "ø note", "note", "d-note", "onote"));
+		double kopfPct = parseDouble(getVal(cols, map, "kopf %", "kopf"));
+		int tfeh = parseInt(getVal(cols, map, "t feh", "tfeh"));
+		double drb = parseDouble(getVal(cols, map, "drb/90", "drb90"));
+		double fla90 = parseDouble(getVal(cols, map, "vers fla/90", "fla/90", "versfla90"));
+		double zwkPct = parseDouble(getVal(cols, map, "zwk %", "zwk"));
+		int abbTotal = parseInt(getVal(cols, map, "abb"));
+		int prPTotal = parseInt(getVal(cols, map, "pr pässe", "prpaesse"));
+		int entP = parseInt(getVal(cols, map, "ent päs", "entsch pässe", "entpaes"));
+
+		p.progressivePasses90Property().set(prP);
+		p.xg90Property().set(xg);
+		p.xa90Property().set(xa);
+		p.shotsOnTargetPctProperty().set(schussPct);
+		p.shotConversionPctProperty().set(verwPct);
+		p.passCompletionPctProperty().set(passPct);
+		p.xgPrevented90Property().set(xgVerh);
+		p.savePctProperty().set(parPct);
+		p.interceptions90Property().set(abb90);
+		p.crossAccuracyPctProperty().set(fpqPct);
+		p.goalsProperty().set(tore);
+		p.assistsProperty().set(vor);
+		p.averageRatingProperty().set(note);
+		p.headersWonPctProperty().set(kopfPct);
+		p.mistakesLeadingToGoalProperty().set(tfeh);
+		p.dribbles90Property().set(drb);
+		p.crossesAttempted90Property().set(fla90);
+		p.tacklesWonPctProperty().set(zwkPct);
+		p.interceptionsTotalProperty().set(abbTotal);
+		p.progressivePassesTotalProperty().set(prPTotal);
+		p.keyPassesTotalProperty().set(entP);
+
+		// Initiale Fallback-Belegung für Stats 1-3
+		p.statValue1Property().set(xg > 0 ? xg : (passPct > 0 ? passPct / 100.0 : prP));
+		p.statValue2Property().set(xa > 0 ? xa : (zwkPct > 0 ? zwkPct / 100.0 : abb90));
+		p.statValue3Property().set(schussPct > 0 ? schussPct / 100.0 : (drb > 0 ? drb : note));
+
+		return p;
+	}
+
+	// ==========================================
+	// 3. COMMON HILFSMETHODEN
+	// ==========================================
+
 	private static String cleanNbsps(String s) {
 		if (s == null) return "";
 		return s.replace('\u00A0', ' ').replace("&nbsp;", " ").trim();
@@ -335,25 +556,33 @@ public class FmExportParser {
 
 	private static String getVal(String[] cols, Map<String, Integer> map, String... keys) {
 		for (String k : keys) {
+			// 1. Direkter Lookup (lowercase, trimmed)
 			String searchKey = cleanNbsps(k).toLowerCase().trim();
 			Integer idx = map.get(searchKey);
 			if (idx != null && idx < cols.length) {
 				return cols[idx].trim();
+			}
+
+			// 2. Normalisierter Lookup (ohne Leerzeichen, % und /)
+			String normalizedKey = cleanHeaderKey(k);
+			Integer normIdx = map.get(normalizedKey);
+			if (normIdx != null && normIdx < cols.length) {
+				return cols[normIdx].trim();
 			}
 		}
 		return "";
 	}
 
 	private static int parseInt(String val) {
-		if (val == null || val.isBlank() || val.equals("-")) return 0;
+		if (val == null || val.isBlank() || val.equals("-") || val.equals("—")) return 0;
 		String c = cleanNbsps(val).replace(".", "").replaceAll("[^0-9]", "");
 		return c.isEmpty() ? 0 : Integer.parseInt(c);
 	}
 
 	private static double parseDouble(String val) {
 		if (val == null || val.isBlank() || val.equals("-") || val.equals("—")) return 0.0;
-		String c = cleanNbsps(val).replace(",", ".").replaceAll("[^0-9.]", "");
-		if (c.isEmpty()) return 0.0;
+		String c = cleanNbsps(val).replace("%", "").replace(",", ".").replaceAll("[^0-9.-]", "");
+		if (c.isEmpty() || c.equals("-")) return 0.0;
 		try {
 			return Double.parseDouble(c);
 		} catch (NumberFormatException e) {
@@ -362,7 +591,7 @@ public class FmExportParser {
 	}
 
 	private static long parseMoney(String val) {
-		if (val == null || val.isBlank() || val.equals("-")) return 0L;
+		if (val == null || val.isBlank() || val.equals("-") || val.equals("—")) return 0L;
 		String clean = cleanNbsps(val).toLowerCase().replace("€", "").trim();
 
 		if (clean.contains("-")) {
