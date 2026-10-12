@@ -18,59 +18,63 @@ public class ScoutingAnalysisService {
 		// 1. ROLLEN-PERFORMANCE (Max. 65 Punkte)
 		double statPoints;
 
-		// STÜRMER
+		// STÜRMER (xG/90: 0.52 | xA/90 bzw. Konversion: 0.19 | Schüsse aufs Tor: 48%)
 		if (role.contains("STO") || role.contains("STÜRMER") || role.contains("ST (Z)")) {
-			statPoints = Math.min(j / 0.65, 1.25) * 22.75
-					+ Math.min(k / 0.20, 1.35) * 22.75
-					+ Math.min(l / 0.50, 1.20) * 19.50;
+			statPoints = Math.min(j / 0.52, 1.25) * 22.75
+					+ Math.min(k / 0.19, 1.35) * 22.75
+					+ Math.min(l / 0.48, 1.20) * 19.50;
 
-			// MITFÜHRENDER / MITSPIELENDER TORWART
+			// MITFÜHRENDER / MITSPIELENDER TORWART (Gehaltene Bälle: 78% | xG verhindert/90: +0.25 | Passquote: 82%)
 		} else if (role.contains("MTW") || role.contains("TORWART") || role.contains("TW")) {
-			statPoints = Math.min(j / 0.80, 1.20) * 22.75
-					+ Math.min(Math.max(k + 0.5, 0.0) / 0.80, 1.30) * 29.25
-					+ Math.min(l / 0.85, 1.20) * 13.00;
+			statPoints = Math.min(j / 0.78, 1.20) * 22.75
+					+ Math.min(Math.max(k + 0.35, 0.0) / 0.60, 1.30) * 29.25
+					+ Math.min(l / 0.82, 1.20) * 13.00;
 
-			// OFFENSIVES MITTELFELD / FLÜGELSPIELER
+			// OFFENSIVES MITTELFELD / FLÜGELSPIELER (xA/90: 0.20 | Flankenquote: 22% [0.22] | Passquote: 80%)
 		} else if (role.contains("OM") || role.contains("QM") || role.contains("FLÜGEL") || role.contains("WINGER")) {
+			double crossPct = k > 1.0 ? k / 100.0 : k;
 			statPoints = Math.min(j / 0.20, 1.30) * 26.00
-					+ Math.min(k / 25.0, 1.30) * 22.75
-					+ Math.min(l / 0.85, 1.20) * 16.25;
+					+ Math.min(crossPct / 0.22, 1.30) * 22.75
+					+ Math.min(l / 0.80, 1.20) * 16.25;
 
-			// REGISTA / TIEFER SPIELMACHER
+			// REGISTA / TIEFER SPIELMACHER (Passquote: 85% | Pr Pässe/90: 5.2 | Flankenquote bzw. Key Passes: 22%)
 		} else if (role.contains("REG") || role.contains("ZURÜCKGEZOGENER") || role.contains("SPIELMACHER")) {
-			statPoints = Math.min(j / 0.88, 1.20) * 19.50
-					+ Math.min(k / 5.0, 1.35) * 29.25
-					+ Math.min(l / 25.0, 1.20) * 16.25;
+			double crossPct = l > 1.0 ? l / 100.0 : l;
+			statPoints = Math.min(j / 0.85, 1.20) * 19.50
+					+ Math.min(k / 5.20, 1.35) * 29.25
+					+ Math.min(crossPct / 0.22, 1.20) * 16.25;
 
-			// ZENTRALES MITTELFELD / BOX-TO-BOX / DEFENSIVES MITTELFELD
+			// ZENTRALES MITTELFELD / BOX-TO-BOX / DEFENSIVES MITTELFELD (Passquote: 86% | Abfangen/90: 2.8 | Zweikampfquote: 74%)
 		} else if (role.contains("ZSM") || role.contains("ZENTRAL") || role.contains("DM") || role.contains("BALLEROBERNDER")) {
 			statPoints = Math.min(j / 0.86, 1.20) * 22.75
-					+ Math.min(k / 2.50, 1.30) * 22.75
-					+ Math.min(l / 0.75, 1.20) * 19.50;
+					+ Math.min(k / 2.80, 1.30) * 22.75
+					+ Math.min(l / 0.74, 1.20) * 19.50;
 
-			// FLÜGELVERTEIDIGER / AUSSENVERTEIDIGER
+			// FLÜGELVERTEIDIGER / AUSSENVERTEIDIGER (Abfangen/90: 2.5 | Flankenquote: 22% | Prog. Läufe / Dribblings: 2.0)
 		} else if (role.contains("FV") || role.contains("KFV") || role.contains("AUSSENVERTEIDIGER") || role.contains("FLÜGELVERTEIDIGER")) {
+			double crossPct = k > 1.0 ? k / 100.0 : k;
 			statPoints = Math.min(j / 2.50, 1.30) * 22.75
-					+ Math.min(k / 0.22, 1.30) * 22.75
-					+ Math.min(l / 1.80, 1.20) * 19.50;
+					+ Math.min(crossPct / 0.22, 1.30) * 22.75
+					+ Math.min(l / 2.00, 1.20) * 19.50;
 
-			// BALLSPIELENDER VERTEIDIGER
+			// BALLSPIELENDER VERTEIDIGER (Passquote: 85% | Zweikampfquote: 75% | Pr Pässe/90: 4.5)
 		} else if (role.contains("BSV") || role.contains("BALLSPIELEND")) {
-			statPoints = Math.min(j / 0.86, 1.20) * 22.75
+			statPoints = Math.min(j / 0.85, 1.20) * 22.75
 					+ Math.min(k / 0.75, 1.20) * 22.75
 					+ Math.min(l / 4.50, 1.30) * 19.50;
 
-			// INNENVERTEIDIGER
+			// INNENVERTEIDIGER (Kopfballquote: 74% | Zweikampfquote: 76% | Fehler mit Torfolge)
 		} else if (role.contains("IV") || role.contains("INNENVERTEIDIGER") || role.contains("VERTEIDIGER")) {
-			statPoints = Math.min(j / 0.75, 1.20) * 26.00
-					+ Math.min(k / 0.78, 1.20) * 29.25
-					+ (l <= 1.0 ? 9.75 : 0.0);
+			double errorBonus = Math.max(0.0, 1.0 - (l * 0.5)) * 9.75;
+			statPoints = Math.min(j / 0.74, 1.20) * 26.00
+					+ Math.min(k / 0.76, 1.20) * 29.25
+					+ errorBonus;
 
-			// HALBRAUMVERTEIDIGER
+			// HALBRAUMVERTEIDIGER (Passquote: 83% | Zweikampfquote: 74% | Dribblings/Prog. Läufe: 1.40)
 		} else if (role.contains("HRV") || role.contains("HALBRAUM")) {
-			statPoints = Math.min(j / 0.82, 1.20) * 22.75
+			statPoints = Math.min(j / 0.83, 1.20) * 22.75
 					+ Math.min(k / 0.74, 1.20) * 22.75
-					+ Math.min(l / 1.30, 1.20) * 19.50;
+					+ Math.min(l / 1.40, 1.20) * 19.50;
 
 			// DYNAMISCHER FALLBACK
 		} else {
@@ -102,11 +106,11 @@ public class ScoutingAnalysisService {
 			agePoints = 3.0;
 		}
 
-		// Gesamter Scouting-Score
+		// Gesamter Scouting-Score (0 - 100)
 		double finalScore = Math.min(100.0, Math.max(0.0, Math.round(statPoints + athleticPoints + agePoints)));
 		p.scoutingScoreProperty().set(finalScore);
 
-		// 4. MAX-ABLÖSE (€) - Ausgelegt auf internationale Top-Clubs
+		// 4. MAX-ABLÖSE (€) - Angepasst an Top-Clubs
 		long maxFeeBase;
 		if (finalScore >= 95.0) maxFeeBase = 120_000_000L;
 		else if (finalScore >= 90.0) maxFeeBase = 85_000_000L;

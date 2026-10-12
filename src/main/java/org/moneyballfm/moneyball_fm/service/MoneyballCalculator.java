@@ -20,9 +20,9 @@ public class MoneyballCalculator {
 		Player player = row.getPlayer();
 
 		if (tacticRole != null && player != null) {
-			double newS1 = player.getStat(tacticRole.getStat1Header().toLowerCase());
-			double newS2 = player.getStat(tacticRole.getStat2Header().toLowerCase());
-			double newS3 = player.getStat(tacticRole.getStat3Header().toLowerCase());
+			double newS1 = player.getStat(tacticRole.getStat1Header());
+			double newS2 = player.getStat(tacticRole.getStat2Header());
+			double newS3 = player.getStat(tacticRole.getStat3Header());
 
 			// Nur überschreiben, wenn tatsächliche Werte in den Exportdaten vorhanden sind
 			if (newS1 > 0.0 || newS2 > 0.0 || newS3 > 0.0) {
@@ -70,7 +70,7 @@ public class MoneyballCalculator {
 					// Je weniger Fehler/Gegentore, desto näher an 100
 					metricScore = Math.max(0.0, 100.0 - (val * 25.0));
 				} else if (metric.getBenchmark() > 0) {
-					// Benchmark = 85 Punkte. Bei ~18 % Übererfüllung werden die 100 erreicht.
+					// Benchmark = 85 Punkte. Bei ~18 % Übererfüllung werden 100 erreicht.
 					double ratio = val / metric.getBenchmark();
 					metricScore = Math.min(100.0, ratio * 85.0);
 				} else {
