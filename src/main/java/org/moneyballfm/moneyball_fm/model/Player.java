@@ -121,13 +121,39 @@ public class Player {
 	}
 
 	public double getStat(String key) {
-		return stats.getOrDefault(key.trim().toLowerCase(), 0.0);
+		if (key == null || key.isBlank()) return 0.0;
+
+		String directKey = key.trim().toLowerCase();
+		if (stats.containsKey(directKey)) {
+			return stats.get(directKey);
+		}
+
+		// Normalisierter Match: ignoriert Umlaute, Leerzeichen, %, /, Punkte etc.
+		String targetNorm = normalizeStatKey(key);
+		for (Map.Entry<String, Double> entry : stats.entrySet()) {
+			if (normalizeStatKey(entry.getKey()).equals(targetNorm)) {
+				return entry.getValue();
+			}
+		}
+
+		return 0.0;
 	}
 
 	public void putStat(String key, double value) {
-		if (key != null) {
+		if (key != null && !key.isBlank()) {
 			stats.put(key.trim().toLowerCase(), value);
+			stats.put(normalizeStatKey(key), value);
 		}
+	}
+
+	private static String normalizeStatKey(String s) {
+		if (s == null) return "";
+		return s.toLowerCase()
+				.replace("ä", "ae")
+				.replace("ö", "oe")
+				.replace("ü", "ue")
+				.replace("ß", "ss")
+				.replaceAll("[^a-z0-9]", "");
 	}
 
 	public int getDetermination() {

@@ -8,7 +8,6 @@ import java.sql.Statement;
 
 public class DatabaseManager {
 
-	// Speichert dauerhaft in ./data/moneyball_fm.mv.db mit automatischem Server-Modus
 	private static final String DB_DIR = "./data";
 	private static final String DB_URL = "jdbc:h2:file:" + DB_DIR + "/moneyball_fm;AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1";
 	private static final String DB_USER = "sa";
@@ -18,7 +17,6 @@ public class DatabaseManager {
 
 	public static synchronized Connection getConnection() throws SQLException {
 		if (connection == null || connection.isClosed()) {
-			// Sicherstellen, dass das data-Verzeichnis existiert
 			File dir = new File(DB_DIR);
 			if (!dir.exists()) {
 				dir.mkdirs();
@@ -32,7 +30,7 @@ public class DatabaseManager {
 
 	private static void initSchema(Connection conn) throws SQLException {
 		try (Statement stmt = conn.createStatement()) {
-			// 1. Snapshot-Tabelle: Jeder Import / jedes Transferfenster bekommt einen Snapshot
+			// 1. Snapshots
 			stmt.execute("""
                 CREATE TABLE IF NOT EXISTS snapshots (
                     id IDENTITY PRIMARY KEY,
@@ -44,7 +42,7 @@ public class DatabaseManager {
                 );
             """);
 
-			// 2. Spieler-Historie mit ALLEN Attributen (Bew, Ant, Aus, Entsch, Sterne, Noten)
+			// 2. Spieler-Historie
 			stmt.execute("""
                 CREATE TABLE IF NOT EXISTS player_history (
                     id IDENTITY PRIMARY KEY,
@@ -76,13 +74,15 @@ public class DatabaseManager {
                 );
             """);
 
-			// 3. Scouting-Historie inklusive aller Detail-Attribute
+			// 3. Scouting-Historie
 			stmt.execute("""
                 CREATE TABLE IF NOT EXISTS scouting_history (
                     id IDENTITY PRIMARY KEY,
                     snapshot_id BIGINT NOT NULL,
                     player_name VARCHAR(150) NOT NULL,
                     target_role VARCHAR(100),
+                    club VARCHAR(255),
+                    positions VARCHAR(255),
                     age INT,
                     asking_price BIGINT,
                     wage_demand BIGINT,
@@ -99,6 +99,10 @@ public class DatabaseManager {
                     CONSTRAINT fk_scout_snapshot FOREIGN KEY (snapshot_id) REFERENCES snapshots(id) ON DELETE CASCADE
                 );
             """);
+
+			// Migration für bereits existierende Datenbank-Dateien
+			stmt.execute("ALTER TABLE scouting_history ADD COLUMN IF NOT EXISTS club VARCHAR(255);");
+			stmt.execute("ALTER TABLE scouting_history ADD COLUMN IF NOT EXISTS positions VARCHAR(255);");
 		}
 	}
 }

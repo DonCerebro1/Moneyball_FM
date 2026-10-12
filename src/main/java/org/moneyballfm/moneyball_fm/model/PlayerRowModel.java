@@ -63,6 +63,17 @@ public class PlayerRowModel {
 		this.statValue2.set(s2);
 		this.statValue3.set(s3);
 
+		// Initial-Werte in der Map von rawPlayer sichern (für Rollen-Zurückwechseln nach DB-Load)
+		if (this.rawPlayer != null) {
+			TacticRole initialRole = TacticRole.fromDisplayName(player.getRole());
+			if (initialRole != null) {
+				if (s1 > 0.0) this.rawPlayer.putStat(initialRole.getStat1Header(), s1);
+				if (s2 > 0.0) this.rawPlayer.putStat(initialRole.getStat2Header(), s2);
+				if (s3 > 0.0) this.rawPlayer.putStat(initialRole.getStat3Header(), s3);
+				this.setStatLabels(initialRole.getStat1Header(), initialRole.getStat2Header(), initialRole.getStat3Header());
+			}
+		}
+
 		// Synchronisation: Wenn die Rolle im Model geändert wird, auch das Player-Objekt anpassen
 		this.role.addListener((obs, oldV, newV) -> {
 			if (this.rawPlayer != null && newV != null) {
@@ -142,20 +153,39 @@ public class PlayerRowModel {
 		return rawPlayer != null ? rawPlayer.getNaturalPosition() : "";
 	}
 
-	// Rollenwechsel: Holt dynamisch Stat 1, Stat 2 und Stat 3 aus der Map des Spielers
+	// Rollenwechsel: Holt Stats sicher aus der Map, ohne vorhandene Werte bei Nicht-Auffinden zu zerstören
 	public void applyRoleStats(TacticRole newRole) {
 		if (newRole == null || this.rawPlayer == null) return;
 
+		String prevRoleName = this.role.get();
+		double currentS1 = this.statValue1.get();
+		double currentS2 = this.statValue2.get();
+		double currentS3 = this.statValue3.get();
+
+		// 1. Aktuelle Werte vor dem Wechsel unter den Headern der alten Rolle sichern
+		TacticRole oldRole = TacticRole.fromDisplayName(prevRoleName);
+		if (oldRole != null) {
+			if (currentS1 > 0.0) this.rawPlayer.putStat(oldRole.getStat1Header(), currentS1);
+			if (currentS2 > 0.0) this.rawPlayer.putStat(oldRole.getStat2Header(), currentS2);
+			if (currentS3 > 0.0) this.rawPlayer.putStat(oldRole.getStat3Header(), currentS3);
+		}
+
+		// 2. Neue Rolle setzen
 		this.role.set(newRole.getDisplayName());
 		this.rawPlayer.setRole(newRole.getDisplayName());
 
+		// 3. Stats für die neue Rolle abfragen
 		double s1 = this.rawPlayer.getStat(newRole.getStat1Header());
 		double s2 = this.rawPlayer.getStat(newRole.getStat2Header());
 		double s3 = this.rawPlayer.getStat(newRole.getStat3Header());
 
-		this.statValue1.set(s1);
-		this.statValue2.set(s2);
-		this.statValue3.set(s3);
+		// 4. Nur überschreiben, wenn in der Map echte Stats gefunden wurden (> 0.0).
+		// Wurde nichts gefunden (z. B. nach DB-Snapshot ohne Rohdaten), bleiben die bestehenden Stats erhalten!
+		if (s1 > 0.0 || s2 > 0.0 || s3 > 0.0) {
+			this.statValue1.set(s1);
+			this.statValue2.set(s2);
+			this.statValue3.set(s3);
+		}
 
 		this.setStatLabels(newRole.getStat1Header(), newRole.getStat2Header(), newRole.getStat3Header());
 	}

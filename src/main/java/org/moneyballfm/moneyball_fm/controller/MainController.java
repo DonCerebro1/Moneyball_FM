@@ -1171,6 +1171,7 @@ public class MainController {
 			recalcScout(e.getRowValue());
 		});
 
+		// Manuelle Werteingaben sichern
 		colScoutStat1.setCellValueFactory(cell -> cell.getValue().statValue1Property().asObject());
 		colScoutStat1.setCellFactory(TextFieldTableCell.forTableColumn(new DoubleStringConverter()));
 		colScoutStat1.setOnEditCommit(e -> {
@@ -1929,15 +1930,8 @@ public class MainController {
 					refreshSquadKPIs();
 					refreshRegistrationData();
 
-					HistoryRepository.saveSquadSnapshot(
-							myClub,
-							"Aktuell",
-							droppedFile.getName(),
-							playerDataList,
-							outgoingLoanDataList,
-							incomingLoanDataList,
-							youthDataList
-					);
+					// Speichert den aktuellen Gesamtzustand (inkl. Scouting)
+					autoSaveToDatabase();
 
 					if (lblImportTimestamp != null) {
 						lblImportTimestamp.setText("Importiert am: " + LocalDateTime.now().format(timeFormatter));
