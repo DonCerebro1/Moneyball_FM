@@ -11,10 +11,7 @@ import org.moneyballfm.moneyball_fm.model.TacticRole;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class FmExportParser {
 
@@ -53,6 +50,7 @@ public class FmExportParser {
 
 	public static List<PreseasonData> parsePreseasonFile(File file) throws IOException {
 		List<PreseasonData> result = new ArrayList<>();
+		Set<String> seen = new HashSet<>();
 
 		try (BufferedReader reader = new BufferedReader(new FileReader(file, StandardCharsets.UTF_8))) {
 			String line;
@@ -102,9 +100,13 @@ public class FmExportParser {
 				String name = getVal(cols, colMap, "name", "person", "spieler");
 				if (name.isBlank()) continue;
 
+				String key = name.trim().toLowerCase();
+				if (seen.contains(key)) continue;
+				seen.add(key);
+
 				String pos = getVal(cols, colMap, "ausgewählte position", "ausgew. pos.", "pos", "position");
 				String einsStr = getVal(cols, colMap, "eins", "spiele", "apps");
-				double rating = parseDouble(getVal(cols, colMap, "ø note", "note", "d-note", "drschn."));
+				double rating = parseDouble(getVal(cols, mapOrEmpty(colMap), "ø note", "note", "d-note", "drschn."));
 				int minutes = calculateMinutesFromAppearances(einsStr);
 
 				result.add(new PreseasonData(name, pos, minutes, rating));
@@ -132,6 +134,7 @@ public class FmExportParser {
 
 	private static List<PlayerRowModel> parsePlainTextFile(File file) throws IOException {
 		List<PlayerRowModel> result = new ArrayList<>();
+		Set<String> seenKeys = new HashSet<>();
 
 		try (BufferedReader reader = new BufferedReader(new FileReader(file, StandardCharsets.UTF_8))) {
 			String line;
@@ -180,7 +183,11 @@ public class FmExportParser {
 
 				PlayerRowModel model = extractRow(cols, colMap);
 				if (model != null) {
-					result.add(model);
+					String key = model.nameProperty().get().trim().toLowerCase() + "_" + model.ageProperty().get();
+					if (!seenKeys.contains(key)) {
+						seenKeys.add(key);
+						result.add(model);
+					}
 				}
 			}
 		}
@@ -189,6 +196,8 @@ public class FmExportParser {
 
 	private static List<PlayerRowModel> parseHtml(File file) throws IOException {
 		List<PlayerRowModel> result = new ArrayList<>();
+		Set<String> seenKeys = new HashSet<>();
+
 		Document doc = Jsoup.parse(file, "UTF-8");
 		Element table = doc.selectFirst("table");
 		if (table == null) return result;
@@ -210,7 +219,13 @@ public class FmExportParser {
 			if (cells.isEmpty()) continue;
 			String[] cols = cells.stream().map(c -> cleanNbsps(c.text()).trim()).toArray(String[]::new);
 			PlayerRowModel model = extractRow(cols, colMap);
-			if (model != null) result.add(model);
+			if (model != null) {
+				String key = model.nameProperty().get().trim().toLowerCase() + "_" + model.ageProperty().get();
+				if (!seenKeys.contains(key)) {
+					seenKeys.add(key);
+					result.add(model);
+				}
+			}
 		}
 		return result;
 	}
@@ -218,6 +233,13 @@ public class FmExportParser {
 	private static PlayerRowModel extractRow(String[] cols, Map<String, Integer> map) {
 		String name = getVal(cols, map, "name", "person", "spieler");
 		if (name.isBlank()) return null;
+
+		if (name.contains("\n")) {
+			name = name.split("\n")[0].trim();
+		}
+		if (name.contains(" - ")) {
+			name = name.split(" - ")[0].trim();
+		}
 
 		String roleDetail = getVal(cols, map,
 				"position/rolle/aufgabe",
@@ -339,6 +361,8 @@ public class FmExportParser {
 
 	private static List<ScoutingPlayerModel> parseScoutingHtml(File file) throws IOException {
 		List<ScoutingPlayerModel> result = new ArrayList<>();
+		Set<String> seenKeys = new HashSet<>();
+
 		Document doc = Jsoup.parse(file, "UTF-8");
 		Element table = doc.selectFirst("table");
 		if (table == null) return result;
@@ -365,7 +389,11 @@ public class FmExportParser {
 
 			ScoutingPlayerModel model = extractScoutingRow(cols, colMap);
 			if (model != null) {
-				result.add(model);
+				String key = model.nameProperty().get().trim().toLowerCase() + "_" + model.ageProperty().get();
+				if (!seenKeys.contains(key)) {
+					seenKeys.add(key);
+					result.add(model);
+				}
 			}
 		}
 		return result;
@@ -378,6 +406,7 @@ public class FmExportParser {
 
 	private static List<ScoutingPlayerModel> parseScoutingPlainText(File file) throws IOException {
 		List<ScoutingPlayerModel> result = new ArrayList<>();
+		Set<String> seenKeys = new HashSet<>();
 
 		try (BufferedReader reader = new BufferedReader(new FileReader(file, StandardCharsets.UTF_8))) {
 			String line;
@@ -421,7 +450,13 @@ public class FmExportParser {
 				}
 
 				ScoutingPlayerModel model = extractScoutingRow(cols, colMap);
-				if (model != null) result.add(model);
+				if (model != null) {
+					String key = model.nameProperty().get().trim().toLowerCase() + "_" + model.ageProperty().get();
+					if (!seenKeys.contains(key)) {
+						seenKeys.add(key);
+						result.add(model);
+					}
+				}
 			}
 		}
 		return result;
@@ -431,6 +466,9 @@ public class FmExportParser {
 		String name = getVal(cols, map, "name", "person", "spieler");
 		if (name.isBlank() || name.equals("- -") || name.equals("-") || name.equals("—")) return null;
 
+		if (name.contains("\n")) {
+			name = name.split("\n")[0].trim();
+		}
 		if (name.contains(" - ")) {
 			name = name.split(" - ")[0].trim();
 		}
@@ -475,13 +513,11 @@ public class FmExportParser {
 		p.contractYearsProperty().set(parseContractYears(getVal(cols, map, "endet", "vertrag")));
 		p.minutesProperty().set(parseInt(getVal(cols, map, "min.", "minuten", "min")));
 
-		// Physis & Mentale Werte
 		p.agilityProperty().set(parseInt(getVal(cols, map, "bew", "beweglichkeit")));
 		p.paceProperty().set(parseInt(getVal(cols, map, "ant", "antritt")));
 		p.staminaProperty().set(parseInt(getVal(cols, map, "aus", "ausdauer")));
 		p.determinationProperty().set(parseInt(getVal(cols, map, "zie", "entsch", "zielstrebigkeit", "entschlossenheit")));
 
-		// Detaillierte Leistungsdaten
 		double prP = parseDouble(getVal(cols, map, "pr pässe/90", "pr päs/90", "pr pässe", "prpaesse90", "prpaesse"));
 		double xg = parseDouble(getVal(cols, map, "xg/90", "xg", "xg90"));
 		double xa = parseDouble(getVal(cols, map, "xa/90", "xa", "xa90"));
@@ -526,7 +562,6 @@ public class FmExportParser {
 		p.progressivePassesTotalProperty().set(prPTotal);
 		p.keyPassesTotalProperty().set(entP);
 
-		// Initiale Fallback-Belegung für Stats 1-3
 		p.statValue1Property().set(xg > 0 ? xg : (passPct > 0 ? passPct / 100.0 : prP));
 		p.statValue2Property().set(xa > 0 ? xa : (zwkPct > 0 ? zwkPct / 100.0 : abb90));
 		p.statValue3Property().set(schussPct > 0 ? schussPct / 100.0 : (drb > 0 ? drb : note));
@@ -534,9 +569,9 @@ public class FmExportParser {
 		return p;
 	}
 
-	// ==========================================
-	// 3. COMMON HILFSMETHODEN
-	// ==========================================
+	private static Map<String, Integer> mapOrEmpty(Map<String, Integer> m) {
+		return m != null ? m : Collections.emptyMap();
+	}
 
 	private static String cleanNbsps(String s) {
 		if (s == null) return "";
@@ -594,7 +629,6 @@ public class FmExportParser {
 		if (val == null || val.isBlank() || val.equals("-") || val.equals("—")) return 0L;
 		String clean = cleanNbsps(val).toLowerCase().replace("€", "").trim();
 
-		// Alle Varianten von "Unverkäuflich" & "Nicht zum Verkauf"
 		if (clean.contains("unverkäuflich")
 				|| clean.contains("unverkaeuflich")
 				|| clean.contains("nicht zum verkauf")

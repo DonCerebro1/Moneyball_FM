@@ -370,26 +370,32 @@ public class MainController {
 	}
 
 	/**
-	 * Speichert einen echten neuen Verlaufs-Snapshot in der H2-Datenbank (bei Datei-Import).
+	 * Speichert NUR den Kader/Leih/Jugend-Snapshot in H2.
 	 */
-	private void saveSnapshotToDatabase() {
+	private void saveSquadSnapshotToDatabase() {
 		String club = (txtMyClub != null && !txtMyClub.getText().isBlank()) ? txtMyClub.getText().trim() : "Villarreal";
-		HistoryRepository.persistCurrentState(
+		HistoryRepository.saveSquadSnapshot(
 				club,
 				playerDataList,
 				outgoingLoanDataList,
 				incomingLoanDataList,
-				youthDataList,
-				scoutDataList
+				youthDataList
 		);
 	}
 
 	/**
-	 * Leichtgewichtige Sicherung bei Tabellen-Edits (belässt den Snapshot sauber).
+	 * Speichert NUR den Scouting-Snapshot in H2.
 	 */
+	private void saveScoutingSnapshotToDatabase() {
+		String club = (txtMyClub != null && !txtMyClub.getText().isBlank()) ? txtMyClub.getText().trim() : "Villarreal";
+		HistoryRepository.saveScoutingSnapshot(
+				club,
+				scoutDataList
+		);
+	}
+
 	private void autoSaveToDatabase() {
 		// Bei Live-Zelländerungen bleibt der aktuelle Zustand im RAM aktiv
-		// Snapshots werden dediziert bei echten Importen erstellt.
 	}
 
 	private void setupDepthChartTableColumns() {
@@ -1450,7 +1456,7 @@ public class MainController {
 		scoutDataList.add(s);
 		refreshScoutKPIs();
 		refreshShadowSquad();
-		saveSnapshotToDatabase();
+		saveScoutingSnapshotToDatabase();
 		if (scoutTable != null) scoutTable.scrollTo(s);
 	}
 
@@ -1742,6 +1748,8 @@ public class MainController {
 		}
 	}
 
+	private long lastDropTimestamp = 0L;
+
 	private void setupDragAndDrop() {
 		rootPane.setOnDragOver(event -> {
 			if (event.getGestureSource() != rootPane && event.getDragboard().hasFiles()) {
@@ -1751,6 +1759,16 @@ public class MainController {
 		});
 
 		rootPane.setOnDragDropped(event -> {
+			// Event sofort stoppen, damit es nicht nochmals vom Parent/Child verarbeitet wird
+			event.consume();
+
+			long now = System.currentTimeMillis();
+			if (now - lastDropTimestamp < 1500) {
+				event.setDropCompleted(false);
+				return; // Ignoriert den doppelten Event-Aufruf innerhalb von 1.5 Sekunden!
+			}
+			lastDropTimestamp = now;
+
 			Dragboard db = event.getDragboard();
 			boolean success = false;
 			if (db.hasFiles()) {
@@ -1763,7 +1781,6 @@ public class MainController {
 						importScoutingData(droppedFile);
 						success = true;
 						event.setDropCompleted(success);
-						event.consume();
 						return;
 					}
 
@@ -1796,7 +1813,6 @@ public class MainController {
 						statusLabel.setText("Testspiel-Stats gemerged: " + updated + " Spieler aktualisiert (aus " + droppedFile.getName() + ").");
 						success = true;
 						event.setDropCompleted(success);
-						event.consume();
 						return;
 					}
 
@@ -1998,8 +2014,8 @@ public class MainController {
 					refreshSquadKPIs();
 					refreshRegistrationData();
 
-					// ERZEUGT BEIM IMPORT EINEN NEUEN HISTORIEN-PUNKT
-					saveSnapshotToDatabase();
+					// Speichert NUR den Kader-Snapshot
+					saveSquadSnapshotToDatabase();
 
 					if (lblImportTimestamp != null) {
 						lblImportTimestamp.setText("Importiert am: " + LocalDateTime.now().format(timeFormatter));
@@ -2018,7 +2034,6 @@ public class MainController {
 				}
 			}
 			event.setDropCompleted(success);
-			event.consume();
 		});
 	}
 
@@ -2091,8 +2106,8 @@ public class MainController {
 			refreshScoutKPIs();
 			refreshShadowSquad();
 
-			// Speichert den Import-Snapshot für die Scouting-Historie
-			saveSnapshotToDatabase();
+			// Speichert NUR den Scouting-Snapshot
+			saveScoutingSnapshotToDatabase();
 
 			if (statusLabel != null) {
 				statusLabel.setText("Scouting gemerged: " + added + " neu hinzugefügt, " + updated + " aktualisiert (aus " + file.getName() + ").");
@@ -2184,7 +2199,7 @@ public class MainController {
 		refreshShadowSquad();
 		refreshSquadKPIs();
 		refreshRegistrationData();
-		saveSnapshotToDatabase();
+		saveSquadSnapshotToDatabase();
 		playerTable.scrollTo(row);
 	}
 

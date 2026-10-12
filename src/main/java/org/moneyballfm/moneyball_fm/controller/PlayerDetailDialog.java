@@ -44,7 +44,7 @@ public class PlayerDetailDialog {
 		showGeneric(player.getName(), player.targetRoleProperty().get(), player.ageProperty().get(), ownerStage);
 	}
 
-	// NEU: Scouting-Kandidaten mit Verhandlungskennzahlen
+	// Scouting-Kandidaten mit Verhandlungskennzahlen und Scouting-Historie
 	public static void show(ScoutingPlayerModel scout, Stage ownerStage) {
 		if (scout == null) return;
 
@@ -87,10 +87,10 @@ public class PlayerDetailDialog {
 		kpiGrid.add(lblPrice, 0, 1);
 		kpiGrid.add(lblWage, 1, 1);
 
-		// 3. Stat-Historie laden (falls bereits in früheren Snapshots vorhanden)
+		// 3. Scouting-Historie gezielt aus scouting_history laden
 		List<PlayerHistoryEntry> history = (age > 0)
-				? HistoryRepository.getPlayerHistory(name, age)
-				: HistoryRepository.getPlayerHistory(name);
+				? HistoryRepository.getScoutingHistory(name, age)
+				: HistoryRepository.getScoutingHistory(name);
 
 		// LineChart
 		CategoryAxis xAxis = new CategoryAxis();
@@ -107,7 +107,8 @@ public class PlayerDetailDialog {
 		for (PlayerHistoryEntry entry : history) {
 			series.getData().add(new XYChart.Data<>(entry.snapshotDateProperty().get(), entry.moneyballScoreProperty().get()));
 		}
-		// Aktuellen Scouting-Score als aktuellen Punkt anhängen, falls Historie leer ist
+
+		// Falls in der DB noch kein Snapshot persistiert ist, aktuellen Wert als Fallback zeigen
 		if (history.isEmpty()) {
 			series.getData().add(new XYChart.Data<>("Aktuell (Scout)", scout.scoutingScoreProperty().get()));
 		}
