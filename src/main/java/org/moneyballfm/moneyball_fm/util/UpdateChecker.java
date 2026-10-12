@@ -17,7 +17,7 @@ import java.util.regex.Pattern;
 
 public class UpdateChecker {
 
-	private static final String CURRENT_VERSION = "1.0.0";
+	private static final String CURRENT_VERSION = "1.0.1";
 	// Nutzt /tags als primäre Quelle, damit reine Git-Tags und Releases gleichermaßen funktionieren
 	private static final String GITHUB_TAGS_API = "https://api.github.com/repos/DonCerebro1/Moneyball_FM/tags";
 	private static final String GITHUB_REPO_URL = "https://github.com/DonCerebro1/Moneyball_FM/releases";
