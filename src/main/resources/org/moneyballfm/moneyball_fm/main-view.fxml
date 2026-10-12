@@ -121,7 +121,7 @@
                         <Label fx:id="lblWarningNeeds" text="0 Positionen" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #d97706;" />
                     </VBox>
 
-                    <VBox spacing="4.0" style="-fx-background-color: #dcfce7; -fx-padding: 10 16; -fx-background-radius: 8; -fx-border-color: #86efac; -fx-border-radius: 8;">
+                    <VBox spacing="4.0" style="-fx-background-color: #dcfce7; -fx-padding: 10 16; -fx-border-color: #86efac; -fx-border-radius: 8; -fx-background-radius: 8;">
                         <Label text="Optimal besetzt" style="-fx-font-size: 11px; -fx-text-fill: #166534; -fx-font-weight: bold;" />
                         <Label fx:id="lblOptimalNeeds" text="0 Positionen" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #15803d;" />
                     </VBox>
@@ -398,6 +398,9 @@
                         <TableColumn fx:id="colScoutAskingPrice" text="Ablöseforderung (€)" prefWidth="130.0" />
                         <TableColumn fx:id="colScoutWageDemand" text="Gehalt / Monat (€)" prefWidth="130.0" />
                         <TableColumn fx:id="colScoutContractYears" text="Restvertrag (J)" prefWidth="95.0" />
+                        <!-- NEU: Spielzeit & Stichprobe im Scouting -->
+                        <TableColumn fx:id="colScoutMinutes" text="Minuten" prefWidth="75.0" />
+                        <TableColumn fx:id="colScoutSampleQuality" text="Stichprobe" prefWidth="140.0" />
                         <TableColumn fx:id="colScoutAgility" text="Beweglichkeit" prefWidth="90.0" />
                         <TableColumn fx:id="colScoutPace" text="Antritt" prefWidth="65.0" />
                         <TableColumn fx:id="colScoutStamina" text="Ausdauer" prefWidth="75.0" />

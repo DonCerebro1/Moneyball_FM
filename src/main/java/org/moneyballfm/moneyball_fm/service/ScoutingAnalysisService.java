@@ -8,12 +8,28 @@ public class ScoutingAnalysisService {
 	public static void evaluate(ScoutingPlayerModel p, AppConfig config) {
 		if (p == null) return;
 
-		String roleRaw = p.targetRoleProperty().get() != null ? p.targetRoleProperty().get().trim() : "";
-		String role = roleRaw.toUpperCase();
-
 		double j = p.statValue1Property().get();
 		double k = p.statValue2Property().get();
 		double l = p.statValue3Property().get();
+		int minutes = p.minutesProperty().get();
+
+		// 0. GUARD-CLAUSE (Moneyball Data Integrity):
+		// Blockiert Spieler, wenn alle drei Match-Stats 0.0 sind (keine Daten)
+		// ODER wenn explizit Minuten bekannt sind (> 0), diese aber unter 450 Minuten liegen (< 5 Spiele).
+		boolean allStatsZero = (j == 0.0 && k == 0.0 && l == 0.0);
+		boolean sampleTooSmall = (minutes > 0 && minutes < 450);
+
+		if (allStatsZero || sampleTooSmall) {
+			p.scoutingScoreProperty().set(0.0);
+			p.maxTransferFeeProperty().set(0L);
+			p.maxWageProperty().set(0L);
+			p.priceCheckProperty().set("⚪ KEINE DATEN");
+			p.transferActionProperty().set("🔍 WEITER BEOBACHTEN");
+			return;
+		}
+
+		String roleRaw = p.targetRoleProperty().get() != null ? p.targetRoleProperty().get().trim() : "";
+		String role = roleRaw.toUpperCase();
 
 		// 1. ROLLEN-PERFORMANCE (Max. 65 Punkte)
 		double statPoints;

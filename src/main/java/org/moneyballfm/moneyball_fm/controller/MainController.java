@@ -1,5 +1,6 @@
 package org.moneyballfm.moneyball_fm.controller;
 
+import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
@@ -202,6 +203,11 @@ public class MainController {
 	@FXML private TableColumn<ScoutingPlayerModel, Long> colScoutAskingPrice;
 	@FXML private TableColumn<ScoutingPlayerModel, Long> colScoutWageDemand;
 	@FXML private TableColumn<ScoutingPlayerModel, Double> colScoutContractYears;
+
+	// NEU: Minuten & Stichprobe
+	@FXML private TableColumn<ScoutingPlayerModel, Integer> colScoutMinutes;
+	@FXML private TableColumn<ScoutingPlayerModel, String> colScoutSampleQuality;
+
 	@FXML private TableColumn<ScoutingPlayerModel, Integer> colScoutAgility;
 	@FXML private TableColumn<ScoutingPlayerModel, Integer> colScoutPace;
 	@FXML private TableColumn<ScoutingPlayerModel, Integer> colScoutStamina;
@@ -1157,6 +1163,37 @@ public class MainController {
 			e.getRowValue().contractYearsProperty().set(e.getNewValue());
 			recalcScout(e.getRowValue());
 		});
+
+		// 1. MINUTEN-SPALTE
+		if (colScoutMinutes != null) {
+			colScoutMinutes.setCellValueFactory(cell -> cell.getValue().minutesProperty().asObject());
+			colScoutMinutes.setCellFactory(TextFieldTableCell.forTableColumn(new IntegerStringConverter()));
+			colScoutMinutes.setOnEditCommit(e -> {
+				e.getRowValue().minutesProperty().set(e.getNewValue() != null ? e.getNewValue() : 0);
+				recalcScout(e.getRowValue());
+			});
+		}
+
+		// 2. STICHPROBEN-QUALITÄT
+		if (colScoutSampleQuality != null) {
+			colScoutSampleQuality.setCellValueFactory(cell -> {
+				int mins = cell.getValue().minutesProperty().get();
+				double s1 = cell.getValue().statValue1Property().get();
+				double s2 = cell.getValue().statValue2Property().get();
+				double s3 = cell.getValue().statValue3Property().get();
+
+				if ((s1 == 0.0 && s2 == 0.0 && s3 == 0.0) && mins == 0) {
+					return new SimpleStringProperty("⚪ Keine Daten (0 Min.)");
+				} else if (mins < 450) {
+					return new SimpleStringProperty("🔴 Zu gering (< 5 Spiele)");
+				} else if (mins < 900) {
+					return new SimpleStringProperty("🟡 Mäßig (5–10 Spiele)");
+				} else {
+					return new SimpleStringProperty("🟢 Solide (10+ Spiele)");
+				}
+			});
+			colScoutSampleQuality.setEditable(false);
+		}
 
 		colScoutAgility.setCellValueFactory(cell -> cell.getValue().agilityProperty().asObject());
 		colScoutAgility.setCellFactory(TextFieldTableCell.forTableColumn(new IntegerStringConverter()));
