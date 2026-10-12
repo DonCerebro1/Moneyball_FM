@@ -15,6 +15,11 @@
     <HBox spacing="10.0" alignment="CENTER_LEFT">
         <Button text="+ Spieler manuell anlegen" onAction="#onAddPlayerManual" />
         <Button text="Tabelle leeren" onAction="#onClearList" />
+
+        <!-- FM-Views auf Knopfdruck installieren -->
+        <Button text="📥 FM-Ansichten installieren" onAction="#onInstallFmViews"
+                style="-fx-background-color: #0284c7; -fx-text-fill: white; -fx-font-weight: bold;" />
+
         <Separator orientation="VERTICAL" />
 
         <!-- Editierbarer Vereinsname für flexibles Karrierespiel -->
@@ -478,7 +483,7 @@
                         <Label fx:id="lblU21ExemptCount" text="0 U21 frei" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #1d4ed8;" />
                     </VBox>
 
-                    <VBox spacing="4.0" style="-fx-background-color: #f1f5f9; -fx-padding: 10 16; -fx-background-radius: 8; -fx-border-color: #cbd5e1; -fx-border-radius: 8;">
+                    <VBox spacing="4.0" style="-fx-background-color: #f1f5f9; -fx-padding: 8 16; -fx-background-radius: 8; -fx-border-color: #cbd5e1; -fx-border-radius: 8;">
                         <Label text="REGISTRIERTE GEHÄLTER" style="-fx-font-size: 11px; -fx-text-fill: #475569; -fx-font-weight: bold;" />
                         <Label fx:id="lblRegistrationWages" text="€ 0 / Mon." style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #0f172a;" />
                     </VBox>

@@ -10,6 +10,7 @@ import javafx.scene.input.Dragboard;
 import javafx.scene.input.TransferMode;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import javafx.stage.Window;
 import javafx.util.StringConverter;
 import javafx.util.converter.DoubleStringConverter;
 import javafx.util.converter.IntegerStringConverter;
@@ -34,6 +35,7 @@ import org.moneyballfm.moneyball_fm.service.ScoutingAnalysisService;
 import org.moneyballfm.moneyball_fm.service.ShadowSquadService;
 import org.moneyballfm.moneyball_fm.service.SquadAnalysisService;
 import org.moneyballfm.moneyball_fm.service.YouthAnalysisService;
+import org.moneyballfm.moneyball_fm.util.ViewInstallerService;
 
 import java.io.File;
 import java.text.NumberFormat;
@@ -353,6 +355,12 @@ public class MainController {
 
 		refreshShadowSquad();
 		refreshSquadKPIs();
+	}
+
+	@FXML
+	public void onInstallFmViews() {
+		Window window = rootPane.getScene() != null ? rootPane.getScene().getWindow() : null;
+		ViewInstallerService.installViews(window);
 	}
 
 	private void autoSaveToDatabase() {
