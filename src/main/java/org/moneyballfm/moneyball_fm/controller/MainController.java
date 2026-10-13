@@ -387,12 +387,15 @@ public class MainController {
 	}
 
 	/**
-	 * Eindeutiger Key für Kader, Leih- und Jugend-Listen.
-	 * Nutzt nur den normalisierten Namen (altersunabhängig), damit Geburtstage
-	 * nicht zum Anlegen eines neuen Spielers und Löschen des alten führen.
+	 * Eindeutiger Key für Kader-, Leih- und Jugend-Listen.
+	 * Nutzt ein 3-Jahres-Raster:
+	 * - José altert von 18 auf 19 nahtlos im selben Bucket (18/3 = 6, 19/3 = 6).
+	 * - Stammspieler Raúl (25 J. -> 25/3 = 8) und Leihspieler Raúl (19 J. -> 19/3 = 6)
+	 *   erhalten verschiedene Schlüssel und überschreiben sich nicht.
 	 */
 	private String normalizeSquadPlayerKey(String rawName, int age) {
-		return normalizePlayerKey(rawName);
+		int ageBracket = age > 0 ? (age / 3) : 0;
+		return normalizePlayerKey(rawName) + "_b" + ageBracket;
 	}
 
 	private void saveSquadSnapshotToDatabase() {
@@ -477,7 +480,6 @@ public class MainController {
 				if (!clean.isEmpty()) demand = Long.parseLong(clean);
 			}
 
-			// Verfügbarkeitsfaktor (AF) des ausgewählten Spielers ermitteln (Standard: 1.0)
 			double af = 1.0;
 			if (cmbCalcPlayer != null && cmbCalcPlayer.getValue() != null) {
 				af = cmbCalcPlayer.getValue().getAvailabilityFactor();

@@ -84,7 +84,8 @@ public class HistoryRepository {
                       """;
 			try (PreparedStatement sps = conn.prepareStatement(insertScout)) {
 				for (ScoutingPlayerModel s : scouting) {
-					String key = s.nameProperty().get() != null ? s.nameProperty().get().trim().toLowerCase() : "";
+					int age = s.ageProperty().get();
+					String key = (s.nameProperty().get() != null ? s.nameProperty().get().trim().toLowerCase() : "") + "_b" + (age > 0 ? (age / 3) : 0);
 					if (key.isBlank() || scoutKeys.contains(key)) continue;
 					scoutKeys.add(key);
 
@@ -93,7 +94,7 @@ public class HistoryRepository {
 					sps.setString(3, s.targetRoleProperty().get());
 					sps.setString(4, s.clubProperty().get() != null ? s.clubProperty().get() : "");
 					sps.setString(5, s.positionsProperty().get() != null ? s.positionsProperty().get() : "");
-					sps.setInt(6, s.ageProperty().get());
+					sps.setInt(6, age);
 					sps.setLong(7, s.askingPriceProperty().get());
 					sps.setLong(8, s.wageDemandProperty().get());
 					sps.setDouble(9, s.contractYearsProperty().get());
@@ -138,9 +139,10 @@ public class HistoryRepository {
 		Set<String> insertedKeys = new HashSet<>();
 
 		try (PreparedStatement ps = conn.prepareStatement(insertPlayer)) {
-			// 1. A-Kader (Key rein über Namen, damit Geburtstage im Snapshot nicht duplizieren)
+			// 1. A-Kader (Trennt Namensdopplungen wie Raúl 25 vs 19 über Alters-Raster)
 			for (PlayerRowModel p : squad) {
-				String key = p.nameProperty().get() != null ? p.nameProperty().get().trim().toLowerCase() : "";
+				int age = p.ageProperty().get();
+				String key = (p.nameProperty().get() != null ? p.nameProperty().get().trim().toLowerCase() : "") + "_b" + (age > 0 ? (age / 3) : 0);
 				if (key.isBlank() || insertedKeys.contains(key)) continue;
 				insertedKeys.add(key);
 
@@ -148,7 +150,7 @@ public class HistoryRepository {
 				ps.setString(2, p.nameProperty().get().trim());
 				ps.setString(3, "FIRST_TEAM");
 				ps.setString(4, p.roleProperty().get());
-				ps.setInt(5, p.ageProperty().get());
+				ps.setInt(5, age);
 				ps.setLong(6, p.marketValueProperty().get());
 				ps.setLong(7, p.monthlySalaryProperty().get());
 				ps.setDouble(8, 2.0);
@@ -173,7 +175,8 @@ public class HistoryRepository {
 
 			// 2. Outgoing Loans
 			for (LoanPlayerModel l : outgoingLoans) {
-				String key = l.getPlayerName() != null ? l.getPlayerName().trim().toLowerCase() : "";
+				int age = l.ageProperty().get();
+				String key = (l.getPlayerName() != null ? l.getPlayerName().trim().toLowerCase() : "") + "_b" + (age > 0 ? (age / 3) : 0);
 				if (key.isBlank() || insertedKeys.contains(key)) continue;
 				insertedKeys.add(key);
 
@@ -181,7 +184,7 @@ public class HistoryRepository {
 				ps.setString(2, l.playerNameProperty().get().trim());
 				ps.setString(3, "OUTGOING_LOAN");
 				ps.setString(4, l.targetRoleProperty().get());
-				ps.setInt(5, l.ageProperty().get());
+				ps.setInt(5, age);
 				ps.setLong(6, l.marketValueProperty().get());
 				ps.setLong(7, 0L);
 				ps.setDouble(8, 0.0);
@@ -206,7 +209,8 @@ public class HistoryRepository {
 
 			// 3. Incoming Loans
 			for (LoanPlayerModel l : incomingLoans) {
-				String key = l.getPlayerName() != null ? l.getPlayerName().trim().toLowerCase() : "";
+				int age = l.ageProperty().get();
+				String key = (l.getPlayerName() != null ? l.getPlayerName().trim().toLowerCase() : "") + "_b" + (age > 0 ? (age / 3) : 0);
 				if (key.isBlank() || insertedKeys.contains(key)) continue;
 				insertedKeys.add(key);
 
@@ -214,7 +218,7 @@ public class HistoryRepository {
 				ps.setString(2, l.playerNameProperty().get().trim());
 				ps.setString(3, "INCOMING_LOAN");
 				ps.setString(4, l.targetRoleProperty().get());
-				ps.setInt(5, l.ageProperty().get());
+				ps.setInt(5, age);
 				ps.setLong(6, l.marketValueProperty().get());
 				ps.setLong(7, 0L);
 				ps.setDouble(8, 0.0);
@@ -239,7 +243,8 @@ public class HistoryRepository {
 
 			// 4. Jugend
 			for (YouthPlayerModel y : youth) {
-				String key = y.getName() != null ? y.getName().trim().toLowerCase() : "";
+				int age = y.ageProperty().get();
+				String key = (y.getName() != null ? y.getName().trim().toLowerCase() : "") + "_b" + (age > 0 ? (age / 3) : 0);
 				if (key.isBlank() || insertedKeys.contains(key)) continue;
 				insertedKeys.add(key);
 
@@ -247,7 +252,7 @@ public class HistoryRepository {
 				ps.setString(2, y.nameProperty().get().trim());
 				ps.setString(3, "YOUTH");
 				ps.setString(4, y.targetRoleProperty().get());
-				ps.setInt(5, y.ageProperty().get());
+				ps.setInt(5, age);
 				ps.setLong(6, 0L);
 				ps.setLong(7, 0L);
 				ps.setDouble(8, 0.0);
@@ -416,28 +421,42 @@ public class HistoryRepository {
 		}
 	}
 
-	public static List<PlayerHistoryEntry> getPlayerHistory(String playerName, int age) {
-		// Überladene Methode leitet nun karriereweit weiter, damit keine alten Snapshots abgeschnitten werden
-		return getPlayerHistory(playerName);
-	}
-
-	public static List<PlayerHistoryEntry> getPlayerHistory(String playerName) {
+	/**
+	 * Lädt die Historie mit Alterstoleranz (+/- 2 Jahre).
+	 * Dadurch bleiben Geburtstage erhalten, aber Namensdopplungen (z. B. Raúl 25 vs. 19)
+	 * werden sauber getrennt.
+	 */
+	public static List<PlayerHistoryEntry> getPlayerHistory(String playerName, int currentAge) {
 		List<PlayerHistoryEntry> list = new java.util.ArrayList<>();
 		if (playerName == null || playerName.isBlank()) return list;
 
-		String sql = """
-            SELECT s.id, s.imported_at, s.in_game_season, p.tactical_role, p.age,
-                   p.market_value, p.monthly_salary, p.minutes_played,
-                   p.moneyball_score, p.recommendation
-            FROM player_history p
-            JOIN snapshots s ON p.snapshot_id = s.id
-            WHERE LOWER(TRIM(p.player_name)) = LOWER(TRIM(?))
-            ORDER BY s.imported_at ASC, p.id ASC
-        """;
+		String sql = (currentAge > 0)
+				? """
+                  SELECT s.id, s.imported_at, s.in_game_season, p.tactical_role, p.age,
+                         p.market_value, p.monthly_salary, p.minutes_played,
+                         p.moneyball_score, p.recommendation
+                  FROM player_history p
+                  JOIN snapshots s ON p.snapshot_id = s.id
+                  WHERE LOWER(TRIM(p.player_name)) = LOWER(TRIM(?))
+                    AND ABS(p.age - ?) <= 2
+                  ORDER BY s.imported_at ASC, p.id ASC
+               """
+				: """
+                  SELECT s.id, s.imported_at, s.in_game_season, p.tactical_role, p.age,
+                         p.market_value, p.monthly_salary, p.minutes_played,
+                         p.moneyball_score, p.recommendation
+                  FROM player_history p
+                  JOIN snapshots s ON p.snapshot_id = s.id
+                  WHERE LOWER(TRIM(p.player_name)) = LOWER(TRIM(?))
+                  ORDER BY s.imported_at ASC, p.id ASC
+               """;
 
 		try (Connection conn = DatabaseManager.getConnection();
 		     PreparedStatement ps = conn.prepareStatement(sql)) {
 			ps.setString(1, playerName.trim());
+			if (currentAge > 0) {
+				ps.setInt(2, currentAge);
+			}
 			try (ResultSet rs = ps.executeQuery()) {
 				DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss");
 				Set<Long> seenSnapshots = new HashSet<>();
@@ -466,27 +485,41 @@ public class HistoryRepository {
 		return list;
 	}
 
-	public static List<PlayerHistoryEntry> getScoutingHistory(String playerName, int age) {
-		return getScoutingHistory(playerName);
+	public static List<PlayerHistoryEntry> getPlayerHistory(String playerName) {
+		return getPlayerHistory(playerName, -1);
 	}
 
-	public static List<PlayerHistoryEntry> getScoutingHistory(String playerName) {
+	public static List<PlayerHistoryEntry> getScoutingHistory(String playerName, int currentAge) {
 		List<PlayerHistoryEntry> list = new java.util.ArrayList<>();
 		if (playerName == null || playerName.isBlank()) return list;
 
-		String sql = """
-            SELECT s.id, s.imported_at, s.in_game_season, sc.target_role, sc.age,
-                   sc.asking_price, sc.wage_demand, 0 AS minutes_played,
-                   sc.scouting_score, sc.transfer_action
-            FROM scouting_history sc
-            JOIN snapshots s ON sc.snapshot_id = s.id
-            WHERE LOWER(TRIM(sc.player_name)) = LOWER(TRIM(?))
-            ORDER BY s.imported_at ASC, sc.id ASC
-        """;
+		String sql = (currentAge > 0)
+				? """
+                  SELECT s.id, s.imported_at, s.in_game_season, sc.target_role, sc.age,
+                         sc.asking_price, sc.wage_demand, 0 AS minutes_played,
+                         sc.scouting_score, sc.transfer_action
+                  FROM scouting_history sc
+                  JOIN snapshots s ON sc.snapshot_id = s.id
+                  WHERE LOWER(TRIM(sc.player_name)) = LOWER(TRIM(?))
+                    AND ABS(sc.age - ?) <= 2
+                  ORDER BY s.imported_at ASC, sc.id ASC
+               """
+				: """
+                  SELECT s.id, s.imported_at, s.in_game_season, sc.target_role, sc.age,
+                         sc.asking_price, sc.wage_demand, 0 AS minutes_played,
+                         sc.scouting_score, sc.transfer_action
+                  FROM scouting_history sc
+                  JOIN snapshots s ON sc.snapshot_id = s.id
+                  WHERE LOWER(TRIM(sc.player_name)) = LOWER(TRIM(?))
+                  ORDER BY s.imported_at ASC, sc.id ASC
+               """;
 
 		try (Connection conn = DatabaseManager.getConnection();
 		     PreparedStatement ps = conn.prepareStatement(sql)) {
 			ps.setString(1, playerName.trim());
+			if (currentAge > 0) {
+				ps.setInt(2, currentAge);
+			}
 			try (ResultSet rs = ps.executeQuery()) {
 				DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss");
 				Set<Long> seenSnapshots = new HashSet<>();
@@ -512,5 +545,9 @@ public class HistoryRepository {
 			e.printStackTrace();
 		}
 		return list;
+	}
+
+	public static List<PlayerHistoryEntry> getScoutingHistory(String playerName) {
+		return getScoutingHistory(playerName, -1);
 	}
 }

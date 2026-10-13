@@ -87,8 +87,8 @@ public class PlayerDetailDialog {
 		kpiGrid.add(lblPrice, 0, 1);
 		kpiGrid.add(lblWage, 1, 1);
 
-		// 3. Scouting-Historie rein über Namen laden (karriereübergreifend)
-		List<PlayerHistoryEntry> history = HistoryRepository.getScoutingHistory(name);
+		// 3. Scouting-Historie mit Alterstoleranz laden
+		List<PlayerHistoryEntry> history = HistoryRepository.getScoutingHistory(name, age);
 
 		// LineChart
 		CategoryAxis xAxis = new CategoryAxis();
@@ -161,8 +161,8 @@ public class PlayerDetailDialog {
 		dialog.initOwner(ownerStage);
 		dialog.setTitle("Spieler-Historie: " + playerName + (age > 0 ? " (" + age + " J.)" : ""));
 
-		// Hier lag der Fehler: jetzt immer karriereübergreifend nach Name laden!
-		List<PlayerHistoryEntry> history = HistoryRepository.getPlayerHistory(playerName);
+		// Historie mit Alterstoleranz abfragen (+/- 2 Jahre)
+		List<PlayerHistoryEntry> history = HistoryRepository.getPlayerHistory(playerName, age);
 
 		VBox root = new VBox(15);
 		root.setPadding(new Insets(15));
