@@ -252,7 +252,7 @@ public class FmExportParser {
 		String rawPos = getVal(cols, map, "ausgewählte position", "ausgew. pos.", "ausgew. pos");
 		String naturalPosRaw = getVal(cols, map, "position", "pos", "natürliche position");
 
-		// Fallback für zweizeilige FM-Positionszellen (oben Position, unten Rolle)
+		// Zweizeilige FM-Positionszellen: oben Position, unten Rolle
 		if ((roleDetail.isBlank() || roleDetail.equals("-")) && naturalPosRaw.contains("\n")) {
 			String[] lines = naturalPosRaw.split("\n");
 			if (lines.length > 1 && !lines[1].isBlank()) {
@@ -490,11 +490,11 @@ public class FmExportParser {
 		String rawPos = getVal(cols, map, "ausgewählte position", "ausgew. pos.", "ausgew. pos");
 		String naturalPosRaw = getVal(cols, map, "position", "pos", "natürliche position");
 
-		// Zweizeilige FM-Zelle: z. B. "V (RZ), DM\nBallspielender Verteidiger"
+		// Zweizeilige FM-Zelle: Position oben, Ideal-Rolle unten
 		if ((roleDetail.isBlank() || roleDetail.equals("-")) && naturalPosRaw.contains("\n")) {
 			String[] lines = naturalPosRaw.split("\n");
 			if (lines.length > 1 && !lines[1].isBlank()) {
-				roleDetail = lines[1].trim(); // Ideal-Rolle aus FM übernehmen!
+				roleDetail = lines[1].trim();
 				naturalPosRaw = lines[0].trim();
 			}
 		}

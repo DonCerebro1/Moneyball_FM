@@ -39,6 +39,7 @@ import org.moneyballfm.moneyball_fm.service.YouthAnalysisService;
 import org.moneyballfm.moneyball_fm.util.ViewInstallerService;
 
 import java.io.File;
+import java.text.Normalizer;
 import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -204,7 +205,7 @@ public class MainController {
 	@FXML private TableColumn<ScoutingPlayerModel, Long> colScoutWageDemand;
 	@FXML private TableColumn<ScoutingPlayerModel, Double> colScoutContractYears;
 
-	// NEU: Minuten & Stichprobe
+	// Minuten & Stichprobe
 	@FXML private TableColumn<ScoutingPlayerModel, Integer> colScoutMinutes;
 	@FXML private TableColumn<ScoutingPlayerModel, String> colScoutSampleQuality;
 
@@ -370,8 +371,28 @@ public class MainController {
 	}
 
 	/**
-	 * Speichert NUR den Kader/Leih/Jugend-Snapshot in H2.
+	 * Bereinigt Namen von Sonderzeichen, Akzenten (z. B. Ç -> C, é -> e), Satzzeichen
+	 * und führenden FM-Symbolen, damit Spieler aus HTML und Text/RTF absolut identisch matchen.
 	 */
+	private String normalizePlayerKey(String rawName) {
+		if (rawName == null || rawName.isBlank()) return "unknown";
+		String normalized = Normalizer.normalize(rawName, Normalizer.Form.NFD)
+				.replaceAll("\\p{M}", "");
+		return normalized
+				.replaceAll("(?i)^[\\*\\-\\s]+", "")
+				.replaceAll("\\s*\\([^)]*\\)$", "")
+				.replaceAll("[\\p{Punct}\\s]+", "")
+				.trim()
+				.toLowerCase();
+	}
+
+	/**
+	 * Key für Kader- und Jugend-Listen mit Altersbezug.
+	 */
+	private String normalizeSquadPlayerKey(String rawName, int age) {
+		return normalizePlayerKey(rawName) + "_" + age;
+	}
+
 	private void saveSquadSnapshotToDatabase() {
 		String club = (txtMyClub != null && !txtMyClub.getText().isBlank()) ? txtMyClub.getText().trim() : "Villarreal";
 		HistoryRepository.saveSquadSnapshot(
@@ -383,9 +404,6 @@ public class MainController {
 		);
 	}
 
-	/**
-	 * Speichert NUR den Scouting-Snapshot in H2.
-	 */
 	private void saveScoutingSnapshotToDatabase() {
 		String club = (txtMyClub != null && !txtMyClub.getText().isBlank()) ? txtMyClub.getText().trim() : "Villarreal";
 		HistoryRepository.saveScoutingSnapshot(
@@ -1181,7 +1199,7 @@ public class MainController {
 			recalcScout(e.getRowValue());
 		});
 
-		// 1. MINUTEN-SPALTE
+		// Minuten-Spalte
 		if (colScoutMinutes != null) {
 			colScoutMinutes.setCellValueFactory(cell -> cell.getValue().minutesProperty().asObject());
 			colScoutMinutes.setCellFactory(TextFieldTableCell.forTableColumn(new IntegerStringConverter()));
@@ -1191,7 +1209,7 @@ public class MainController {
 			});
 		}
 
-		// 2. STICHPROBEN-QUALITÄT
+		// Stichproben-Qualität
 		if (colScoutSampleQuality != null) {
 			colScoutSampleQuality.setCellValueFactory(cell -> {
 				int mins = cell.getValue().minutesProperty().get();
@@ -1275,7 +1293,6 @@ public class MainController {
 		colScoutPriceCheck.setCellValueFactory(cell -> cell.getValue().priceCheckProperty());
 		colScoutAction.setCellValueFactory(cell -> cell.getValue().transferActionProperty());
 
-		// Doppelklick auf Zeile öffnet den Detail-Dialog für Scouting-Targets
 		scoutTable.setRowFactory(tv -> {
 			TableRow<ScoutingPlayerModel> row = new TableRow<>();
 			row.setOnMouseClicked(event -> {
@@ -1590,8 +1607,8 @@ public class MainController {
 
 		for (YouthPlayerModel y : youthDataList) {
 			boolean exists = registrationDataList.stream()
-					.anyMatch(r -> r.nameProperty().get().equalsIgnoreCase(y.getName())
-							&& r.ageProperty().get() == y.ageProperty().get());
+					.anyMatch(r -> normalizeSquadPlayerKey(r.nameProperty().get(), r.ageProperty().get())
+							.equals(normalizeSquadPlayerKey(y.getName(), y.ageProperty().get())));
 			if (!exists) {
 				Player p = new Player(
 						y.getName(),
@@ -1712,35 +1729,17 @@ public class MainController {
 		if (lblOptimalNeeds != null) lblOptimalNeeds.setText(optimalCount + " Positionen");
 	}
 
-	private void removeFromOtherLists(String nameKey, ObservableList<?>... targetLists) {
-		for (ObservableList<?> list : targetLists) {
-			list.removeIf(item -> {
-				if (item instanceof PlayerRowModel p) {
-					return p.nameProperty().get() != null && p.nameProperty().get().trim().equalsIgnoreCase(nameKey);
-				} else if (item instanceof LoanPlayerModel l) {
-					return l.getPlayerName() != null && l.getPlayerName().trim().equalsIgnoreCase(nameKey);
-				} else if (item instanceof YouthPlayerModel y) {
-					return y.getName() != null && y.getName().trim().equalsIgnoreCase(nameKey);
-				}
-				return false;
-			});
-		}
-	}
-
 	private void removeFromOtherListsByKey(String key, ObservableList<?>... targetLists) {
 		for (ObservableList<?> list : targetLists) {
 			list.removeIf(item -> {
 				if (item instanceof PlayerRowModel p) {
-					String k = (p.nameProperty().get() != null ? p.nameProperty().get().trim().toLowerCase() : "")
-							+ "_" + p.ageProperty().get();
+					String k = normalizeSquadPlayerKey(p.nameProperty().get(), p.ageProperty().get());
 					return k.equalsIgnoreCase(key);
 				} else if (item instanceof LoanPlayerModel l) {
-					String k = (l.getPlayerName() != null ? l.getPlayerName().trim().toLowerCase() : "")
-							+ "_" + l.ageProperty().get();
+					String k = normalizeSquadPlayerKey(l.getPlayerName(), l.ageProperty().get());
 					return k.equalsIgnoreCase(key);
 				} else if (item instanceof YouthPlayerModel y) {
-					String k = (y.getName() != null ? y.getName().trim().toLowerCase() : "")
-							+ "_" + y.ageProperty().get();
+					String k = normalizeSquadPlayerKey(y.getName(), y.ageProperty().get());
 					return k.equalsIgnoreCase(key);
 				}
 				return false;
@@ -1759,13 +1758,12 @@ public class MainController {
 		});
 
 		rootPane.setOnDragDropped(event -> {
-			// Event sofort stoppen, damit es nicht nochmals vom Parent/Child verarbeitet wird
 			event.consume();
 
 			long now = System.currentTimeMillis();
 			if (now - lastDropTimestamp < 1500) {
 				event.setDropCompleted(false);
-				return; // Ignoriert den doppelten Event-Aufruf innerhalb von 1.5 Sekunden!
+				return;
 			}
 			lastDropTimestamp = now;
 
@@ -1774,7 +1772,7 @@ public class MainController {
 			if (db.hasFiles()) {
 				File droppedFile = db.getFiles().get(0);
 				try {
-					// A) Scouting-Tab aktiv (Tab-Index 6) -> Import ins Scouting
+					// A) Scouting-Tab aktiv (Tab-Index 6)
 					boolean isScoutingTabActive = mainTabPane != null && mainTabPane.getSelectionModel().getSelectedIndex() == 6;
 
 					if (isScoutingTabActive) {
@@ -1784,7 +1782,7 @@ public class MainController {
 						return;
 					}
 
-					// B) Prüfen, ob es eine dedizierte Testspiel-Exportdatei ist
+					// B) Dedizierte Testspiel-Exportdatei
 					if (FmExportParser.isPreseasonFile(droppedFile)) {
 						List<FmExportParser.PreseasonData> preData = FmExportParser.parsePreseasonFile(droppedFile);
 						int updated = 0;
@@ -1792,9 +1790,10 @@ public class MainController {
 						for (FmExportParser.PreseasonData p : preData) {
 							if (p.estimatedMinutes() == 0 && p.rating() == 0.0) continue;
 
-							String pName = p.name().trim().toLowerCase();
+							String pKey = normalizePlayerKey(p.name());
 							for (RegistrationRowModel regRow : registrationDataList) {
-								if (regRow.nameProperty().get() != null && regRow.nameProperty().get().trim().toLowerCase().equals(pName)) {
+								String regKey = normalizePlayerKey(regRow.nameProperty().get());
+								if (regKey.equals(pKey)) {
 									regRow.testMinutesProperty().set(p.estimatedMinutes());
 									regRow.testRatingProperty().set(p.rating());
 									regRow.evaluate();
@@ -1816,7 +1815,7 @@ public class MainController {
 						return;
 					}
 
-					// C) Regulärer Kader-Merge mit zusammengesetztem Key (Name + Alter)
+					// C) Regulärer Kader-Merge
 					List<PlayerRowModel> rows = FmExportParser.parseFile(droppedFile);
 
 					String myClub = (txtMyClub != null && !txtMyClub.getText().isBlank())
@@ -1829,26 +1828,26 @@ public class MainController {
 					for (PlayerRowModel row : rows) {
 						String n = row.nameProperty().get();
 						if (n != null && !n.isBlank()) {
-							importedKeys.add(n.trim().toLowerCase() + "_" + row.ageProperty().get());
+							importedKeys.add(normalizeSquadPlayerKey(n, row.ageProperty().get()));
 						}
 					}
 
 					Map<String, PlayerRowModel> existingKader = new HashMap<>();
 					for (PlayerRowModel p : playerDataList) {
 						String n = p.nameProperty().get();
-						if (n != null) existingKader.put(n.trim().toLowerCase() + "_" + p.ageProperty().get(), p);
+						if (n != null) existingKader.put(normalizeSquadPlayerKey(n, p.ageProperty().get()), p);
 					}
 
 					Map<String, LoanPlayerModel> existingLoans = new HashMap<>();
 					for (LoanPlayerModel l : outgoingLoanDataList) {
 						String n = l.getPlayerName();
-						if (n != null) existingLoans.put(n.trim().toLowerCase() + "_" + l.ageProperty().get(), l);
+						if (n != null) existingLoans.put(normalizeSquadPlayerKey(n, l.ageProperty().get()), l);
 					}
 
 					Map<String, YouthPlayerModel> existingYouth = new HashMap<>();
 					for (YouthPlayerModel y : youthDataList) {
 						String n = y.getName();
-						if (n != null) existingYouth.put(n.trim().toLowerCase() + "_" + y.ageProperty().get(), y);
+						if (n != null) existingYouth.put(normalizeSquadPlayerKey(n, y.ageProperty().get()), y);
 					}
 
 					int updatedCount = 0;
@@ -1858,7 +1857,7 @@ public class MainController {
 						String pName = row.nameProperty().get();
 						if (pName == null || pName.isBlank()) continue;
 
-						String pKey = pName.trim().toLowerCase() + "_" + row.ageProperty().get();
+						String pKey = normalizeSquadPlayerKey(pName, row.ageProperty().get());
 
 						String club = row.currentClubProperty().get() != null
 								? row.currentClubProperty().get().trim().toLowerCase() : "";
@@ -1986,21 +1985,13 @@ public class MainController {
 					int removedCount = 0;
 					if (!importedKeys.isEmpty()) {
 						List<PlayerRowModel> soldFromKader = playerDataList.stream()
-								.filter(p -> {
-									String k = (p.nameProperty().get() != null ? p.nameProperty().get().trim().toLowerCase() : "")
-											+ "_" + p.ageProperty().get();
-									return !importedKeys.contains(k);
-								})
+								.filter(p -> !importedKeys.contains(normalizeSquadPlayerKey(p.nameProperty().get(), p.ageProperty().get())))
 								.toList();
 						removedCount += soldFromKader.size();
 						playerDataList.removeAll(soldFromKader);
 
 						List<YouthPlayerModel> soldFromYouth = youthDataList.stream()
-								.filter(y -> {
-									String k = (y.getName() != null ? y.getName().trim().toLowerCase() : "")
-											+ "_" + y.ageProperty().get();
-									return !importedKeys.contains(k);
-								})
+								.filter(y -> !importedKeys.contains(normalizeSquadPlayerKey(y.getName(), y.ageProperty().get())))
 								.toList();
 						removedCount += soldFromYouth.size();
 						youthDataList.removeAll(soldFromYouth);
@@ -2014,7 +2005,6 @@ public class MainController {
 					refreshSquadKPIs();
 					refreshRegistrationData();
 
-					// Speichert NUR den Kader-Snapshot
 					saveSquadSnapshotToDatabase();
 
 					if (lblImportTimestamp != null) {
@@ -2043,12 +2033,12 @@ public class MainController {
 			ObservableList<String> availableRoles = getAvailableRoles();
 			String fallbackRole = !availableRoles.isEmpty() ? availableRoles.get(0) : "Stoßstürmer (Angreifen)";
 
-			// Map der bereits existierenden Spieler nach Name_Alter
+			// Map NUR mit bereinigtem Namen als Key (ohne Alter, damit Geburtstage keinen Duplikat-Key erzeugen)
 			Map<String, ScoutingPlayerModel> existingMap = new HashMap<>();
 			for (ScoutingPlayerModel existing : scoutDataList) {
 				String name = existing.nameProperty().get();
 				if (name != null) {
-					existingMap.put(name.trim().toLowerCase() + "_" + existing.ageProperty().get(), existing);
+					existingMap.put(normalizePlayerKey(name), existing);
 				}
 			}
 
@@ -2059,7 +2049,7 @@ public class MainController {
 				String name = fresh.nameProperty().get();
 				if (name == null || name.isBlank()) continue;
 
-				String key = name.trim().toLowerCase() + "_" + fresh.ageProperty().get();
+				String key = normalizePlayerKey(name);
 
 				// 1. Rolle auflösen (oder aus bestehendem Eintrag übernehmen)
 				String roleToApply = fresh.targetRoleProperty().get();
@@ -2070,7 +2060,6 @@ public class MainController {
 					}
 				}
 
-				// Sicherstellen, dass die Rolle in der ComboBox existiert
 				final String targetSearch = (roleToApply != null) ? roleToApply.toLowerCase() : "";
 				String matchedRole = availableRoles.stream()
 						.filter(r -> r.equalsIgnoreCase(targetSearch) || r.toLowerCase().contains(targetSearch) || targetSearch.contains(r.toLowerCase()))
@@ -2079,7 +2068,7 @@ public class MainController {
 
 				fresh.targetRoleProperty().set(matchedRole);
 
-				// 2. Taktikrolle holen (Fallback auf fromPosition oder Enum-Werte)
+				// 2. Taktikrolle holen
 				TacticRole tr = TacticRole.fromDisplayName(matchedRole);
 				if (tr == null) {
 					tr = TacticRole.fromPosition(matchedRole);
@@ -2095,6 +2084,7 @@ public class MainController {
 				if (existingMap.containsKey(key)) {
 					ScoutingPlayerModel target = existingMap.get(key);
 					copyScoutData(fresh, target);
+					target.ageProperty().set(fresh.ageProperty().get()); // Alter aktualisieren
 					updated++;
 				} else {
 					scoutDataList.add(fresh);
@@ -2106,7 +2096,6 @@ public class MainController {
 			refreshScoutKPIs();
 			refreshShadowSquad();
 
-			// Speichert NUR den Scouting-Snapshot
 			saveScoutingSnapshotToDatabase();
 
 			if (statusLabel != null) {
@@ -2122,6 +2111,7 @@ public class MainController {
 	}
 
 	private void copyScoutData(ScoutingPlayerModel source, ScoutingPlayerModel target) {
+		target.ageProperty().set(source.ageProperty().get());
 		target.clubProperty().set(source.clubProperty().get());
 		target.positionsProperty().set(source.positionsProperty().get());
 		target.askingPriceProperty().set(source.askingPriceProperty().get());
