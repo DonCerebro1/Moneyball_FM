@@ -29,21 +29,30 @@ public class ShadowSquadService {
 
 		if (activeTactic == null || activeTactic.getSlots() == null) return rows;
 
-		// Doppelbelegungen bei gleichen Positionen (z. B. 2x IV, 2x ZM) vermeiden
 		Set<String> usedStarters = new HashSet<>();
 		Set<String> usedScoutsAll = new HashSet<>();
 
 		for (var slot : activeTactic.getSlots()) {
-			String slotLabel = slot.getRoleLabel() != null ? slot.getRoleLabel() : slot.getSlotName();
-			String slotCode = slot.getSlotName() != null ? slot.getSlotName() : "";
+			String slotLabel = slot.getRoleLabel() != null ? slot.getRoleLabel().trim() : (slot.getSlotName() != null ? slot.getSlotName().trim() : "");
+			String slotCode = slot.getSlotName() != null ? slot.getSlotName().trim() : "";
 
-			// 1. Stammspieler ermitteln (Höchster Score im A-Kader auf dieser Rolle)
+			// 1. Exakter Stammspieler-Abgleich über die tatsächlich gewählte Rolle
 			PlayerRowModel starter = squadPlayers.stream()
 					.filter(p -> !p.isOnLoan())
 					.filter(p -> !usedStarters.contains(p.nameProperty().get()))
-					.filter(p -> matchesRole(p.roleProperty().get(), slotLabel, slotCode))
+					.filter(p -> isExactRoleMatch(p.roleProperty().get(), slotLabel, slotCode))
 					.max(Comparator.comparingDouble(p -> p.moneyballScoreProperty().get()))
 					.orElse(null);
+
+			// Fallback nur, wenn noch kein Spieler exakt auf dieser Rolle steht
+			if (starter == null) {
+				starter = squadPlayers.stream()
+						.filter(p -> !p.isOnLoan())
+						.filter(p -> !usedStarters.contains(p.nameProperty().get()))
+						.filter(p -> isCompatibleRoleMatch(p.roleProperty().get(), slotLabel, slotCode))
+						.max(Comparator.comparingDouble(p -> p.moneyballScoreProperty().get()))
+						.orElse(null);
+			}
 
 			String starterName = "— Kein Stammspieler —";
 			long starterSalary = 0L;
@@ -56,14 +65,15 @@ public class ShadowSquadService {
 				usedStarters.add(starterName);
 			}
 
-			// 2. Alle passenden Scouts für diesen Slot filtern (die noch nicht auf anderen Slots liegen)
+			// 2. Scouts für diesen Slot filtern
 			List<ScoutingPlayerModel> matchedScouts = scoutPlayers.stream()
 					.filter(s -> !usedScoutsAll.contains(s.nameProperty().get()))
-					.filter(s -> matchesRole(s.targetRoleProperty().get(), slotLabel, slotCode))
+					.filter(s -> isExactRoleMatch(s.targetRoleProperty().get(), slotLabel, slotCode)
+							|| isCompatibleRoleMatch(s.targetRoleProperty().get(), slotLabel, slotCode))
 					.filter(ShadowSquadService::isAffordable)
 					.collect(Collectors.toList());
 
-			// 3. Trennung: Qualifizierte Spieler (Score > 0) vs. Beobachtungskandidaten (Score == 0)
+			// 3. Trennung: Qualifizierte Scouts vs. Scouts unter Beobachtung
 			List<ScoutingPlayerModel> qualifiedScouts = matchedScouts.stream()
 					.filter(s -> s.scoutingScoreProperty().get() > 0.0)
 					.sorted(Comparator
@@ -74,7 +84,7 @@ public class ShadowSquadService {
 			boolean hasUnscoredScouts = matchedScouts.stream()
 					.anyMatch(s -> s.scoutingScoreProperty().get() <= 0.0);
 
-			// 4. Kandidat 1 auflösen
+			// 4. Kandidat 1
 			ScoutingPlayerModel c1 = !qualifiedScouts.isEmpty() ? qualifiedScouts.get(0) : null;
 			String c1Name;
 			long c1Fee = 0L;
@@ -91,7 +101,7 @@ public class ShadowSquadService {
 				c1Name = "— Kein Scout-Kandidat —";
 			}
 
-			// 5. Kandidat 2 auflösen
+			// 5. Kandidat 2
 			ScoutingPlayerModel c2 = qualifiedScouts.size() > 1 ? qualifiedScouts.get(1) : null;
 			String c2Name;
 			long c2Fee = 0L;
@@ -103,7 +113,6 @@ public class ShadowSquadService {
 				c2Salary = c2.wageDemandProperty().get();
 				usedScoutsAll.add(c2Name);
 			} else if (c1 != null) {
-				// Wenn C1 ein echter Scout ist, aber C2 nur unvollständige Daten hat
 				boolean hasRemainingUnscored = matchedScouts.stream()
 						.filter(s -> !usedScoutsAll.contains(s.nameProperty().get()))
 						.anyMatch(s -> s.scoutingScoreProperty().get() <= 0.0);
@@ -117,7 +126,7 @@ public class ShadowSquadService {
 				c2Name = "— Kein 2. Kandidat —";
 			}
 
-			// 6. Finanz-Kennzahlen: Nur berechnen, wenn C1 ein echter Scout mit Score > 0 ist
+			// 6. Finanz-Kennzahlen
 			long netTransferGain = 0L;
 			long monthlyWageSavings = 0L;
 
@@ -152,7 +161,10 @@ public class ShadowSquadService {
 		return !action.contains("ABLEHNEN") && !action.contains("ZU HOCH") && !action.contains("KEINE FREIGABE");
 	}
 
-	private static boolean matchesRole(String playerRole, String slotLabel, String slotCode) {
+	/**
+	 * Prüft, ob die Rolle exakt übereinstimmt (auch ohne Rollen-Aufgaben wie '(A)' oder '(V)').
+	 */
+	private static boolean isExactRoleMatch(String playerRole, String slotLabel, String slotCode) {
 		if (playerRole == null || playerRole.isBlank()) return false;
 
 		String p = playerRole.trim().toUpperCase();
@@ -161,23 +173,49 @@ public class ShadowSquadService {
 
 		if (p.equals(l) || (!c.isBlank() && p.equals(c))) return true;
 
-		// Bereinigung von Aufgaben wie "(A)", "(V)", "(U)"
-		String pBase = p.replaceAll("\\s*\\([^)]*\\)", "").trim();
-		String lBase = l.replaceAll("\\s*\\([^)]*\\)", "").trim();
+		String pClean = p.replaceAll("\\s*\\([^)]*\\)", "").trim();
+		String lClean = l.replaceAll("\\s*\\([^)]*\\)", "").trim();
 
-		if (!pBase.isBlank() && !lBase.isBlank()) {
-			if (pBase.equals(lBase) || pBase.contains(lBase) || lBase.contains(pBase)) {
-				return true;
-			}
+		return !pClean.isBlank() && pClean.equals(lClean);
+	}
+
+	/**
+	 * Sauberer, positionssicherer Fallback für ähnliche Rollenbezeichnungen,
+	 * ohne dass Innenverteidiger im Mittelfeld landen.
+	 */
+	private static boolean isCompatibleRoleMatch(String playerRole, String slotLabel, String slotCode) {
+		if (playerRole == null || playerRole.isBlank()) return false;
+
+		String p = playerRole.trim().toUpperCase();
+		String l = slotLabel != null ? slotLabel.trim().toUpperCase() : "";
+
+		// Torwart
+		if (l.contains("TORWART") || l.contains("TW")) {
+			return p.contains("TORWART") || p.contains("TW");
 		}
-
-		// Gruppierter Positionsabgleich als Fallback
-		if ((l.contains("TORWART") || l.contains("TW") || l.contains("MTW")) && (p.contains("TORWART") || p.contains("TW") || p.contains("MTW"))) return true;
-		if ((l.contains("STÜRMER") || l.contains("STO")) && (p.contains("STÜRMER") || p.contains("STO"))) return true;
-		if ((l.contains("INNENVERTEIDIGER") || l.contains("IV") || l.contains("BSV")) && (p.contains("INNENVERTEIDIGER") || p.contains("IV") || p.contains("BSV"))) return true;
-		if ((l.contains("FLÜGELVERTEIDIGER") || l.contains("FV") || l.contains("KFV")) && (p.contains("FLÜGELVERTEIDIGER") || p.contains("FV") || p.contains("KFV"))) return true;
-		if ((l.contains("SPIELMACHER") || l.contains("REG") || l.contains("ZSM") || l.contains("ZENTRAL")) &&
-				(p.contains("SPIELMACHER") || p.contains("REG") || p.contains("ZSM") || p.contains("ZENTRAL") || p.contains("DM"))) return true;
+		// Innenverteidigung
+		if (l.contains("INNENVERTEIDIGER") || l.contains("BALLSPIELENDER VERT") || l.contains("HALBRAUMVERTEIDIGER")) {
+			return p.contains("INNENVERTEIDIGER") || p.contains("BALLSPIELENDER VERT") || p.contains("HALBRAUMVERTEIDIGER");
+		}
+		// Außenverteidiger
+		if (l.contains("FLÜGELVERTEIDIGER")) {
+			return p.contains("FLÜGELVERTEIDIGER");
+		}
+		// Stürmer
+		if (l.contains("STÖSSTÜRMER") || l.contains("STÜRMER")) {
+			return p.contains("STÖSSTÜRMER") || p.contains("STÜRMER");
+		}
+		// Offensives Mittelfeld (Rechts / Links / Zentral)
+		if (l.contains("OFFENSIVER MITTELFELD")) {
+			if (!p.contains("OFFENSIVER MITTELFELD") && !p.contains("INVERTIERTER FLÜGEL")) return false;
+			if (l.contains("RECHTS")) return p.contains("RECHTS");
+			if (l.contains("LINKS")) return p.contains("LINKS");
+			return true;
+		}
+		// Zentrales / Defensives Mittelfeld
+		if (l.contains("SPIELMACHER") || l.contains("REGISTA") || l.contains("DEFENSIVER MITTELFELD")) {
+			return p.contains("SPIELMACHER") || p.contains("REGISTA") || p.contains("DEFENSIVER MITTELFELD");
+		}
 
 		return false;
 	}

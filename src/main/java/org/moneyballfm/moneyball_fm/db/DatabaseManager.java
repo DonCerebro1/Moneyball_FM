@@ -42,14 +42,14 @@ public class DatabaseManager {
                 );
             """);
 
-			// 2. Spieler-Historie
+			// 2. Spieler-Historie (tactical_role auf VARCHAR(1000) erweitert für Multi-Taktik-Speicherung)
 			stmt.execute("""
                 CREATE TABLE IF NOT EXISTS player_history (
                     id IDENTITY PRIMARY KEY,
                     snapshot_id BIGINT NOT NULL,
                     player_name VARCHAR(150) NOT NULL,
                     category VARCHAR(50) NOT NULL,
-                    tactical_role VARCHAR(100),
+                    tactical_role VARCHAR(1000),
                     age INT,
                     market_value BIGINT,
                     monthly_salary BIGINT,
@@ -100,9 +100,14 @@ public class DatabaseManager {
                 );
             """);
 
-			// Migration für bereits existierende Datenbank-Dateien
+			// Migrationen für bereits existierende Datenbank-Dateien
 			stmt.execute("ALTER TABLE scouting_history ADD COLUMN IF NOT EXISTS club VARCHAR(255);");
 			stmt.execute("ALTER TABLE scouting_history ADD COLUMN IF NOT EXISTS positions VARCHAR(255);");
+
+			// Bestehende player_history Tabelle auf 1000 Zeichen vergrößern
+			try {
+				stmt.execute("ALTER TABLE player_history ALTER COLUMN tactical_role VARCHAR(1000);");
+			} catch (SQLException ignored) {}
 		}
 	}
 }

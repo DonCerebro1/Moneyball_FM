@@ -14,6 +14,7 @@ import org.moneyballfm.moneyball_fm.model.*;
 
 import java.text.NumberFormat;
 import java.util.Locale;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 public class TableColumnBinder {
@@ -66,6 +67,7 @@ public class TableColumnBinder {
 			TableColumn<PlayerRowModel, String> colSalaryCheck,
 			TableColumn<PlayerRowModel, String> colQuality,
 			ObservableList<String> availableRoles,
+			BiConsumer<PlayerRowModel, String> onRoleChanged,
 			Consumer<PlayerRowModel> onRecalc,
 			Runnable onSave,
 			Stage stage) {
@@ -83,10 +85,9 @@ public class TableColumnBinder {
 		colRole.setCellFactory(ComboBoxTableCell.forTableColumn(availableRoles));
 		colRole.setOnEditCommit(e -> {
 			String selectedRole = e.getNewValue();
-			TacticRole tr = TacticRole.fromDisplayName(selectedRole);
-			if (tr != null) e.getRowValue().applyRoleStats(tr);
-			else e.getRowValue().roleProperty().set(selectedRole);
-			onRecalc.accept(e.getRowValue());
+			if (selectedRole != null && !selectedRole.isBlank()) {
+				onRoleChanged.accept(e.getRowValue(), selectedRole);
+			}
 		});
 
 		if (colOnLoan != null) {
@@ -491,19 +492,19 @@ public class TableColumnBinder {
 
 		colAgility.setCellValueFactory(c -> c.getValue().agilityProperty().asObject());
 		colAgility.setCellFactory(TextFieldTableCell.forTableColumn(new IntegerStringConverter()));
-		colAgility.setOnEditCommit(e -> { e.getRowValue().agilityProperty().set(e.getNewValue()); onRecalc.accept(e.getRowValue()); });
+		colAgility.setOnEditCommit(e -> { e.getRowValue().agilityProperty().set(e.getNewValue()); onSave.run(); });
 
 		colPace.setCellValueFactory(c -> c.getValue().paceProperty().asObject());
 		colPace.setCellFactory(TextFieldTableCell.forTableColumn(new IntegerStringConverter()));
-		colPace.setOnEditCommit(e -> { e.getRowValue().paceProperty().set(e.getNewValue()); onRecalc.accept(e.getRowValue()); });
+		colPace.setOnEditCommit(e -> { e.getRowValue().paceProperty().set(e.getNewValue()); onSave.run(); });
 
 		colStamina.setCellValueFactory(c -> c.getValue().staminaProperty().asObject());
 		colStamina.setCellFactory(TextFieldTableCell.forTableColumn(new IntegerStringConverter()));
-		colStamina.setOnEditCommit(e -> { e.getRowValue().staminaProperty().set(e.getNewValue()); onRecalc.accept(e.getRowValue()); });
+		colStamina.setOnEditCommit(e -> { e.getRowValue().staminaProperty().set(e.getNewValue()); onSave.run(); });
 
 		colDeterm.setCellValueFactory(c -> c.getValue().determinationProperty().asObject());
 		colDeterm.setCellFactory(TextFieldTableCell.forTableColumn(new IntegerStringConverter()));
-		colDeterm.setOnEditCommit(e -> { e.getRowValue().determinationProperty().set(e.getNewValue()); onRecalc.accept(e.getRowValue()); });
+		colDeterm.setOnEditCommit(e -> { e.getRowValue().determinationProperty().set(e.getNewValue()); onSave.run(); });
 
 		colStat1.setCellValueFactory(c -> c.getValue().statValue1Property().asObject());
 		colStat1.setCellFactory(TextFieldTableCell.forTableColumn(new DoubleStringConverter()));

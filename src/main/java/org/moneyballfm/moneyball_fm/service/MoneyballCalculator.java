@@ -7,29 +7,47 @@ import org.moneyballfm.moneyball_fm.config.SlotConfig;
 import org.moneyballfm.moneyball_fm.config.TacticConfig;
 import org.moneyballfm.moneyball_fm.model.Player;
 import org.moneyballfm.moneyball_fm.model.PlayerRowModel;
-import org.moneyballfm.moneyball_fm.model.TacticRole;
 
 public class MoneyballCalculator {
 
 	public static void recalculate(PlayerRowModel row, AppConfig config) {
 		if (row == null) return;
 
-		// 1. Stats dynamisch aus dem intern gespeicherten FM-Export aktualisieren, falls die Rolle gewechselt wurde
 		String currentRoleStr = row.roleProperty().get();
-		TacticRole tacticRole = TacticRole.fromDisplayName(currentRoleStr);
 		Player player = row.getPlayer();
+		SlotConfig slot = findMatchingSlot(currentRoleStr, config);
 
-		if (tacticRole != null && player != null) {
-			double newS1 = player.getStat(tacticRole.getStat1Header());
-			double newS2 = player.getStat(tacticRole.getStat2Header());
-			double newS3 = player.getStat(tacticRole.getStat3Header());
+		// 1. Stats dynamisch aus den Metrik-Definitionen der aktiven Taktik laden
+		if (slot != null && slot.getMetrics() != null && player != null) {
+			for (int i = 0; i < slot.getMetrics().size(); i++) {
+				MetricConfig m = slot.getMetrics().get(i);
+				double val = 0.0;
+				if (m.getColumnAliases() != null) {
+					for (String alias : m.getColumnAliases()) {
+						double statVal = player.getStat(alias);
+						if (statVal > 0.0) {
+							val = statVal;
+							break;
+						}
+					}
+				}
+				if (val == 0.0 && m.getName() != null) {
+					val = player.getStat(m.getName());
+				}
 
-			if (newS1 > 0.0 || newS2 > 0.0 || newS3 > 0.0) {
-				row.statValue1Property().set(newS1);
-				row.statValue2Property().set(newS2);
-				row.statValue3Property().set(newS3);
-				row.setStatLabels(tacticRole.getStat1Header(), tacticRole.getStat2Header(), tacticRole.getStat3Header());
+				if (val > 0.0) {
+					switch (i) {
+						case 0 -> row.statValue1Property().set(val);
+						case 1 -> row.statValue2Property().set(val);
+						case 2 -> row.statValue3Property().set(val);
+					}
+				}
 			}
+
+			String lbl1 = !slot.getMetrics().isEmpty() ? slot.getMetrics().get(0).getName() : "Stat 1";
+			String lbl2 = slot.getMetrics().size() > 1 ? slot.getMetrics().get(1).getName() : "Stat 2";
+			String lbl3 = slot.getMetrics().size() > 2 ? slot.getMetrics().get(2).getName() : "Stat 3";
+			row.setStatLabels(lbl1, lbl2, lbl3);
 		}
 
 		int mins = row.minutesPlayedProperty().get();
@@ -41,7 +59,7 @@ public class MoneyballCalculator {
 		double af = calculateAvailabilityFactor(mins, row.getInjurySusceptibility());
 		row.setAvailabilityFactor(af);
 
-		// 3. Spieler ohne relevante Spielzeit oder komplett ohne Stats nicht künstlich bewerten
+		// 3. Nur abbrechen, wenn absolut keine Spielzeit (< 90 Min.) oder alle 3 Stats 0.0 sind
 		if (mins < 90 || (s1 == 0.0 && s2 == 0.0 && s3 == 0.0)) {
 			row.moneyballScoreProperty().set(0.0);
 			row.sampleQualityProperty().set("⚪ Keine Spielzeit (< 90 Min.)");
@@ -52,7 +70,6 @@ public class MoneyballCalculator {
 			return;
 		}
 
-		SlotConfig slot = findMatchingSlot(currentRoleStr, config);
 		double finalScore;
 
 		if (slot != null && slot.getMetrics() != null && !slot.getMetrics().isEmpty()) {
@@ -68,11 +85,18 @@ public class MoneyballCalculator {
 					default -> 0.0;
 				};
 
+				double benchmark = metric.getBenchmark();
+
+				// Prozent-Skalierung ausgleichen: Wenn Benchmark <= 1.0 (z. B. 0.85), FM-Wert aber > 1.0 (z. B. 95.0)
+				if (benchmark > 0.0 && benchmark <= 1.0 && val > 1.0) {
+					val = val / 100.0;
+				}
+
 				double metricScore;
 				if (metric.isInverse()) {
 					metricScore = Math.max(0.0, 100.0 - (val * 25.0));
-				} else if (metric.getBenchmark() > 0) {
-					double ratio = val / metric.getBenchmark();
+				} else if (benchmark > 0) {
+					double ratio = val / benchmark;
 					metricScore = Math.min(100.0, ratio * 85.0);
 				} else {
 					metricScore = 50.0;
@@ -92,18 +116,18 @@ public class MoneyballCalculator {
 
 			finalScore = Math.round(rawScore * 10.0) / 10.0;
 		} else {
-			finalScore = 0.0;
+			finalScore = 50.0;
 		}
 
 		row.moneyballScoreProperty().set(finalScore);
 
-		// 4. Gehalts-Tier & Max-Gehalt (unter Berücksichtigung von AF) zuweisen
+		// 4. Gehalts-Tier & Max-Gehalt
 		assignSalaryTier(row, finalScore, af, config);
 
-		// 5. Fairer Marktwert berechnen (skaliert mit AF)
+		// 5. Fairer Marktwert
 		calculateFairMarketValue(row, finalScore, af);
 
-		// 6. Stichproben-Qualität (Spielzeit)
+		// 6. Stichproben-Qualität
 		if (mins >= 900) {
 			row.sampleQualityProperty().set("🟢 Hohe Aussagekraft (>= 10 Spiele)");
 		} else if (mins >= 450) {
@@ -114,28 +138,16 @@ public class MoneyballCalculator {
 	}
 
 	public static double calculateAvailabilityFactor(int minutes, String injuryText) {
-		// A) Minuten-Faktor (ab 1800 Min. = 1.0, Untergrenze = 0.5)
 		double minRatio = Math.min(1.0, Math.max(0.5, minutes / 1800.0));
-
-		// B) Risiko-Faktor aus den FM-Ausprägungen (Kader & Scouting)
-		double riskFactor = 0.95; // Default: Durchschnittlich / Normal
+		double riskFactor = 0.95;
 		if (injuryText != null) {
 			String lower = injuryText.toLowerCase().trim();
-			if (lower.contains("sehr gering") || lower.contains("sehr niedrig")) {
-				riskFactor = 1.05; // Extrem robust
-			} else if (lower.contains("unterdurchschnittlich") || lower.contains("gering") || lower.contains("niedrig")) {
-				riskFactor = 1.00; // Kaum Ausfälle
-			} else if (lower.contains("sehr hoch") || lower.contains("akut")) {
-				riskFactor = 0.75; // Sehr hohes Risiko (-25%)
-			} else if (lower.contains("hoch")) {
-				riskFactor = 0.85; // Hohes Risiko (-15%)
-			} else if (lower.contains("erhöht") || lower.contains("überdurchschnittlich")) {
-				riskFactor = 0.90; // Leicht erhöhtes Risiko (-10%)
-			} else {
-				riskFactor = 0.95; // "Normal", "Durchschnittlich"
-			}
+			if (lower.contains("sehr gering") || lower.contains("sehr niedrig")) riskFactor = 1.05;
+			else if (lower.contains("unterdurchschnittlich") || lower.contains("gering") || lower.contains("niedrig")) riskFactor = 1.00;
+			else if (lower.contains("sehr hoch") || lower.contains("akut")) riskFactor = 0.75;
+			else if (lower.contains("hoch")) riskFactor = 0.85;
+			else if (lower.contains("erhöht") || lower.contains("überdurchschnittlich")) riskFactor = 0.90;
 		}
-
 		double af = minRatio * riskFactor;
 		return Math.round(Math.min(1.0, Math.max(0.4, af)) * 100.0) / 100.0;
 	}
@@ -148,21 +160,14 @@ public class MoneyballCalculator {
 		}
 
 		int age = row.ageProperty().get();
-
 		double ageFactor = 1.0;
-		if (age > 0 && age <= 21) {
-			ageFactor = 1.25;
-		} else if (age <= 24) {
-			ageFactor = 1.10;
-		} else if (age >= 32) {
-			ageFactor = 0.80;
-		} else if (age >= 29) {
-			ageFactor = 0.90;
-		}
+		if (age > 0 && age <= 21) ageFactor = 1.25;
+		else if (age <= 24) ageFactor = 1.10;
+		else if (age >= 32) ageFactor = 0.80;
+		else if (age >= 29) ageFactor = 0.90;
 
 		double performanceRatio = Math.max(0.3, score / 85.0);
 		long fairValue = Math.round(currentMarketValue * performanceRatio * ageFactor * af);
-
 		row.fairMarketValueProperty().set(fairValue);
 	}
 
@@ -195,10 +200,12 @@ public class MoneyballCalculator {
 			if (!sName.isEmpty() && (p.startsWith(sName) || p.contains(sName))) return slot;
 			if (!rLabel.isEmpty() && (p.contains(rLabel) || rLabel.contains(p))) return slot;
 
-			if (p.contains("ballspiel") && (rLabel.contains("ballspiel") || sName.contains("bsv") || rLabel.contains("bsv"))) return slot;
-			if (p.contains("halbraum") && (rLabel.contains("halbraum") || sName.contains("hrv") || rLabel.contains("hrv"))) return slot;
-			if (p.contains("spielmacher") && rLabel.contains("spielmacher")) return slot;
+			// Spezifische Matches
+			if (p.contains("defensiv") && (rLabel.contains("defensiv") || sName.contains("dm"))) return slot;
+			if (p.contains("ballspiel") && (rLabel.contains("ballspiel") || sName.contains("bsv"))) return slot;
+			if (p.contains("halbraum") && (rLabel.contains("halbraum") || sName.contains("hrv"))) return slot;
 			if (p.contains("regista") && (rLabel.contains("regista") || sName.contains("reg"))) return slot;
+			if (p.contains("spielmacher") && rLabel.contains("spielmacher")) return slot;
 			if (p.contains("flügelvert") && rLabel.contains("flügelvert")) {
 				if (p.contains("links") == rLabel.contains("links") || p.contains("rechts") == rLabel.contains("rechts")) {
 					return slot;
@@ -248,7 +255,6 @@ public class MoneyballCalculator {
 			}
 		}
 
-		// Risiko-Deckelung: Max-Gehalt skaliert mit Verfügbarkeitsfaktor
 		long adjustedMaxSal = Math.round(baseMaxSal * af);
 
 		row.salaryTierProperty().set(tierName);

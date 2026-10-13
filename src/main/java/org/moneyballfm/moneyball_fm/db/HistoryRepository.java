@@ -12,9 +12,6 @@ public class HistoryRepository {
 
 	private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss");
 
-	/**
-	 * Speichert den Kader, Leihspieler und Jugend (SQUAD Snapshot).
-	 */
 	public static void saveSquadSnapshot(
 			String clubName,
 			List<PlayerRowModel> squad,
@@ -48,8 +45,39 @@ public class HistoryRepository {
 	}
 
 	/**
-	 * Speichert das Scouting (SCOUTING Snapshot).
+	 * Aktualisiert nur die Rollen der Spieler im aktuellsten Snapshot,
+	 * OHNE einen neuen Datensatz in snapshots anzulegen.
 	 */
+	public static void updateLatestSnapshotRoles(List<PlayerRowModel> squad) {
+		if (squad == null || squad.isEmpty()) return;
+
+		String findLatestSql = "SELECT id FROM snapshots WHERE export_type = 'SQUAD' ORDER BY imported_at DESC LIMIT 1";
+		try (Connection conn = DatabaseManager.getConnection()) {
+			long latestSnapshotId = -1;
+			try (Statement stmt = conn.createStatement();
+			     ResultSet rs = stmt.executeQuery(findLatestSql)) {
+				if (rs.next()) {
+					latestSnapshotId = rs.getLong("id");
+				}
+			}
+
+			if (latestSnapshotId <= 0) return;
+
+			String updateSql = "UPDATE player_history SET tactical_role = ? WHERE snapshot_id = ? AND LOWER(TRIM(player_name)) = LOWER(TRIM(?))";
+			try (PreparedStatement ps = conn.prepareStatement(updateSql)) {
+				for (PlayerRowModel p : squad) {
+					ps.setString(1, p.serializeTacticalRoles());
+					ps.setLong(2, latestSnapshotId);
+					ps.setString(3, p.nameProperty().get().trim());
+					ps.addBatch();
+				}
+				ps.executeBatch();
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+	}
+
 	public static void saveScoutingSnapshot(
 			String clubName,
 			List<ScoutingPlayerModel> scouting) {
@@ -139,7 +167,7 @@ public class HistoryRepository {
 		Set<String> insertedKeys = new HashSet<>();
 
 		try (PreparedStatement ps = conn.prepareStatement(insertPlayer)) {
-			// 1. A-Kader (Trennt Namensdopplungen wie Raúl 25 vs 19 über Alters-Raster)
+			// 1. A-Kader mit persistierten Taktik-Rollen
 			for (PlayerRowModel p : squad) {
 				int age = p.ageProperty().get();
 				String key = (p.nameProperty().get() != null ? p.nameProperty().get().trim().toLowerCase() : "") + "_b" + (age > 0 ? (age / 3) : 0);
@@ -149,7 +177,7 @@ public class HistoryRepository {
 				ps.setLong(1, snapshotId);
 				ps.setString(2, p.nameProperty().get().trim());
 				ps.setString(3, "FIRST_TEAM");
-				ps.setString(4, p.roleProperty().get());
+				ps.setString(4, p.serializeTacticalRoles());
 				ps.setInt(5, age);
 				ps.setLong(6, p.marketValueProperty().get());
 				ps.setLong(7, p.monthlySalaryProperty().get());
@@ -284,7 +312,8 @@ public class HistoryRepository {
 			List<LoanPlayerModel> outgoingLoansTarget,
 			List<LoanPlayerModel> incomingLoansTarget,
 			List<YouthPlayerModel> youthTarget,
-			List<ScoutingPlayerModel> scoutTarget) {
+			List<ScoutingPlayerModel> scoutTarget,
+			String activeTactic) {
 
 		String lastDate = null;
 
@@ -305,7 +334,7 @@ public class HistoryRepository {
 						while (prs.next()) {
 							String category = prs.getString("category");
 							String name = prs.getString("player_name");
-							String role = prs.getString("tactical_role");
+							String rawRoleData = prs.getString("tactical_role");
 							int age = prs.getInt("age");
 							long marketVal = prs.getLong("market_value");
 							long salary = prs.getLong("monthly_salary");
@@ -325,14 +354,15 @@ public class HistoryRepository {
 							boolean clause = prs.getBoolean("clause_fulfilled");
 
 							if ("FIRST_TEAM".equals(category)) {
-								Player p = new Player(name, role, age, marketVal, salary, 2.0, agility, pace, stamina, determ, minutes);
+								Player p = new Player(name, "", age, marketVal, salary, 2.0, agility, pace, stamina, determ, minutes);
 								PlayerRowModel row = new PlayerRowModel(p, s1, s2, s3);
+								row.deserializeTacticalRoles(rawRoleData, activeTactic);
 								squadTarget.add(row);
 							} else if ("OUTGOING_LOAN".equals(category)) {
 								int goals = (int) Math.round(s1);
 								int assists = (int) Math.round(s2);
 								LoanPlayerModel loan = new LoanPlayerModel(
-										LoanPlayerModel.LoanType.OUTGOING, name, role, age, club,
+										LoanPlayerModel.LoanType.OUTGOING, name, rawRoleData, age, club,
 										games, minutes, rating, goals, assists, 0.0, marketVal, clause
 								);
 								outgoingLoansTarget.add(loan);
@@ -340,13 +370,13 @@ public class HistoryRepository {
 								int goals = (int) Math.round(s1);
 								int assists = (int) Math.round(s2);
 								LoanPlayerModel loan = new LoanPlayerModel(
-										LoanPlayerModel.LoanType.INCOMING, name, role, age, club,
+										LoanPlayerModel.LoanType.INCOMING, name, rawRoleData, age, club,
 										games, minutes, rating, goals, assists, 0.0, marketVal, clause
 								);
 								incomingLoansTarget.add(loan);
 							} else if ("YOUTH".equals(category)) {
 								YouthPlayerModel youth = new YouthPlayerModel(
-										name, role, age, potStars, curStars, agility, pace, stamina, determ, s1, s2, s3
+										name, rawRoleData, age, potStars, curStars, agility, pace, stamina, determ, s1, s2, s3
 								);
 								youthTarget.add(youth);
 							}
@@ -421,11 +451,6 @@ public class HistoryRepository {
 		}
 	}
 
-	/**
-	 * Lädt die Historie mit Alterstoleranz (+/- 2 Jahre).
-	 * Dadurch bleiben Geburtstage erhalten, aber Namensdopplungen (z. B. Raúl 25 vs. 19)
-	 * werden sauber getrennt.
-	 */
 	public static List<PlayerHistoryEntry> getPlayerHistory(String playerName, int currentAge) {
 		List<PlayerHistoryEntry> list = new java.util.ArrayList<>();
 		if (playerName == null || playerName.isBlank()) return list;

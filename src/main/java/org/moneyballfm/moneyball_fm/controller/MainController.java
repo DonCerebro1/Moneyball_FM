@@ -8,10 +8,10 @@ import javafx.scene.input.Dragboard;
 import javafx.scene.input.TransferMode;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
-import javafx.stage.Window;
 import javafx.util.StringConverter;
 import org.moneyballfm.moneyball_fm.config.AppConfig;
 import org.moneyballfm.moneyball_fm.config.ConfigLoader;
+import org.moneyballfm.moneyball_fm.config.TacticConfig;
 import org.moneyballfm.moneyball_fm.db.HistoryRepository;
 import org.moneyballfm.moneyball_fm.model.*;
 import org.moneyballfm.moneyball_fm.parser.FmExportParser;
@@ -31,6 +31,7 @@ public class MainController {
 	@FXML private TabPane mainTabPane;
 	@FXML private Label statusLabel;
 	@FXML private TextField txtMyClub;
+	@FXML private ComboBox<String> cmbActiveTactic;
 	@FXML private Label lblImportTimestamp;
 
 	// TAB 1: KPI-Header
@@ -242,6 +243,7 @@ public class MainController {
 			});
 		}
 
+		setupTacticSelector();
 		setupAllTables();
 		setupSalaryCalculator();
 		setupDragAndDrop();
@@ -257,8 +259,9 @@ public class MainController {
 		if (shadowSquadTable != null) { shadowSquadTable.setItems(shadowSquadDataList); shadowSquadTable.setEditable(true); }
 		if (registrationTable != null) { registrationTable.setItems(registrationDataList); registrationTable.setEditable(true); }
 
+		String activeTactic = appConfig.getActiveTactic() != null ? appConfig.getActiveTactic() : "4-3-3 Gegenpress";
 		String lastImportDate = HistoryRepository.loadLatestSnapshot(
-				playerDataList, outgoingLoanDataList, incomingLoanDataList, youthDataList, scoutDataList
+				playerDataList, outgoingLoanDataList, incomingLoanDataList, youthDataList, scoutDataList, activeTactic
 		);
 
 		if (!playerDataList.isEmpty() || !youthDataList.isEmpty() || !outgoingLoanDataList.isEmpty() || !scoutDataList.isEmpty()) {
@@ -277,6 +280,88 @@ public class MainController {
 		refreshSquadKPIs();
 	}
 
+	private void setupTacticSelector() {
+		if (cmbActiveTactic == null || appConfig == null || appConfig.getTactics() == null) return;
+
+		ObservableList<String> tacticNames = FXCollections.observableArrayList(
+				appConfig.getTactics().stream()
+						.map(TacticConfig::getName)
+						.filter(name -> name != null && !name.isBlank())
+						.toList()
+		);
+
+		cmbActiveTactic.setItems(tacticNames);
+
+		String active = appConfig.getActiveTactic();
+		if (active != null && tacticNames.contains(active)) {
+			cmbActiveTactic.setValue(active);
+		} else if (!tacticNames.isEmpty()) {
+			cmbActiveTactic.setValue(tacticNames.get(0));
+			appConfig.setActiveTactic(tacticNames.get(0));
+		}
+
+		cmbActiveTactic.valueProperty().addListener((obs, oldV, newV) -> {
+			if (newV != null && !newV.equalsIgnoreCase(appConfig.getActiveTactic())) {
+				switchActiveTactic(newV);
+			}
+		});
+	}
+
+	private void switchActiveTactic(String newTacticName) {
+		String oldTactic = appConfig.getActiveTactic();
+
+		// 1. Die aktuell gewählte Rolle jedes Spielers in der bisherigen Taktik festhalten
+		if (oldTactic != null) {
+			for (PlayerRowModel row : playerDataList) {
+				String curRole = row.roleProperty().get();
+				if (curRole != null && !curRole.isBlank()) {
+					row.setRoleForTactic(oldTactic, curRole);
+				}
+			}
+		}
+
+		appConfig.setActiveTactic(newTacticName);
+
+		// 2. Tabellenspalten für die neue Taktik vorbereiten
+		setupAllTables();
+
+		// 3. Rollen der neuen Taktik zuweisen und berechnen
+		for (PlayerRowModel row : playerDataList) {
+			String savedRole = row.getRoleForTactic(newTacticName);
+			if (savedRole != null && !savedRole.isBlank()) {
+				row.roleProperty().set(savedRole);
+			} else {
+				String curRole = row.roleProperty().get();
+				row.setRoleForTactic(newTacticName, curRole);
+			}
+			MoneyballCalculator.recalculate(row, appConfig);
+		}
+
+		for (ScoutingPlayerModel s : scoutDataList) {
+			ScoutingAnalysisService.evaluate(s, appConfig);
+		}
+
+		refreshAll();
+		refreshShadowSquad();
+		refreshSquadKPIs();
+
+		// Rollen im bestehenden Snapshot aktualisieren, ohne neuen Eintrag zu erzeugen
+		HistoryRepository.updateLatestSnapshotRoles(playerDataList);
+
+		if (statusLabel != null) {
+			statusLabel.setText("Taktik gewechselt: " + newTacticName);
+		}
+	}
+
+	private void onPlayerRoleEdited(PlayerRowModel row, String newRole) {
+		String currentTactic = appConfig.getActiveTactic();
+		row.setRoleForTactic(currentTactic, newRole);
+		recalc(row);
+
+		// Nur Rollen im aktuellen Snapshot anpassen
+		HistoryRepository.updateLatestSnapshotRoles(playerDataList);
+	}
+
 	private void setupAllTables() {
 		Stage stage = (rootPane.getScene() != null) ? (Stage) rootPane.getScene().getWindow() : null;
 		ObservableList<String> roles = getAvailableRoles();
@@ -284,7 +369,7 @@ public class MainController {
 		TableColumnBinder.setupPlayerTable(
 				playerTable, colName, colRole, colOnLoan, colAge, colAgility, colPace, colStamina, colDetermination,
 				colMarketValue, colFairMarketValue, colSalary, colMaxSalary, colMinutes, colStat1, colStat2, colStat3,
-				colScore, colTier, colSalaryCheck, colQuality, roles, this::recalc, this::autoSaveToDatabase, stage
+				colScore, colTier, colSalaryCheck, colQuality, roles, this::onPlayerRoleEdited, this::recalc, this::autoSaveToDatabase, stage
 		);
 
 		TableColumnBinder.setupScoutTable(
@@ -373,7 +458,7 @@ public class MainController {
 			if (txtCalcScore != null && !txtCalcScore.getText().isBlank()) score = Double.parseDouble(txtCalcScore.getText().trim().replace(",", "."));
 			long demand = 0L;
 			if (txtCalcDemand != null && !txtCalcDemand.getText().isBlank()) {
-				String clean = txtCalcDemand.getText().replaceAll("[^0-9]", "");
+				String clean = txtDemandClean(txtCalcDemand.getText());
 				if (!clean.isEmpty()) demand = Long.parseLong(clean);
 			}
 			double af = (cmbCalcPlayer != null && cmbCalcPlayer.getValue() != null) ? cmbCalcPlayer.getValue().getAvailabilityFactor() : 1.0;
@@ -388,6 +473,10 @@ public class MainController {
 				lblCalcAssessment.setStyle("-fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: " + rec.statusColorHex() + ";");
 			}
 		} catch (Exception ignored) {}
+	}
+
+	private String txtDemandClean(String text) {
+		return text.replaceAll("[^0-9]", "");
 	}
 
 	@FXML

@@ -27,6 +27,12 @@
         <TextField fx:id="txtMyClub" prefWidth="130.0" promptText="z. B. Villarreal" />
 
         <Separator orientation="VERTICAL" />
+
+        <!-- Taktik-Auswahl (Dynamisch aus /tactics geladen) -->
+        <Label text="Taktik:" style="-fx-font-weight: bold;" />
+        <ComboBox fx:id="cmbActiveTactic" prefWidth="210.0" promptText="Taktik wählen..." />
+
+        <Separator orientation="VERTICAL" />
         <Label fx:id="statusLabel" text="Datei (.rtf, .txt oder .html) hier hineinziehen per Drag &amp; Drop" style="-fx-font-weight: bold;" />
 
         <!-- Schiebt das Datum ganz nach rechts -->
@@ -398,7 +404,6 @@
                         <TableColumn fx:id="colScoutAskingPrice" text="Ablöseforderung (€)" prefWidth="130.0" />
                         <TableColumn fx:id="colScoutWageDemand" text="Gehalt / Monat (€)" prefWidth="130.0" />
                         <TableColumn fx:id="colScoutContractYears" text="Restvertrag (J)" prefWidth="95.0" />
-                        <!-- NEU: Spielzeit & Stichprobe im Scouting -->
                         <TableColumn fx:id="colScoutMinutes" text="Minuten" prefWidth="75.0" />
                         <TableColumn fx:id="colScoutSampleQuality" text="Stichprobe" prefWidth="140.0" />
                         <TableColumn fx:id="colScoutAgility" text="Beweglichkeit" prefWidth="90.0" />

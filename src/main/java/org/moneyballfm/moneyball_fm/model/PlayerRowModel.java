@@ -1,6 +1,8 @@
 package org.moneyballfm.moneyball_fm.model;
 
 import javafx.beans.property.*;
+import java.util.HashMap;
+import java.util.Map;
 
 public class PlayerRowModel {
 	private final StringProperty name = new SimpleStringProperty();
@@ -42,6 +44,9 @@ public class PlayerRowModel {
 	private final StringProperty salaryCheck = new SimpleStringProperty("-");
 	private final StringProperty sampleQuality = new SimpleStringProperty("-");
 
+	// Taktik-Gedächtnis: Merkt sich pro Taktik-Name die gewählte Rolle
+	private final Map<String, String> roleByTactic = new HashMap<>();
+
 	private final Player rawPlayer;
 
 	public PlayerRowModel(Player player, double s1, double s2, double s3) {
@@ -69,7 +74,7 @@ public class PlayerRowModel {
 		this.statValue2.set(s2);
 		this.statValue3.set(s3);
 
-		// Initial-Werte in der Map von rawPlayer sichern (für Rollen-Zurückwechseln nach DB-Load)
+		// Initial-Werte in der Map von rawPlayer sichern
 		if (this.rawPlayer != null) {
 			TacticRole initialRole = TacticRole.fromDisplayName(player.getRole());
 			if (initialRole != null) {
@@ -80,12 +85,78 @@ public class PlayerRowModel {
 			}
 		}
 
+		// Startrolle für die Basistaktik registrieren
+		if (player != null && player.getRole() != null && !player.getRole().isBlank()) {
+			this.roleByTactic.put("4-3-3 Gegenpress", player.getRole());
+		}
+
 		// Synchronisation: Wenn die Rolle im Model geändert wird, auch das Player-Objekt anpassen
 		this.role.addListener((obs, oldV, newV) -> {
 			if (this.rawPlayer != null && newV != null) {
 				this.rawPlayer.setRole(newV);
 			}
 		});
+	}
+
+	// Taktik-spezifische Rollen-Verwaltung
+	public String getRoleForTactic(String tacticName) {
+		if (tacticName == null) return role.get();
+		return roleByTactic.get(tacticName);
+	}
+
+	public void setRoleForTactic(String tacticName, String selectedRole) {
+		if (tacticName != null && selectedRole != null && !selectedRole.isBlank()) {
+			roleByTactic.put(tacticName, selectedRole);
+		}
+		if (selectedRole != null && !selectedRole.equals(this.role.get())) {
+			this.role.set(selectedRole);
+		}
+	}
+
+	public boolean hasRoleForTactic(String tacticName) {
+		return tacticName != null && roleByTactic.containsKey(tacticName);
+	}
+
+	// Serialisierung für H2: Speichert "TaktikA:RolleA|TaktikB:RolleB"
+	public String serializeTacticalRoles() {
+		if (roleByTactic.isEmpty()) {
+			return this.role.get() != null ? this.role.get() : "";
+		}
+		StringBuilder sb = new StringBuilder();
+		for (Map.Entry<String, String> entry : roleByTactic.entrySet()) {
+			if (entry.getKey() != null && entry.getValue() != null && !entry.getValue().isBlank()) {
+				if (sb.length() > 0) sb.append("|");
+				sb.append(entry.getKey()).append(":").append(entry.getValue());
+			}
+		}
+		return sb.length() > 0 ? sb.toString() : (this.role.get() != null ? this.role.get() : "");
+	}
+
+	// Deserialisierung aus H2
+	public void deserializeTacticalRoles(String rawString, String currentActiveTactic) {
+		if (rawString == null || rawString.isBlank()) return;
+
+		if (!rawString.contains(":")) {
+			this.role.set(rawString);
+			if (currentActiveTactic != null) {
+				this.roleByTactic.put(currentActiveTactic, rawString);
+			}
+			return;
+		}
+
+		String[] pairs = rawString.split("\\|");
+		for (String pair : pairs) {
+			String[] parts = pair.split(":", 2);
+			if (parts.length == 2) {
+				this.roleByTactic.put(parts[0].trim(), parts[1].trim());
+			}
+		}
+
+		if (currentActiveTactic != null && this.roleByTactic.containsKey(currentActiveTactic)) {
+			this.role.set(this.roleByTactic.get(currentActiveTactic));
+		} else if (!this.roleByTactic.isEmpty()) {
+			this.role.set(this.roleByTactic.values().iterator().next());
+		}
 	}
 
 	public Player getPlayer() { return rawPlayer; }
@@ -168,7 +239,6 @@ public class PlayerRowModel {
 		return rawPlayer != null ? rawPlayer.getNaturalPosition() : "";
 	}
 
-	// Rollenwechsel: Holt Stats sicher aus der Map, ohne vorhandene Werte bei Nicht-Auffinden zu zerstören
 	public void applyRoleStats(TacticRole newRole) {
 		if (newRole == null || this.rawPlayer == null) return;
 
@@ -177,7 +247,6 @@ public class PlayerRowModel {
 		double currentS2 = this.statValue2.get();
 		double currentS3 = this.statValue3.get();
 
-		// 1. Aktuelle Werte vor dem Wechsel unter den Headern der alten Rolle sichern
 		TacticRole oldRole = TacticRole.fromDisplayName(prevRoleName);
 		if (oldRole != null) {
 			if (currentS1 > 0.0) this.rawPlayer.putStat(oldRole.getStat1Header(), currentS1);
@@ -185,16 +254,13 @@ public class PlayerRowModel {
 			if (currentS3 > 0.0) this.rawPlayer.putStat(oldRole.getStat3Header(), currentS3);
 		}
 
-		// 2. Neue Rolle setzen
 		this.role.set(newRole.getDisplayName());
 		this.rawPlayer.setRole(newRole.getDisplayName());
 
-		// 3. Stats für die neue Rolle abfragen
 		double s1 = this.rawPlayer.getStat(newRole.getStat1Header());
 		double s2 = this.rawPlayer.getStat(newRole.getStat2Header());
 		double s3 = this.rawPlayer.getStat(newRole.getStat3Header());
 
-		// 4. Nur überschreiben, wenn in der Map echte Stats gefunden wurden (> 0.0).
 		if (s1 > 0.0 || s2 > 0.0 || s3 > 0.0) {
 			this.statValue1.set(s1);
 			this.statValue2.set(s2);
@@ -204,7 +270,6 @@ public class PlayerRowModel {
 		this.setStatLabels(newRole.getStat1Header(), newRole.getStat2Header(), newRole.getStat3Header());
 	}
 
-	// Partieller Merge: Nur FM-Daten aktualisieren, manuelle Rolle behalten
 	public void updateFromFresh(PlayerRowModel fresh) {
 		this.age.set(fresh.ageProperty().get());
 		this.marketValue.set(fresh.marketValueProperty().get());
@@ -241,11 +306,9 @@ public class PlayerRowModel {
 					.setGoals(fp.getGoals())
 					.setAssists(fp.getAssists());
 
-			// Komplette Map mit allen neuen FM-Kennzahlen übertragen
 			this.rawPlayer.putAllStats(fp.getAllStats());
 		}
 
-		// Nach dem Kopieren der neuen Stats die Werte für die aktuelle Rolle des Spielers neu ziehen
 		TacticRole currentTacticRole = TacticRole.fromDisplayName(this.role.get());
 		if (currentTacticRole != null) {
 			applyRoleStats(currentTacticRole);

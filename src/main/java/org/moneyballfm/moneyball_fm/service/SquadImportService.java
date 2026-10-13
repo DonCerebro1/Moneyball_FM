@@ -75,6 +75,9 @@ public class SquadImportService {
 				: (appConfig.getMyClubName() != null ? appConfig.getMyClubName().toLowerCase() : "villarreal");
 
 		String clubPrefix = myClub.substring(0, Math.min(3, myClub.length()));
+		String activeTactic = (appConfig != null && appConfig.getActiveTactic() != null)
+				? appConfig.getActiveTactic()
+				: "4-3-3 Gegenpress";
 
 		Set<String> importedKeys = new HashSet<>();
 		for (PlayerRowModel row : rows) {
@@ -216,15 +219,25 @@ public class SquadImportService {
 				if (existingKader.containsKey(pKey)) {
 					PlayerRowModel existing = existingKader.get(pKey);
 
-					String currentRole = existing.roleProperty().get();
+					// Rolle der aktiven Taktik nicht blind mit dem Importwert überschreiben
+					String currentRole = existing.getRoleForTactic(activeTactic);
+					if (currentRole == null || currentRole.isBlank()) {
+						currentRole = existing.roleProperty().get();
+					}
+
 					existing.updateFromFresh(row);
 					if (currentRole != null && !currentRole.isBlank()) {
 						existing.roleProperty().set(currentRole);
+						existing.setRoleForTactic(activeTactic, currentRole);
 					}
 
 					MoneyballCalculator.recalculate(existing, appConfig);
 					updatedCount++;
 				} else {
+					// Neuer Spieler: Startrolle direkt für die aktive Taktik registrieren
+					if (row.roleProperty().get() != null && !row.roleProperty().get().isBlank()) {
+						row.setRoleForTactic(activeTactic, row.roleProperty().get());
+					}
 					MoneyballCalculator.recalculate(row, appConfig);
 					playerDataList.add(row);
 					existingKader.put(pKey, row);
