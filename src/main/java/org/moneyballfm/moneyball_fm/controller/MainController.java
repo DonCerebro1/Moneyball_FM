@@ -1520,7 +1520,7 @@ public class MainController {
 		long totalSavings = shadowSquadDataList.stream().mapToLong(r -> r.monthlyWageSavingsProperty().get()).sum();
 		long covered = shadowSquadDataList.stream().filter(r -> {
 			String c1 = r.candidate1NameProperty().get();
-			return c1 != null && !c1.contains("Kein Scout");
+			return c1 != null && !c1.contains("Kein Scout") && !c1.contains("Unter Beobachtung");
 		}).count();
 
 		if (lblShadowTotalProfit != null) lblShadowTotalProfit.setText("€ " + euroFormat.format(totalProfit));

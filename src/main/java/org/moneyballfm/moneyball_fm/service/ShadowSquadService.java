@@ -56,19 +56,27 @@ public class ShadowSquadService {
 				usedStarters.add(starterName);
 			}
 
-			// 2. Scouting-Targets filtern & ranken
-			// Bevorzuge Spieler, die nicht als "ABLEHNEN" / "ÜBERTEUERT" / "UNVERKÄUFLICH" markiert sind
+			// 2. Alle passenden Scouts für diesen Slot filtern (die noch nicht auf anderen Slots liegen)
 			List<ScoutingPlayerModel> matchedScouts = scoutPlayers.stream()
 					.filter(s -> !usedScoutsAll.contains(s.nameProperty().get()))
 					.filter(s -> matchesRole(s.targetRoleProperty().get(), slotLabel, slotCode))
-					.sorted(Comparator
-							.comparing((ScoutingPlayerModel s) -> isAffordable(s) ? 0 : 1)
-							.thenComparing((ScoutingPlayerModel s) -> -s.scoutingScoreProperty().get()))
+					.filter(ShadowSquadService::isAffordable)
 					.collect(Collectors.toList());
 
-			// Kandidat 1
-			ScoutingPlayerModel c1 = !matchedScouts.isEmpty() ? matchedScouts.get(0) : null;
-			String c1Name = "— Kein Scout-Kandidat —";
+			// 3. Trennung: Qualifizierte Spieler (Score > 0) vs. Beobachtungskandidaten (Score == 0)
+			List<ScoutingPlayerModel> qualifiedScouts = matchedScouts.stream()
+					.filter(s -> s.scoutingScoreProperty().get() > 0.0)
+					.sorted(Comparator
+							.comparingDouble((ScoutingPlayerModel s) -> -s.scoutingScoreProperty().get())
+							.thenComparingLong(s -> s.askingPriceProperty().get()))
+					.collect(Collectors.toList());
+
+			boolean hasUnscoredScouts = matchedScouts.stream()
+					.anyMatch(s -> s.scoutingScoreProperty().get() <= 0.0);
+
+			// 4. Kandidat 1 auflösen
+			ScoutingPlayerModel c1 = !qualifiedScouts.isEmpty() ? qualifiedScouts.get(0) : null;
+			String c1Name;
 			long c1Fee = 0L;
 			long c1Salary = 0L;
 
@@ -77,19 +85,39 @@ public class ShadowSquadService {
 				c1Fee = c1.askingPriceProperty().get();
 				c1Salary = c1.wageDemandProperty().get();
 				usedScoutsAll.add(c1Name);
+			} else if (hasUnscoredScouts) {
+				c1Name = "⏳ Unter Beobachtung (zu wenig Daten)";
+			} else {
+				c1Name = "— Kein Scout-Kandidat —";
 			}
 
-			// Kandidat 2
-			ScoutingPlayerModel c2 = matchedScouts.size() > 1 ? matchedScouts.get(1) : null;
-			String c2Name = c2 != null ? c2.nameProperty().get() : (c1 != null ? "— Kein 2. Kandidat —" : "—");
-			long c2Fee = c2 != null ? c2.askingPriceProperty().get() : 0L;
-			long c2Salary = c2 != null ? c2.wageDemandProperty().get() : 0L;
+			// 5. Kandidat 2 auflösen
+			ScoutingPlayerModel c2 = qualifiedScouts.size() > 1 ? qualifiedScouts.get(1) : null;
+			String c2Name;
+			long c2Fee = 0L;
+			long c2Salary = 0L;
 
 			if (c2 != null) {
+				c2Name = c2.nameProperty().get();
+				c2Fee = c2.askingPriceProperty().get();
+				c2Salary = c2.wageDemandProperty().get();
 				usedScoutsAll.add(c2Name);
+			} else if (c1 != null) {
+				// Wenn C1 ein echter Scout ist, aber C2 nur unvollständige Daten hat
+				boolean hasRemainingUnscored = matchedScouts.stream()
+						.filter(s -> !usedScoutsAll.contains(s.nameProperty().get()))
+						.anyMatch(s -> s.scoutingScoreProperty().get() <= 0.0);
+
+				c2Name = hasRemainingUnscored
+						? "⏳ Unter Beobachtung (zu wenig Daten)"
+						: "— Kein 2. Kandidat —";
+			} else if (hasUnscoredScouts && matchedScouts.size() > 1) {
+				c2Name = "⏳ Unter Beobachtung (zu wenig Daten)";
+			} else {
+				c2Name = "— Kein 2. Kandidat —";
 			}
 
-			// 3. Finanz-Differenz (Gewinn/Ersparnis bei Verkauf des Starters & Kauf von C1)
+			// 6. Finanz-Kennzahlen: Nur berechnen, wenn C1 ein echter Scout mit Score > 0 ist
 			long netTransferGain = 0L;
 			long monthlyWageSavings = 0L;
 
