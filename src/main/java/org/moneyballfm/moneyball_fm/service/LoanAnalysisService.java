@@ -1,8 +1,79 @@
 package org.moneyballfm.moneyball_fm.service;
 
+import javafx.collections.ObservableList;
 import org.moneyballfm.moneyball_fm.model.LoanPlayerModel;
+import org.moneyballfm.moneyball_fm.model.PlayerRowModel;
+
+import java.util.List;
 
 public class LoanAnalysisService {
+
+	public record LoanKpis(long returnCount, long extendCount, long sellCount) {}
+
+	public static LoanKpis calculateLoanKpis(
+			List<LoanPlayerModel> outgoingLoans,
+			List<LoanPlayerModel> incomingLoans) {
+
+		long returnCount = 0;
+		long extendCount = 0;
+		long sellCount = 0;
+
+		if (outgoingLoans != null) {
+			for (LoanPlayerModel l : outgoingLoans) {
+				String rec = l.recommendationProperty().get();
+				if (rec != null) {
+					if (rec.contains("KADER-RÜCKKEHR") || rec.contains("KAUFOPTION")) returnCount++;
+					if (rec.contains("WEITER VERLEIHEN") || rec.contains("LEIHE VERLÄNGERN")) extendCount++;
+					if (rec.contains("VERKAUFEN") || rec.contains("LEIH-ENDE")) sellCount++;
+				}
+			}
+		}
+
+		if (incomingLoans != null) {
+			for (LoanPlayerModel l : incomingLoans) {
+				String rec = l.recommendationProperty().get();
+				if (rec != null) {
+					if (rec.contains("KADER-RÜCKKEHR") || rec.contains("KAUFOPTION")) returnCount++;
+					if (rec.contains("WEITER VERLEIHEN") || rec.contains("LEIHE VERLÄNGERN")) extendCount++;
+					if (rec.contains("VERKAUFEN") || rec.contains("LEIH-ENDE")) sellCount++;
+				}
+			}
+		}
+
+		return new LoanKpis(returnCount, extendCount, sellCount);
+	}
+
+	public static void syncIncomingLoans(
+			List<PlayerRowModel> players,
+			ObservableList<LoanPlayerModel> incomingLoanTarget) {
+
+		if (incomingLoanTarget == null) return;
+		incomingLoanTarget.clear();
+
+		if (players == null) return;
+
+		for (PlayerRowModel p : players) {
+			if (p.isOnLoan()) {
+				LoanPlayerModel incoming = new LoanPlayerModel(
+						LoanPlayerModel.LoanType.INCOMING,
+						p.nameProperty().get(),
+						p.roleProperty().get(),
+						p.ageProperty().get(),
+						"Eigener Verein (Leihgabe)",
+						p.minutesPlayedProperty().get() > 0 ? (p.minutesPlayedProperty().get() / 80) : 0,
+						p.minutesPlayedProperty().get(),
+						0.0,
+						p.getGoals(),
+						p.getAssists(),
+						p.moneyballScoreProperty().get(),
+						p.marketValueProperty().get(),
+						true
+				);
+				evaluate(incoming);
+				incomingLoanTarget.add(incoming);
+			}
+		}
+	}
 
 	public static void evaluate(LoanPlayerModel player) {
 		boolean isOutgoing = player.getLoanType() == LoanPlayerModel.LoanType.OUTGOING;
@@ -22,7 +93,7 @@ public class LoanAnalysisService {
 		boolean hasSolidPlaytime = minutes >= 1200 || games >= 15;
 		boolean hasMinimalPlaytime = minutes >= 450 || games >= 6;
 
-		// 2. Regelbasierte Handlungsempfehlung & Zukunftsplan
+		// Regelbasierte Handlungsempfehlung & Zukunftsplan
 		if (isOutgoing) {
 			// EIGENER SPIELER (VERLIEHEN)
 			if (minutes == 0 && games == 0) {
@@ -66,55 +137,49 @@ public class LoanAnalysisService {
 		int games = player.getGamesPlayed();
 		double rating = player.getAverageRating();
 
-		// 1. Wenn keine Spielzeit oder keine Note vorhanden -> strikt 0.0
 		if ((minutes == 0 && games == 0) || rating <= 0.0) {
 			return 0.0;
 		}
 
-		// 2. Basis-Punkte über FM-Note (6.00 = 0 Pkt, 6.70 = 49 Pkt, 7.00 = 70 Pkt, 7.30 = 91 Pkt)
 		double baseScore = Math.max(0.0, (rating - 6.0) * 70.0);
 
-		// 3. Scorer-Bonus (nur für Offensive / Mittelfeld)
 		int goals = player.getGoals();
 		int assists = player.getAssists();
 		double scorerBonus = Math.min(15.0, (goals + assists) * 1.5);
 
-		// 4. Liga-Faktor (Reputation des Wettbewerbs)
 		String league = player.clubAndLeagueProperty().get() != null
 				? player.clubAndLeagueProperty().get().toLowerCase() : "";
 
 		double leagueFactor = 1.0;
 		if (league.contains("first division") || league.contains("serie a") || league.contains("bundesliga")
 				|| league.contains("premier league") || league.contains("la liga") || league.contains("ligue 1")) {
-			// Vorsicht: Nicht mit Federation First Division verwechseln
 			if (league.contains("federation first")) {
-				leagueFactor = 0.85; // 3. Liga Spanien
+				leagueFactor = 0.85;
 			} else {
-				leagueFactor = 1.10; // Top-Ligen
+				leagueFactor = 1.10;
 			}
 		} else if (league.contains("second division") || league.contains("2. bundesliga")
 				|| league.contains("championship") || league.contains("premiership") || league.contains("portugal")) {
-			leagueFactor = 1.00; // Starke 2. Ligen / gute europäische Ligen
+			leagueFactor = 1.00;
 		} else if (league.contains("federation first") || league.contains("3. liga")) {
-			leagueFactor = 0.85; // 3. Liga
+			leagueFactor = 0.85;
 		} else if (league.contains("federation second") || league.contains("federation third") || league.contains("regionalliga")) {
-			leagueFactor = 0.70; // 4. & 5. Liga
+			leagueFactor = 0.70;
 		} else if (league.contains("u21") || league.contains("u19") || league.contains("reserve")) {
-			leagueFactor = 0.60; // Nachwuchsligen
+			leagueFactor = 0.60;
 		}
 
-		// 5. Spielzeit-Dämpfung
 		double playtimeFactor;
 		if (minutes >= 1800 || games >= 22) {
-			playtimeFactor = 1.0;  // Fester Stammspieler / volle Aussagekraft
+			playtimeFactor = 1.0;
 		} else if (minutes >= 1200 || games >= 15) {
-			playtimeFactor = 0.90; // Regelmäßiger Starter
+			playtimeFactor = 0.90;
 		} else if (minutes >= 600 || games >= 8) {
-			playtimeFactor = 0.75; // Rotationsspieler
+			playtimeFactor = 0.75;
 		} else if (minutes >= 200 || games >= 3) {
-			playtimeFactor = 0.50; // Ergänzungsspieler
+			playtimeFactor = 0.50;
 		} else {
-			playtimeFactor = 0.25; // Kaum gespielt
+			playtimeFactor = 0.25;
 		}
 
 		double total = (baseScore + scorerBonus) * leagueFactor * playtimeFactor;

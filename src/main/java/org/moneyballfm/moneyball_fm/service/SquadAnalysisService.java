@@ -16,6 +16,82 @@ import java.util.Locale;
 
 public class SquadAnalysisService {
 
+	public record SquadKpis(
+			double avgAge,
+			double avgAthletics,
+			long totalMonthlyWage,
+			long totalMarketValue,
+			int avgMinutes
+	) {}
+
+	public record NeedsSummary(
+			int criticalCount,
+			int warningCount,
+			int optimalCount
+	) {}
+
+	public static SquadKpis calculateSquadKpis(List<PlayerRowModel> players) {
+		if (players == null || players.isEmpty()) {
+			return new SquadKpis(0.0, 0.0, 0L, 0L, 0);
+		}
+
+		double avgAge = players.stream()
+				.mapToInt(p -> p.ageProperty().get())
+				.average()
+				.orElse(0.0);
+
+		double avgAthletics = players.stream()
+				.mapToDouble(p -> (p.agilityProperty().get() + p.paceProperty().get() + p.staminaProperty().get()) / 3.0)
+				.average()
+				.orElse(0.0);
+
+		long totalWage = players.stream()
+				.mapToLong(p -> p.monthlySalaryProperty().get())
+				.sum();
+
+		long totalMarketValue = players.stream()
+				.mapToLong(p -> p.marketValueProperty().get())
+				.sum();
+
+		double avgMinutes = players.stream()
+				.mapToInt(p -> p.minutesPlayedProperty().get())
+				.average()
+				.orElse(0.0);
+
+		return new SquadKpis(
+				avgAge,
+				avgAthletics,
+				totalWage,
+				totalMarketValue,
+				(int) Math.round(avgMinutes)
+		);
+	}
+
+	public static NeedsSummary summarizeNeeds(List<PositionNeedModel> needs) {
+		if (needs == null || needs.isEmpty()) {
+			return new NeedsSummary(0, 0, 0);
+		}
+
+		int critical = 0;
+		int warning = 0;
+		int optimal = 0;
+
+		for (PositionNeedModel n : needs) {
+			String diag = n.diagnosisProperty().get();
+			if (diag == null) continue;
+
+			if (diag.startsWith("🚨") || diag.startsWith("🔴")) {
+				critical++;
+			} else if (diag.startsWith("⚠️") || diag.startsWith("⏳") || diag.startsWith("👴") || diag.startsWith("🟡")) {
+				warning++;
+			} else if (diag.startsWith("🟢")) {
+				optimal++;
+			}
+		}
+
+		return new NeedsSummary(critical, warning, optimal);
+	}
+
 	public static List<PositionNeedModel> analyzeSquadNeeds(List<PlayerRowModel> players, AppConfig config) {
 		List<PositionNeedModel> result = new ArrayList<>();
 		if (config == null || config.getTactics() == null || config.getTactics().isEmpty()) {
@@ -99,13 +175,11 @@ public class SquadAnalysisService {
 			String roleName = slot.getRoleLabel() != null && !slot.getRoleLabel().isBlank()
 					? slot.getRoleLabel() : slot.getSlotName();
 
-			// 1. Profis (A-Kader) nach Moneyball-Score absteigend sortieren
 			List<PlayerRowModel> matchingPros = players.stream()
 					.filter(p -> matchesSlot(p.roleProperty().get(), slot))
 					.sorted((a, b) -> Double.compare(b.moneyballScoreProperty().get(), a.moneyballScoreProperty().get()))
 					.toList();
 
-			// 2. Talente (B/C/U19) nach Talent-Score absteigend sortieren
 			List<YouthPlayerModel> matchingYouth = (youthPlayers != null) ? youthPlayers.stream()
 					.filter(y -> matchesSlot(y.targetRoleProperty().get(), slot))
 					.sorted((a, b) -> Double.compare(b.talentScoreProperty().get(), a.talentScoreProperty().get()))
@@ -114,9 +188,7 @@ public class SquadAnalysisService {
 			int proIndex = 0;
 			int youthIndex = 0;
 
-			// Ränge 1 bis 4 abbilden
 			for (int r = 1; r <= 4; r++) {
-				// Für Übersichtlichkeit: Rollenname nur bei Rang 1 anzeigen, darunter leer lassen
 				String displayRole = (r == 1) ? roleName : "";
 				DepthChartRowModel row = new DepthChartRowModel(displayRole, r);
 

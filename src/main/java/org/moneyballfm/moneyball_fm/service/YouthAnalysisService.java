@@ -2,9 +2,43 @@ package org.moneyballfm.moneyball_fm.service;
 
 import org.moneyballfm.moneyball_fm.model.YouthPlayerModel;
 
+import java.util.List;
+
 public class YouthAnalysisService {
 
+	public record YouthKpis(long topCount, long loanCount, long developCount, long sellCount) {}
+
+	public static YouthKpis calculateYouthKpis(List<YouthPlayerModel> youthList) {
+		if (youthList == null || youthList.isEmpty()) {
+			return new YouthKpis(0, 0, 0, 0);
+		}
+
+		long topCount = youthList.stream()
+				.filter(y -> y.pipelineRecommendationProperty().get() != null &&
+						(y.pipelineRecommendationProperty().get().contains("1. MANNSCHAFT") || y.pipelineRecommendationProperty().get().contains("TOP-TALENT")))
+				.count();
+
+		long loanCount = youthList.stream()
+				.filter(y -> y.pipelineRecommendationProperty().get() != null &&
+						y.pipelineRecommendationProperty().get().contains("VERLEIHEN"))
+				.count();
+
+		long developCount = youthList.stream()
+				.filter(y -> y.pipelineRecommendationProperty().get() != null &&
+						(y.pipelineRecommendationProperty().get().contains("HALTEN") || y.pipelineRecommendationProperty().get().contains("ENTWICKELN")))
+				.count();
+
+		long sellCount = youthList.stream()
+				.filter(y -> y.pipelineRecommendationProperty().get() != null &&
+						y.pipelineRecommendationProperty().get().contains("VERKAUF"))
+				.count();
+
+		return new YouthKpis(topCount, loanCount, developCount, sellCount);
+	}
+
 	public static void evaluate(YouthPlayerModel talent) {
+		if (talent == null) return;
+
 		int age = talent.getAge();
 		int determination = talent.getDetermination();
 		double potStars = talent.getPotentialStars();
@@ -28,20 +62,18 @@ public class YouthAnalysisService {
 
 		double performancePoints = 0.0;
 		if (hasMatchData) {
-			// Normierte Wertung der 3 Kern-Stats
 			double normS1 = Math.min(10.0, s1 > 1.0 ? (s1 / 10.0) : (s1 * 10.0));
 			double normS2 = Math.min(10.0, s2 > 1.0 ? (s2 / 10.0) : (s2 * 10.0));
 			double normS3 = Math.min(5.0, s3 > 1.0 ? (s3 / 20.0) : (s3 * 5.0));
 			performancePoints = Math.min(25.0, normS1 + normS2 + normS3);
 		}
 
-		// 5. Moderater Entwicklungsbonus nach Alter - max. 10 Punkte (statt bisher 24-28!)
+		// 5. Moderater Entwicklungsbonus nach Alter - max. 10 Punkte
 		double ageBonus = Math.max(0.0, (21 - age) * 1.5);
 
 		// Gesamtsumme (0 - 100)
 		double totalScore = physicalPoints + mentalPoints + starBonus + ageBonus + performancePoints;
 
-		// Wenn der Spieler noch gar keine Match-Stats gesammelt hat, deckeln wir den Score auf max. 72.0
 		if (!hasMatchData) {
 			totalScore = Math.min(72.0, totalScore);
 		}
