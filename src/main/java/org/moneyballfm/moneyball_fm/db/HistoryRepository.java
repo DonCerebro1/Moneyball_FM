@@ -13,7 +13,7 @@ public class HistoryRepository {
 	private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss");
 
 	/**
-	 * Speichert NUR den Kader, Leihspieler und Jugend (SQUAD Snapshot).
+	 * Speichert den Kader, Leihspieler und Jugend (SQUAD Snapshot).
 	 */
 	public static void saveSquadSnapshot(
 			String clubName,
@@ -48,7 +48,7 @@ public class HistoryRepository {
 	}
 
 	/**
-	 * Speichert NUR das Scouting (SCOUTING Snapshot).
+	 * Speichert das Scouting (SCOUTING Snapshot).
 	 */
 	public static void saveScoutingSnapshot(
 			String clubName,
@@ -84,12 +84,12 @@ public class HistoryRepository {
                       """;
 			try (PreparedStatement sps = conn.prepareStatement(insertScout)) {
 				for (ScoutingPlayerModel s : scouting) {
-					String key = (s.nameProperty().get() != null ? s.nameProperty().get().trim().toLowerCase() : "") + "_" + s.ageProperty().get();
-					if (scoutKeys.contains(key)) continue;
+					String key = s.nameProperty().get() != null ? s.nameProperty().get().trim().toLowerCase() : "";
+					if (key.isBlank() || scoutKeys.contains(key)) continue;
 					scoutKeys.add(key);
 
 					sps.setLong(1, snapshotId);
-					sps.setString(2, s.nameProperty().get());
+					sps.setString(2, s.nameProperty().get().trim());
 					sps.setString(3, s.targetRoleProperty().get());
 					sps.setString(4, s.clubProperty().get() != null ? s.clubProperty().get() : "");
 					sps.setString(5, s.positionsProperty().get() != null ? s.positionsProperty().get() : "");
@@ -138,14 +138,14 @@ public class HistoryRepository {
 		Set<String> insertedKeys = new HashSet<>();
 
 		try (PreparedStatement ps = conn.prepareStatement(insertPlayer)) {
-			// 1. A-Kader
+			// 1. A-Kader (Key rein über Namen, damit Geburtstage im Snapshot nicht duplizieren)
 			for (PlayerRowModel p : squad) {
-				String key = (p.nameProperty().get() != null ? p.nameProperty().get().trim().toLowerCase() : "") + "_" + p.ageProperty().get();
-				if (insertedKeys.contains(key)) continue;
+				String key = p.nameProperty().get() != null ? p.nameProperty().get().trim().toLowerCase() : "";
+				if (key.isBlank() || insertedKeys.contains(key)) continue;
 				insertedKeys.add(key);
 
 				ps.setLong(1, snapshotId);
-				ps.setString(2, p.nameProperty().get());
+				ps.setString(2, p.nameProperty().get().trim());
 				ps.setString(3, "FIRST_TEAM");
 				ps.setString(4, p.roleProperty().get());
 				ps.setInt(5, p.ageProperty().get());
@@ -173,12 +173,12 @@ public class HistoryRepository {
 
 			// 2. Outgoing Loans
 			for (LoanPlayerModel l : outgoingLoans) {
-				String key = (l.getPlayerName() != null ? l.getPlayerName().trim().toLowerCase() : "") + "_" + l.ageProperty().get();
-				if (insertedKeys.contains(key)) continue;
+				String key = l.getPlayerName() != null ? l.getPlayerName().trim().toLowerCase() : "";
+				if (key.isBlank() || insertedKeys.contains(key)) continue;
 				insertedKeys.add(key);
 
 				ps.setLong(1, snapshotId);
-				ps.setString(2, l.playerNameProperty().get());
+				ps.setString(2, l.playerNameProperty().get().trim());
 				ps.setString(3, "OUTGOING_LOAN");
 				ps.setString(4, l.targetRoleProperty().get());
 				ps.setInt(5, l.ageProperty().get());
@@ -204,14 +204,14 @@ public class HistoryRepository {
 				ps.addBatch();
 			}
 
-			// 3. Incoming Loans (ignoriert Duplikate aus dem Kader)
+			// 3. Incoming Loans
 			for (LoanPlayerModel l : incomingLoans) {
-				String key = (l.getPlayerName() != null ? l.getPlayerName().trim().toLowerCase() : "") + "_" + l.ageProperty().get();
-				if (insertedKeys.contains(key)) continue;
+				String key = l.getPlayerName() != null ? l.getPlayerName().trim().toLowerCase() : "";
+				if (key.isBlank() || insertedKeys.contains(key)) continue;
 				insertedKeys.add(key);
 
 				ps.setLong(1, snapshotId);
-				ps.setString(2, l.playerNameProperty().get());
+				ps.setString(2, l.playerNameProperty().get().trim());
 				ps.setString(3, "INCOMING_LOAN");
 				ps.setString(4, l.targetRoleProperty().get());
 				ps.setInt(5, l.ageProperty().get());
@@ -239,12 +239,12 @@ public class HistoryRepository {
 
 			// 4. Jugend
 			for (YouthPlayerModel y : youth) {
-				String key = (y.getName() != null ? y.getName().trim().toLowerCase() : "") + "_" + y.ageProperty().get();
-				if (insertedKeys.contains(key)) continue;
+				String key = y.getName() != null ? y.getName().trim().toLowerCase() : "";
+				if (key.isBlank() || insertedKeys.contains(key)) continue;
 				insertedKeys.add(key);
 
 				ps.setLong(1, snapshotId);
-				ps.setString(2, y.nameProperty().get());
+				ps.setString(2, y.nameProperty().get().trim());
 				ps.setString(3, "YOUTH");
 				ps.setString(4, y.targetRoleProperty().get());
 				ps.setInt(5, y.ageProperty().get());
@@ -283,7 +283,6 @@ public class HistoryRepository {
 
 		String lastDate = null;
 
-		// 1. Neuesten SQUAD-Snapshot laden
 		String squadSql = "SELECT id, imported_at FROM snapshots WHERE export_type = 'SQUAD' ORDER BY imported_at DESC LIMIT 1";
 		try (Connection conn = DatabaseManager.getConnection();
 		     Statement stmt = conn.createStatement();
@@ -354,7 +353,6 @@ public class HistoryRepository {
 			e.printStackTrace();
 		}
 
-		// 2. Neuesten SCOUTING-Snapshot laden
 		if (scoutTarget != null) {
 			String scoutSnapSql = "SELECT id FROM snapshots WHERE export_type = 'SCOUTING' ORDER BY imported_at DESC LIMIT 1";
 			try (Connection conn = DatabaseManager.getConnection();
@@ -419,64 +417,27 @@ public class HistoryRepository {
 	}
 
 	public static List<PlayerHistoryEntry> getPlayerHistory(String playerName, int age) {
-		List<PlayerHistoryEntry> list = new java.util.ArrayList<>();
-		String sql = """
-            SELECT s.id, s.imported_at, s.in_game_season, p.tactical_role, p.age,
-                   p.market_value, p.monthly_salary, p.minutes_played,
-                   p.moneyball_score, p.recommendation
-            FROM player_history p
-            JOIN snapshots s ON p.snapshot_id = s.id
-            WHERE LOWER(p.player_name) = LOWER(?) AND p.age = ?
-            ORDER BY s.imported_at ASC, p.id ASC
-        """;
-
-		try (Connection conn = DatabaseManager.getConnection();
-		     PreparedStatement ps = conn.prepareStatement(sql)) {
-			ps.setString(1, playerName);
-			ps.setInt(2, age);
-			try (ResultSet rs = ps.executeQuery()) {
-				DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss");
-				Set<Long> seenSnapshots = new HashSet<>();
-				while (rs.next()) {
-					long snapId = rs.getLong("id");
-					if (seenSnapshots.contains(snapId)) continue;
-					seenSnapshots.add(snapId);
-
-					Timestamp ts = rs.getTimestamp("imported_at");
-					String dateStr = (ts != null) ? ts.toLocalDateTime().format(dtf) : "-";
-					String season = rs.getString("in_game_season");
-					String role = rs.getString("tactical_role");
-					int a = rs.getInt("age");
-					long mv = rs.getLong("market_value");
-					long sal = rs.getLong("monthly_salary");
-					int min = rs.getInt("minutes_played");
-					double score = rs.getDouble("moneyball_score");
-					String rec = rs.getString("recommendation");
-
-					list.add(new PlayerHistoryEntry(dateStr, season, role, a, mv, sal, min, score, rec));
-				}
-			}
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-		return list;
+		// Überladene Methode leitet nun karriereweit weiter, damit keine alten Snapshots abgeschnitten werden
+		return getPlayerHistory(playerName);
 	}
 
 	public static List<PlayerHistoryEntry> getPlayerHistory(String playerName) {
 		List<PlayerHistoryEntry> list = new java.util.ArrayList<>();
+		if (playerName == null || playerName.isBlank()) return list;
+
 		String sql = """
             SELECT s.id, s.imported_at, s.in_game_season, p.tactical_role, p.age,
                    p.market_value, p.monthly_salary, p.minutes_played,
                    p.moneyball_score, p.recommendation
             FROM player_history p
             JOIN snapshots s ON p.snapshot_id = s.id
-            WHERE LOWER(p.player_name) = LOWER(?)
+            WHERE LOWER(TRIM(p.player_name)) = LOWER(TRIM(?))
             ORDER BY s.imported_at ASC, p.id ASC
         """;
 
 		try (Connection conn = DatabaseManager.getConnection();
 		     PreparedStatement ps = conn.prepareStatement(sql)) {
-			ps.setString(1, playerName);
+			ps.setString(1, playerName.trim());
 			try (ResultSet rs = ps.executeQuery()) {
 				DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss");
 				Set<Long> seenSnapshots = new HashSet<>();
@@ -506,63 +467,26 @@ public class HistoryRepository {
 	}
 
 	public static List<PlayerHistoryEntry> getScoutingHistory(String playerName, int age) {
-		List<PlayerHistoryEntry> list = new java.util.ArrayList<>();
-		String sql = """
-            SELECT s.id, s.imported_at, s.in_game_season, sc.target_role, sc.age,
-                   sc.asking_price, sc.wage_demand, 0 AS minutes_played,
-                   sc.scouting_score, sc.transfer_action
-            FROM scouting_history sc
-            JOIN snapshots s ON sc.snapshot_id = s.id
-            WHERE LOWER(sc.player_name) = LOWER(?) AND sc.age = ?
-            ORDER BY s.imported_at ASC, sc.id ASC
-        """;
-
-		try (Connection conn = DatabaseManager.getConnection();
-		     PreparedStatement ps = conn.prepareStatement(sql)) {
-			ps.setString(1, playerName);
-			ps.setInt(2, age);
-			try (ResultSet rs = ps.executeQuery()) {
-				DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss");
-				Set<Long> seenSnapshots = new HashSet<>();
-				while (rs.next()) {
-					long snapId = rs.getLong("id");
-					if (seenSnapshots.contains(snapId)) continue;
-					seenSnapshots.add(snapId);
-
-					Timestamp ts = rs.getTimestamp("imported_at");
-					String dateStr = (ts != null) ? ts.toLocalDateTime().format(dtf) : "-";
-					String season = rs.getString("in_game_season");
-					String role = rs.getString("target_role");
-					int a = rs.getInt("age");
-					long asking = rs.getLong("asking_price");
-					long wage = rs.getLong("wage_demand");
-					double score = rs.getDouble("scouting_score");
-					String action = rs.getString("transfer_action");
-
-					list.add(new PlayerHistoryEntry(dateStr, season, role, a, asking, wage, 0, score, action));
-				}
-			}
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-		return list;
+		return getScoutingHistory(playerName);
 	}
 
 	public static List<PlayerHistoryEntry> getScoutingHistory(String playerName) {
 		List<PlayerHistoryEntry> list = new java.util.ArrayList<>();
+		if (playerName == null || playerName.isBlank()) return list;
+
 		String sql = """
             SELECT s.id, s.imported_at, s.in_game_season, sc.target_role, sc.age,
                    sc.asking_price, sc.wage_demand, 0 AS minutes_played,
                    sc.scouting_score, sc.transfer_action
             FROM scouting_history sc
             JOIN snapshots s ON sc.snapshot_id = s.id
-            WHERE LOWER(sc.player_name) = LOWER(?)
+            WHERE LOWER(TRIM(sc.player_name)) = LOWER(TRIM(?))
             ORDER BY s.imported_at ASC, sc.id ASC
         """;
 
 		try (Connection conn = DatabaseManager.getConnection();
 		     PreparedStatement ps = conn.prepareStatement(sql)) {
-			ps.setString(1, playerName);
+			ps.setString(1, playerName.trim());
 			try (ResultSet rs = ps.executeQuery()) {
 				DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss");
 				Set<Long> seenSnapshots = new HashSet<>();

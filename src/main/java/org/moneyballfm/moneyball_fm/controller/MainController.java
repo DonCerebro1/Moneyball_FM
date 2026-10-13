@@ -387,10 +387,12 @@ public class MainController {
 	}
 
 	/**
-	 * Key für Kader- und Jugend-Listen mit Altersbezug.
+	 * Eindeutiger Key für Kader, Leih- und Jugend-Listen.
+	 * Nutzt nur den normalisierten Namen (altersunabhängig), damit Geburtstage
+	 * nicht zum Anlegen eines neuen Spielers und Löschen des alten führen.
 	 */
 	private String normalizeSquadPlayerKey(String rawName, int age) {
-		return normalizePlayerKey(rawName) + "_" + age;
+		return normalizePlayerKey(rawName);
 	}
 
 	private void saveSquadSnapshotToDatabase() {
