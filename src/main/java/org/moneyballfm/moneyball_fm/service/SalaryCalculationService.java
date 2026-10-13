@@ -16,6 +16,10 @@ public class SalaryCalculationService {
 	) {}
 
 	public static SalaryOfferRecommendation calculateOffer(double score, long demandedSalaryMonth, AppConfig config) {
+		return calculateOffer(score, demandedSalaryMonth, 1.0, config);
+	}
+
+	public static SalaryOfferRecommendation calculateOffer(double score, long demandedSalaryMonth, double availabilityFactor, AppConfig config) {
 		SalaryTierConfig matchedTier = null;
 		if (config != null && config.getSalaryTiers() != null && !config.getSalaryTiers().isEmpty()) {
 			matchedTier = config.getSalaryTiers().stream()
@@ -26,9 +30,13 @@ public class SalaryCalculationService {
 		}
 
 		String tierId = (matchedTier != null) ? matchedTier.getId() : "Tier 3 (Rotation/Backup)";
-		long maxCap = (matchedTier != null) ? matchedTier.getMaxSalaryMonth() : 350_000L;
+		long baseMaxCap = (matchedTier != null) ? matchedTier.getMaxSalaryMonth() : 350_000L;
 
-		// Verhandlungsstufen (70 % Einstieg, 85 % Ziel, 100 % Walk-Away)
+		// Risiko-Deckelung: AF anwenden (begrenzt zwischen 0.40 und 1.0)
+		double af = Math.min(1.0, Math.max(0.40, availabilityFactor > 0 ? availabilityFactor : 1.0));
+		long maxCap = Math.round(baseMaxCap * af);
+
+		// Verhandlungsstufen (70 % Einstieg, 85 % Ziel, 100 % Walk-Away bezogen auf das gedämpfte Cap)
 		long startingOffer = Math.round(maxCap * 0.70);
 		long targetSalary = Math.round(maxCap * 0.85);
 		long walkAway = maxCap;
@@ -36,21 +44,23 @@ public class SalaryCalculationService {
 		String assessment;
 		String color;
 
+		String afWarning = (af < 0.90) ? String.format(" [AF: %.0f%% Risikoabschlag]", (1.0 - af) * 100.0) : "";
+
 		if (demandedSalaryMonth <= 0) {
-			assessment = "Bereit für Verhandlung";
+			assessment = "Bereit für Verhandlung" + afWarning;
 			color = "#2563eb";
 		} else if (demandedSalaryMonth <= startingOffer) {
-			assessment = "🟢 TOP-DEAL: Forderung liegt unter dem Einstiegsangebot";
+			assessment = "🟢 TOP-DEAL: Forderung unter Einstiegsangebot" + afWarning;
 			color = "#16a34a";
 		} else if (demandedSalaryMonth <= targetSalary) {
-			assessment = "✅ FAIR: Forderung im optimalen Budgetkorridor";
+			assessment = "✅ FAIR: Im optimalen Budgetkorridor" + afWarning;
 			color = "#15803d";
 		} else if (demandedSalaryMonth <= walkAway) {
-			assessment = "🟡 GRENZWERTIG: Forderung nahe an der Obergrenze";
+			assessment = "🟡 GRENZWERTIG: Nahe an Obergrenze" + afWarning;
 			color = "#d97706";
 		} else {
 			long diff = demandedSalaryMonth - walkAway;
-			assessment = "🔴 ABLEHNEN: Übersteigt Max-Cap um " + String.format("%,d €", diff);
+			assessment = "🔴 ABLEHNEN: Übersteigt Max-Cap um " + String.format("%,d €", diff) + afWarning;
 			color = "#dc2626";
 		}
 

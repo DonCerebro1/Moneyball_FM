@@ -21,6 +21,7 @@ public class ScoutingAnalysisService {
 
 		if (allStatsZero || sampleTooSmall) {
 			p.scoutingScoreProperty().set(0.0);
+			p.setAvailabilityFactor(1.0);
 			p.maxTransferFeeProperty().set(0L);
 			p.maxWageProperty().set(0L);
 			p.priceCheckProperty().set("⚪ KEINE DATEN");
@@ -28,10 +29,14 @@ public class ScoutingAnalysisService {
 			return;
 		}
 
+		// 1. Verfügbarkeitsfaktor (AF) ermitteln
+		double af = MoneyballCalculator.calculateAvailabilityFactor(minutes, p.getInjurySusceptibility());
+		p.setAvailabilityFactor(af);
+
 		String roleRaw = p.targetRoleProperty().get() != null ? p.targetRoleProperty().get().trim() : "";
 		String role = roleRaw.toUpperCase();
 
-		// 1. ROLLEN-PERFORMANCE (Max. 65 Punkte)
+		// 2. ROLLEN-PERFORMANCE (Max. 65 Punkte)
 		double statPoints;
 
 		// STÜRMER (xG/90: 0.52 | xA/90 bzw. Konversion: 0.19 | Schüsse aufs Tor: 48%)
@@ -99,7 +104,7 @@ public class ScoutingAnalysisService {
 					+ Math.min(l / 0.80, 1.20) * 21.0;
 		}
 
-		// 2. ATHLETIK-PROFIL (Max. 20 Punkte)
+		// 3. ATHLETIK-PROFIL (Max. 20 Punkte)
 		int agility = p.agilityProperty().get();
 		int pace = p.paceProperty().get();
 		int stamina = p.staminaProperty().get();
@@ -107,7 +112,7 @@ public class ScoutingAnalysisService {
 		double athleticAvg = (agility + pace + stamina) / 3.0;
 		double athleticPoints = Math.min(20.0, Math.max(4.0, ((athleticAvg - 6.0) / 11.0) * 20.0));
 
-		// 3. ALTER & ENTWICKLUNGSFAKTOR (Max. 15 Punkte)
+		// 4. ALTER & ENTWICKLUNGSFAKTOR (Max. 15 Punkte)
 		int age = p.ageProperty().get();
 		double agePoints;
 		if (age <= 21) {
@@ -122,11 +127,11 @@ public class ScoutingAnalysisService {
 			agePoints = 3.0;
 		}
 
-		// Gesamter Scouting-Score (0 - 100)
+		// Gesamter sportlicher Scouting-Score (0 - 100)
 		double finalScore = Math.min(100.0, Math.max(0.0, Math.round(statPoints + athleticPoints + agePoints)));
 		p.scoutingScoreProperty().set(finalScore);
 
-		// 4. MAX-ABLÖSE (€) - Angepasst an Top-Clubs
+		// 5. MAX-ABLÖSE (€) - Skaliert mit AF
 		long maxFeeBase;
 		if (finalScore >= 95.0) maxFeeBase = 120_000_000L;
 		else if (finalScore >= 90.0) maxFeeBase = 85_000_000L;
@@ -140,19 +145,22 @@ public class ScoutingAnalysisService {
 		} else if (contractYears <= 2.0) {
 			maxFeeBase = (long) (maxFeeBase * 0.85);
 		}
-		p.maxTransferFeeProperty().set(maxFeeBase);
 
-		// 5. MAX-GEHALT / MONAT (€)
-		long maxWage;
-		if (finalScore >= 95.0) maxWage = 1_500_000L;
-		else if (finalScore >= 90.0) maxWage = 1_100_000L;
-		else if (finalScore >= 80.0) maxWage = 750_000L;
-		else if (finalScore >= 70.0) maxWage = 450_000L;
-		else maxWage = 200_000L;
+		long adjustedMaxFee = Math.round(maxFeeBase * af);
+		p.maxTransferFeeProperty().set(adjustedMaxFee);
 
-		p.maxWageProperty().set(maxWage);
+		// 6. MAX-GEHALT / MONAT (€) - Skaliert mit AF
+		long maxWageBase;
+		if (finalScore >= 95.0) maxWageBase = 1_500_000L;
+		else if (finalScore >= 90.0) maxWageBase = 1_100_000L;
+		else if (finalScore >= 80.0) maxWageBase = 750_000L;
+		else if (finalScore >= 70.0) maxWageBase = 450_000L;
+		else maxWageBase = 200_000L;
 
-		// 6. PREIS-CHECK & HANDLUNGSEMPFEHLUNG
+		long adjustedMaxWage = Math.round(maxWageBase * af);
+		p.maxWageProperty().set(adjustedMaxWage);
+
+		// 7. PREIS-CHECK & HANDLUNGSEMPFEHLUNG
 		long asking = p.askingPriceProperty().get();
 		long wage = p.wageDemandProperty().get();
 
@@ -162,17 +170,21 @@ public class ScoutingAnalysisService {
 		} else if (asking <= 0) {
 			p.priceCheckProperty().set("⚪ KEINE ANGABE");
 			p.transferActionProperty().set("ℹ️ ABLÖSE ANFRAGEN");
-		} else if (asking <= maxFeeBase * 0.50) {
+		} else if (asking <= adjustedMaxFee * 0.50) {
 			p.priceCheckProperty().set("🟢 TOP-SCHNÄPPCHEN");
-			if (wage <= maxWage && finalScore >= 80.0) {
-				p.transferActionProperty().set("⭐ SOFORT VERPFLICHTEN");
+			if (wage <= adjustedMaxWage && finalScore >= 80.0) {
+				if (af < 0.80) {
+					p.transferActionProperty().set("⚠️ RISIKO-SCHNÄPPCHEN (VERHANDELN)");
+				} else {
+					p.transferActionProperty().set("⭐ SOFORT VERPFLICHTEN");
+				}
 			} else {
 				p.transferActionProperty().set("✅ VERHANDELN");
 			}
-		} else if (asking <= maxFeeBase) {
+		} else if (asking <= adjustedMaxFee) {
 			p.priceCheckProperty().set("🟡 FAIRER PREIS");
-			if (wage <= maxWage && finalScore >= 75.0) {
-				p.transferActionProperty().set("✅ VERHANDELN / BEOBACHTEN");
+			if (wage <= adjustedMaxWage && finalScore >= 75.0) {
+				p.transferActionProperty().set(af < 0.80 ? "⚠️ BEOBACHTEN (VERLETZUNGSRISIKO)" : "✅ VERHANDELN / BEOBACHTEN");
 			} else {
 				p.transferActionProperty().set("⏳ WARTEN");
 			}

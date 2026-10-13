@@ -24,6 +24,10 @@ public class PlayerRowModel {
 	private final IntegerProperty stamina = new SimpleIntegerProperty();
 	private final IntegerProperty determination = new SimpleIntegerProperty();
 
+	// Verletzung & Verfügbarkeit
+	private final StringProperty injurySusceptibility = new SimpleStringProperty("Normal");
+	private final DoubleProperty availabilityFactor = new SimpleDoubleProperty(1.0);
+
 	// Die drei sichtbaren Hauptwerte & ihre dynamischen Bezeichnungen
 	private final DoubleProperty statValue1 = new SimpleDoubleProperty();
 	private final DoubleProperty statValue2 = new SimpleDoubleProperty();
@@ -58,6 +62,8 @@ public class PlayerRowModel {
 		this.pace.set(player.getPace());
 		this.stamina.set(player.getStamina());
 		this.determination.set(player.getDetermination());
+
+		this.injurySusceptibility.set(player.getInjurySusceptibility());
 
 		this.statValue1.set(s1);
 		this.statValue2.set(s2);
@@ -112,6 +118,15 @@ public class PlayerRowModel {
 	public IntegerProperty paceProperty() { return pace; }
 	public IntegerProperty staminaProperty() { return stamina; }
 	public IntegerProperty determinationProperty() { return determination; }
+
+	// Verletzung & Verfügbarkeit
+	public StringProperty injurySusceptibilityProperty() { return injurySusceptibility; }
+	public String getInjurySusceptibility() { return injurySusceptibility.get(); }
+	public void setInjurySusceptibility(String val) { this.injurySusceptibility.set(val); }
+
+	public DoubleProperty availabilityFactorProperty() { return availabilityFactor; }
+	public double getAvailabilityFactor() { return availabilityFactor.get(); }
+	public void setAvailabilityFactor(double val) { this.availabilityFactor.set(val); }
 
 	public DoubleProperty statValue1Property() { return statValue1; }
 	public DoubleProperty statValue2Property() { return statValue2; }
@@ -180,7 +195,6 @@ public class PlayerRowModel {
 		double s3 = this.rawPlayer.getStat(newRole.getStat3Header());
 
 		// 4. Nur überschreiben, wenn in der Map echte Stats gefunden wurden (> 0.0).
-		// Wurde nichts gefunden (z. B. nach DB-Snapshot ohne Rohdaten), bleiben die bestehenden Stats erhalten!
 		if (s1 > 0.0 || s2 > 0.0 || s3 > 0.0) {
 			this.statValue1.set(s1);
 			this.statValue2.set(s2);
@@ -206,6 +220,8 @@ public class PlayerRowModel {
 		this.stamina.set(fresh.staminaProperty().get());
 		this.determination.set(fresh.determinationProperty().get());
 
+		this.injurySusceptibility.set(fresh.injurySusceptibilityProperty().get());
+
 		if (this.rawPlayer != null && fresh.getRawPlayer() != null) {
 			Player fp = fresh.getRawPlayer();
 			this.rawPlayer.setAge(fp.getAge())
@@ -219,6 +235,7 @@ public class PlayerRowModel {
 					.setPace(fp.getPace())
 					.setStamina(fp.getStamina())
 					.setDetermination(fp.getDetermination())
+					.setInjurySusceptibility(fp.getInjurySusceptibility())
 					.setLoanRating(fp.getLoanRating())
 					.setLeague(fp.getLeague())
 					.setGoals(fp.getGoals())

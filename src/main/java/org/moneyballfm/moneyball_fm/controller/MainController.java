@@ -475,8 +475,14 @@ public class MainController {
 				if (!clean.isEmpty()) demand = Long.parseLong(clean);
 			}
 
+			// Verfügbarkeitsfaktor (AF) des ausgewählten Spielers ermitteln (Standard: 1.0)
+			double af = 1.0;
+			if (cmbCalcPlayer != null && cmbCalcPlayer.getValue() != null) {
+				af = cmbCalcPlayer.getValue().getAvailabilityFactor();
+			}
+
 			SalaryCalculationService.SalaryOfferRecommendation rec =
-					SalaryCalculationService.calculateOffer(score, demand, appConfig);
+					SalaryCalculationService.calculateOffer(score, demand, af, appConfig);
 
 			if (lblCalcTier != null) lblCalcTier.setText(rec.tierId());
 			if (lblCalcStartingOffer != null) lblCalcStartingOffer.setText("€ " + euroFormat.format(rec.suggestedStartingOffer()) + " / Mon.");
@@ -2033,7 +2039,6 @@ public class MainController {
 			ObservableList<String> availableRoles = getAvailableRoles();
 			String fallbackRole = !availableRoles.isEmpty() ? availableRoles.get(0) : "Stoßstürmer (Angreifen)";
 
-			// Map NUR mit bereinigtem Namen als Key (ohne Alter, damit Geburtstage keinen Duplikat-Key erzeugen)
 			Map<String, ScoutingPlayerModel> existingMap = new HashMap<>();
 			for (ScoutingPlayerModel existing : scoutDataList) {
 				String name = existing.nameProperty().get();
@@ -2051,7 +2056,6 @@ public class MainController {
 
 				String key = normalizePlayerKey(name);
 
-				// 1. Rolle auflösen (oder aus bestehendem Eintrag übernehmen)
 				String roleToApply = fresh.targetRoleProperty().get();
 				if (existingMap.containsKey(key)) {
 					String existingRole = existingMap.get(key).targetRoleProperty().get();
@@ -2068,7 +2072,6 @@ public class MainController {
 
 				fresh.targetRoleProperty().set(matchedRole);
 
-				// 2. Taktikrolle holen
 				TacticRole tr = TacticRole.fromDisplayName(matchedRole);
 				if (tr == null) {
 					tr = TacticRole.fromPosition(matchedRole);
@@ -2077,14 +2080,13 @@ public class MainController {
 					tr = TacticRole.values()[0];
 				}
 
-				// 3. Stats verbindlich setzen & bewerten
 				applyScoutingStatsForRole(fresh, tr, matchedRole);
 				ScoutingAnalysisService.evaluate(fresh, appConfig);
 
 				if (existingMap.containsKey(key)) {
 					ScoutingPlayerModel target = existingMap.get(key);
 					copyScoutData(fresh, target);
-					target.ageProperty().set(fresh.ageProperty().get()); // Alter aktualisieren
+					target.ageProperty().set(fresh.ageProperty().get());
 					updated++;
 				} else {
 					scoutDataList.add(fresh);
@@ -2122,6 +2124,8 @@ public class MainController {
 		target.paceProperty().set(source.paceProperty().get());
 		target.staminaProperty().set(source.staminaProperty().get());
 		target.determinationProperty().set(source.determinationProperty().get());
+		target.injurySusceptibilityProperty().set(source.injurySusceptibilityProperty().get());
+		target.availabilityFactorProperty().set(source.availabilityFactorProperty().get());
 		target.statValue1Property().set(source.statValue1Property().get());
 		target.statValue2Property().set(source.statValue2Property().get());
 		target.statValue3Property().set(source.statValue3Property().get());

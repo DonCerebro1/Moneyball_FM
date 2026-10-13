@@ -27,6 +27,9 @@ public class Player {
 	private int goals = 0;
 	private int assists = 0;
 
+	// Verletzungsanfälligkeit aus FM (z. B. "Gering", "Normal", "Hoch")
+	private String injurySusceptibility = "Normal";
+
 	// Beliebig viele Stats dynamisch erweiterbar
 	private final Map<String, Double> stats = new HashMap<>();
 
@@ -120,6 +123,17 @@ public class Player {
 		return this;
 	}
 
+	public String getInjurySusceptibility() {
+		return injurySusceptibility;
+	}
+
+	public Player setInjurySusceptibility(String injurySusceptibility) {
+		this.injurySusceptibility = (injurySusceptibility != null && !injurySusceptibility.isBlank())
+				? injurySusceptibility.trim()
+				: "Normal";
+		return this;
+	}
+
 	public double getStat(String key) {
 		if (key == null || key.isBlank()) return 0.0;
 
@@ -128,7 +142,6 @@ public class Player {
 			return stats.get(directKey);
 		}
 
-		// Normalisierter Match: ignoriert Umlaute, Leerzeichen, %, /, Punkte etc.
 		String targetNorm = normalizeStatKey(key);
 		for (Map.Entry<String, Double> entry : stats.entrySet()) {
 			if (normalizeStatKey(entry.getKey()).equals(targetNorm)) {

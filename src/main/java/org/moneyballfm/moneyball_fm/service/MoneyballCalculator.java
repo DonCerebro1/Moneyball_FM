@@ -24,7 +24,6 @@ public class MoneyballCalculator {
 			double newS2 = player.getStat(tacticRole.getStat2Header());
 			double newS3 = player.getStat(tacticRole.getStat3Header());
 
-			// Nur überschreiben, wenn tatsächliche Werte in den Exportdaten vorhanden sind
 			if (newS1 > 0.0 || newS2 > 0.0 || newS3 > 0.0) {
 				row.statValue1Property().set(newS1);
 				row.statValue2Property().set(newS2);
@@ -38,14 +37,18 @@ public class MoneyballCalculator {
 		double s2 = row.statValue2Property().get();
 		double s3 = row.statValue3Property().get();
 
-		// 2. Spieler ohne relevante Spielzeit oder komplett ohne Stats nicht künstlich bewerten
+		// 2. Verfügbarkeitsfaktor (AF) berechnen
+		double af = calculateAvailabilityFactor(mins, row.getInjurySusceptibility());
+		row.setAvailabilityFactor(af);
+
+		// 3. Spieler ohne relevante Spielzeit oder komplett ohne Stats nicht künstlich bewerten
 		if (mins < 90 || (s1 == 0.0 && s2 == 0.0 && s3 == 0.0)) {
 			row.moneyballScoreProperty().set(0.0);
 			row.sampleQualityProperty().set("⚪ Keine Spielzeit (< 90 Min.)");
 			row.salaryTierProperty().set("Keine Bewertung");
 			row.maxSalaryProperty().set(0L);
 			row.salaryCheckProperty().set("— Zu wenig Spielzeit");
-			calculateFairMarketValue(row, 0.0);
+			calculateFairMarketValue(row, 0.0, af);
 			return;
 		}
 
@@ -67,10 +70,8 @@ public class MoneyballCalculator {
 
 				double metricScore;
 				if (metric.isInverse()) {
-					// Je weniger Fehler/Gegentore, desto näher an 100
 					metricScore = Math.max(0.0, 100.0 - (val * 25.0));
 				} else if (metric.getBenchmark() > 0) {
-					// Benchmark = 85 Punkte. Bei ~18 % Übererfüllung werden 100 erreicht.
 					double ratio = val / metric.getBenchmark();
 					metricScore = Math.min(100.0, ratio * 85.0);
 				} else {
@@ -91,19 +92,18 @@ public class MoneyballCalculator {
 
 			finalScore = Math.round(rawScore * 10.0) / 10.0;
 		} else {
-			// Kein Slot in Taktik gefunden
 			finalScore = 0.0;
 		}
 
 		row.moneyballScoreProperty().set(finalScore);
 
-		// 3. Gehalts-Tier & Max-Gehalt zuweisen
-		assignSalaryTier(row, finalScore, config);
+		// 4. Gehalts-Tier & Max-Gehalt (unter Berücksichtigung von AF) zuweisen
+		assignSalaryTier(row, finalScore, af, config);
 
-		// 4. Fairer Marktwert berechnen
-		calculateFairMarketValue(row, finalScore);
+		// 5. Fairer Marktwert berechnen (skaliert mit AF)
+		calculateFairMarketValue(row, finalScore, af);
 
-		// 5. Stichproben-Qualität (Spielzeit)
+		// 6. Stichproben-Qualität (Spielzeit)
 		if (mins >= 900) {
 			row.sampleQualityProperty().set("🟢 Hohe Aussagekraft (>= 10 Spiele)");
 		} else if (mins >= 450) {
@@ -113,7 +113,34 @@ public class MoneyballCalculator {
 		}
 	}
 
-	private static void calculateFairMarketValue(PlayerRowModel row, double score) {
+	public static double calculateAvailabilityFactor(int minutes, String injuryText) {
+		// A) Minuten-Faktor (ab 1800 Min. = 1.0, Untergrenze = 0.5)
+		double minRatio = Math.min(1.0, Math.max(0.5, minutes / 1800.0));
+
+		// B) Risiko-Faktor aus den FM-Ausprägungen (Kader & Scouting)
+		double riskFactor = 0.95; // Default: Durchschnittlich / Normal
+		if (injuryText != null) {
+			String lower = injuryText.toLowerCase().trim();
+			if (lower.contains("sehr gering") || lower.contains("sehr niedrig")) {
+				riskFactor = 1.05; // Extrem robust
+			} else if (lower.contains("unterdurchschnittlich") || lower.contains("gering") || lower.contains("niedrig")) {
+				riskFactor = 1.00; // Kaum Ausfälle
+			} else if (lower.contains("sehr hoch") || lower.contains("akut")) {
+				riskFactor = 0.75; // Sehr hohes Risiko (-25%)
+			} else if (lower.contains("hoch")) {
+				riskFactor = 0.85; // Hohes Risiko (-15%)
+			} else if (lower.contains("erhöht") || lower.contains("überdurchschnittlich")) {
+				riskFactor = 0.90; // Leicht erhöhtes Risiko (-10%)
+			} else {
+				riskFactor = 0.95; // "Normal", "Durchschnittlich"
+			}
+		}
+
+		double af = minRatio * riskFactor;
+		return Math.round(Math.min(1.0, Math.max(0.4, af)) * 100.0) / 100.0;
+	}
+
+	private static void calculateFairMarketValue(PlayerRowModel row, double score, double af) {
 		long currentMarketValue = row.marketValueProperty().get();
 		if (currentMarketValue <= 0 || score <= 0.0) {
 			row.fairMarketValueProperty().set(0L);
@@ -134,7 +161,7 @@ public class MoneyballCalculator {
 		}
 
 		double performanceRatio = Math.max(0.3, score / 85.0);
-		long fairValue = Math.round(currentMarketValue * performanceRatio * ageFactor);
+		long fairValue = Math.round(currentMarketValue * performanceRatio * ageFactor * af);
 
 		row.fairMarketValueProperty().set(fairValue);
 	}
@@ -149,7 +176,6 @@ public class MoneyballCalculator {
 
 		if (activeTactic == null || activeTactic.getSlots() == null) return null;
 
-		// Normalisieren: Abkürzungen expandieren und Trennzeichen glätten
 		String p = playerRole.toLowerCase()
 				.replace("zurückgez.", "zurückgezogener")
 				.replace("zurückgez", "zurückgezogener")
@@ -166,55 +192,36 @@ public class MoneyballCalculator {
 			String rLabel = (slot.getRoleLabel() != null) ? slot.getRoleLabel().toLowerCase()
 					.replaceAll("[\\.\\(\\)\\[\\]\\-]", " ").replaceAll("\\s+", " ").trim() : "";
 
-			// 1. Kürzel-Check (z.B. "zsm", "mtw", "iv", "kfv", "bsv", "hrv")
-			if (!sName.isEmpty() && (p.startsWith(sName) || p.contains(sName))) {
-				return slot;
-			}
+			if (!sName.isEmpty() && (p.startsWith(sName) || p.contains(sName))) return slot;
+			if (!rLabel.isEmpty() && (p.contains(rLabel) || rLabel.contains(p))) return slot;
 
-			// 2. Rollenname-Check (z.B. "ballspielender vert. links")
-			if (!rLabel.isEmpty() && (p.contains(rLabel) || rLabel.contains(p))) {
-				return slot;
-			}
-
-			// 3. Semantischer Schlagwort-Check
-			if (p.contains("ballspiel") && (rLabel.contains("ballspiel") || sName.contains("bsv") || rLabel.contains("bsv"))) {
-				return slot;
-			}
-			if (p.contains("halbraum") && (rLabel.contains("halbraum") || sName.contains("hrv") || rLabel.contains("hrv"))) {
-				return slot;
-			}
-			if (p.contains("spielmacher") && rLabel.contains("spielmacher")) {
-				return slot;
-			}
-			if (p.contains("regista") && (rLabel.contains("regista") || sName.contains("reg"))) {
-				return slot;
-			}
+			if (p.contains("ballspiel") && (rLabel.contains("ballspiel") || sName.contains("bsv") || rLabel.contains("bsv"))) return slot;
+			if (p.contains("halbraum") && (rLabel.contains("halbraum") || sName.contains("hrv") || rLabel.contains("hrv"))) return slot;
+			if (p.contains("spielmacher") && rLabel.contains("spielmacher")) return slot;
+			if (p.contains("regista") && (rLabel.contains("regista") || sName.contains("reg"))) return slot;
 			if (p.contains("flügelvert") && rLabel.contains("flügelvert")) {
 				if (p.contains("links") == rLabel.contains("links") || p.contains("rechts") == rLabel.contains("rechts")) {
 					return slot;
 				}
 			}
-			if (p.contains("stürmer") && rLabel.contains("stürmer")) {
-				return slot;
-			}
-			if (p.contains("torwart") && rLabel.contains("torwart")) {
-				return slot;
-			}
-			if (p.contains("innenvert") && (rLabel.contains("innenvert") || sName.contains("iv"))) {
-				return slot;
-			}
+			if (p.contains("stürmer") && rLabel.contains("stürmer")) return slot;
+			if (p.contains("torwart") && rLabel.contains("torwart")) return slot;
+			if (p.contains("innenvert") && (rLabel.contains("innenvert") || sName.contains("iv"))) return slot;
 		}
 
 		return null;
 	}
 
-	private static void assignSalaryTier(PlayerRowModel row, double score, AppConfig config) {
+	private static void assignSalaryTier(PlayerRowModel row, double score, double af, AppConfig config) {
 		if (score <= 0.0) {
 			row.salaryTierProperty().set("Keine Bewertung");
 			row.maxSalaryProperty().set(0L);
 			row.salaryCheckProperty().set("— Zu wenig Spielzeit");
 			return;
 		}
+
+		long baseMaxSal;
+		String tierName;
 
 		if (config != null && config.getSalaryTiers() != null && !config.getSalaryTiers().isEmpty()) {
 			SalaryTierConfig matchedTier = config.getSalaryTiers().stream()
@@ -223,43 +230,34 @@ public class MoneyballCalculator {
 					.findFirst()
 					.orElse(config.getSalaryTiers().get(config.getSalaryTiers().size() - 1));
 
-			if (matchedTier != null) {
-				row.salaryTierProperty().set(matchedTier.getId());
-				row.maxSalaryProperty().set(matchedTier.getMaxSalaryMonth());
-
-				long salary = row.monthlySalaryProperty().get();
-				if (salary <= matchedTier.getMaxSalaryMonth() * 0.75) {
-					row.salaryCheckProperty().set("🟢 SCHNÄPPCHEN / TOP-DEAL");
-				} else if (salary <= matchedTier.getMaxSalaryMonth()) {
-					row.salaryCheckProperty().set("✅ FAIR / IM PLAN");
-				} else {
-					row.salaryCheckProperty().set("🔴 STARK ÜBERBEZAHLT");
-				}
-				return;
+			tierName = matchedTier != null ? matchedTier.getId() : "Tier 4 (Verkauf)";
+			baseMaxSal = matchedTier != null ? matchedTier.getMaxSalaryMonth() : 150_000L;
+		} else {
+			if (score >= 85.0) {
+				tierName = "Tier 1 (Key/Star)";
+				baseMaxSal = 1_000_000L;
+			} else if (score >= 70.0) {
+				tierName = "Tier 2 (Stamm)";
+				baseMaxSal = 650_000L;
+			} else if (score >= 55.0) {
+				tierName = "Tier 3 (Rotation/Backup)";
+				baseMaxSal = 350_000L;
+			} else {
+				tierName = "Tier 4 (Verkauf)";
+				baseMaxSal = 150_000L;
 			}
 		}
 
-		long maxSal = 150_000L;
-		String tier = "Tier 4 (Verkauf)";
+		// Risiko-Deckelung: Max-Gehalt skaliert mit Verfügbarkeitsfaktor
+		long adjustedMaxSal = Math.round(baseMaxSal * af);
 
-		if (score >= 85.0) {
-			tier = "Tier 1 (Key/Star)";
-			maxSal = 1_000_000L;
-		} else if (score >= 70.0) {
-			tier = "Tier 2 (Stamm)";
-			maxSal = 650_000L;
-		} else if (score >= 55.0) {
-			tier = "Tier 3 (Rotation/Backup)";
-			maxSal = 350_000L;
-		}
-
-		row.salaryTierProperty().set(tier);
-		row.maxSalaryProperty().set(maxSal);
+		row.salaryTierProperty().set(tierName);
+		row.maxSalaryProperty().set(adjustedMaxSal);
 
 		long curSal = row.monthlySalaryProperty().get();
-		if (curSal <= maxSal * 0.75) {
+		if (curSal <= adjustedMaxSal * 0.75) {
 			row.salaryCheckProperty().set("🟢 SCHNÄPPCHEN / TOP-DEAL");
-		} else if (curSal <= maxSal) {
+		} else if (curSal <= adjustedMaxSal) {
 			row.salaryCheckProperty().set("✅ FAIR / IM PLAN");
 		} else {
 			row.salaryCheckProperty().set("🔴 STARK ÜBERBEZAHLT");

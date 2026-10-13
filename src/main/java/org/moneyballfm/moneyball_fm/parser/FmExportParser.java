@@ -252,7 +252,6 @@ public class FmExportParser {
 		String rawPos = getVal(cols, map, "ausgewählte position", "ausgew. pos.", "ausgew. pos");
 		String naturalPosRaw = getVal(cols, map, "position", "pos", "natürliche position");
 
-		// Zweizeilige FM-Positionszellen: oben Position, unten Rolle
 		if ((roleDetail.isBlank() || roleDetail.equals("-")) && naturalPosRaw.contains("\n")) {
 			String[] lines = naturalPosRaw.split("\n");
 			if (lines.length > 1 && !lines[1].isBlank()) {
@@ -313,6 +312,15 @@ public class FmExportParser {
 		int goals = parseInt(getVal(cols, map, "tore", "goals"));
 		int assists = parseInt(getVal(cols, map, "vor", "vorlagen", "assists"));
 
+		// Verletzungsanfälligkeit / Verletzungsrisiko einlesen
+		String injury = getVal(cols, map,
+				"verletzungsanfälligkeit",
+				"verletzungsrisiko",
+				"verletzungsanfälligkeit (fitness und verletzungen)",
+				"injury susceptibility"
+		);
+		if (injury.isBlank() || injury.equals("-")) injury = "Normal";
+
 		Player player = new Player(
 				name,
 				tacticRole.getDisplayName(),
@@ -334,6 +342,7 @@ public class FmExportParser {
 		player.setLoanRating(loanRating);
 		player.setGoals(goals);
 		player.setAssists(assists);
+		player.setInjurySusceptibility(injury);
 
 		for (Map.Entry<String, Integer> entry : map.entrySet()) {
 			int idx = entry.getValue();
@@ -408,7 +417,7 @@ public class FmExportParser {
 
 	private static String cleanHeaderKey(String s) {
 		if (s == null) return "";
-		return cleanNbsps(s).toLowerCase().replace(" ", "").replace("/", "").replace("%", "").replace(".", "").trim();
+		return cleanNbsps(s).toLowerCase().replace(" ", "").replace("/", "").replace("%", "").replace(".", "").replace("(", "").replace(")", "").trim();
 	}
 
 	private static List<ScoutingPlayerModel> parseScoutingPlainText(File file) throws IOException {
@@ -490,7 +499,6 @@ public class FmExportParser {
 		String rawPos = getVal(cols, map, "ausgewählte position", "ausgew. pos.", "ausgew. pos");
 		String naturalPosRaw = getVal(cols, map, "position", "pos", "natürliche position");
 
-		// Zweizeilige FM-Zelle: Position oben, Ideal-Rolle unten
 		if ((roleDetail.isBlank() || roleDetail.equals("-")) && naturalPosRaw.contains("\n")) {
 			String[] lines = naturalPosRaw.split("\n");
 			if (lines.length > 1 && !lines[1].isBlank()) {
@@ -533,6 +541,16 @@ public class FmExportParser {
 		p.paceProperty().set(parseInt(getVal(cols, map, "ant", "antritt")));
 		p.staminaProperty().set(parseInt(getVal(cols, map, "aus", "ausdauer")));
 		p.determinationProperty().set(parseInt(getVal(cols, map, "zie", "entsch", "zielstrebigkeit", "entschlossenheit")));
+
+		// Verletzungsrisiko / Verletzungsanfälligkeit im Scouting einlesen
+		String injury = getVal(cols, map,
+				"verletzungsrisiko",
+				"verletzungsanfälligkeit",
+				"verletzungsanfälligkeit (fitness und verletzungen)",
+				"injury susceptibility"
+		);
+		if (injury.isBlank() || injury.equals("-")) injury = "Normal";
+		p.setInjurySusceptibility(injury);
 
 		double prP = parseDouble(getVal(cols, map, "pr pässe/90", "pr päs/90", "pr pässe", "prpaesse90", "prpaesse"));
 		double xg = parseDouble(getVal(cols, map, "xg/90", "xg", "xg90"));

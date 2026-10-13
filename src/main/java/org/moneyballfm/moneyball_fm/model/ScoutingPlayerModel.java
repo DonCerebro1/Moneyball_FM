@@ -21,6 +21,10 @@ public class ScoutingPlayerModel {
 	private final IntegerProperty stamina = new SimpleIntegerProperty();
 	private final IntegerProperty determination = new SimpleIntegerProperty(0);
 
+	// Verletzung & Verfügbarkeit
+	private final StringProperty injurySusceptibility = new SimpleStringProperty("Normal");
+	private final DoubleProperty availabilityFactor = new SimpleDoubleProperty(1.0);
+
 	// Detaillierte Leistungsdaten (Rohwerte für dynamische Rollenberechnung)
 	private final DoubleProperty progressivePasses90 = new SimpleDoubleProperty(0.0);
 	private final DoubleProperty xg90 = new SimpleDoubleProperty(0.0);
@@ -94,6 +98,15 @@ public class ScoutingPlayerModel {
 	public IntegerProperty paceProperty() { return pace; }
 	public IntegerProperty staminaProperty() { return stamina; }
 	public IntegerProperty determinationProperty() { return determination; }
+
+	// Verletzung & Verfügbarkeit
+	public StringProperty injurySusceptibilityProperty() { return injurySusceptibility; }
+	public String getInjurySusceptibility() { return injurySusceptibility.get(); }
+	public void setInjurySusceptibility(String val) { this.injurySusceptibility.set(val); }
+
+	public DoubleProperty availabilityFactorProperty() { return availabilityFactor; }
+	public double getAvailabilityFactor() { return availabilityFactor.get(); }
+	public void setAvailabilityFactor(double val) { this.availabilityFactor.set(val); }
 
 	public DoubleProperty progressivePasses90Property() { return progressivePasses90; }
 	public DoubleProperty xg90Property() { return xg90; }
