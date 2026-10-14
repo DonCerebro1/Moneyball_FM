@@ -121,8 +121,8 @@ slots:
         column_aliases: ["Drb/90", "drb90", "Prog. Läufe / Dribblings pro Spiel", "Dribblings"]
 
   # 8. Flügelverteidiger Rechts
-  - slot_name: "FV (R)"
-    role_label: "Flügelverteidiger Rechts"
+  - slot_name: "KFV (R)"
+    role_label: "Komp. Flügelverteidiger Rechts"
     metrics:
       - name: "Abgefangene Bälle / 90"
         weight: 0.35
