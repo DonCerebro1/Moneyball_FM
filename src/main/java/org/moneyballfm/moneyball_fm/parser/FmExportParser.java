@@ -19,8 +19,19 @@ public class FmExportParser {
 
 	public record PreseasonData(String name, String position, int estimatedMinutes, double rating) {}
 
+	// Zwischenspeicher für den 2-Pass Import
+	private record RawPlayerData(
+			String[] cols,
+			Map<String, Integer> colMap,
+			String name,
+			String roleDetail,
+			String rawPos,
+			String naturalPos,
+			boolean isStarter
+	) {}
+
 	// ==========================================
-	// 1. KADER-ANALYSE PARSER
+	// 1. KADER-ANALYSE PARSER (TWO-PASS)
 	// ==========================================
 
 	public static List<PlayerRowModel> parseFile(File file) throws IOException {
@@ -69,12 +80,8 @@ public class FmExportParser {
 					colsList.add(cleanNbsps(col).trim());
 				}
 
-				if (!colsList.isEmpty() && colsList.get(0).isEmpty()) {
-					colsList.remove(0);
-				}
-				if (!colsList.isEmpty() && colsList.get(colsList.size() - 1).isEmpty()) {
-					colsList.remove(colsList.size() - 1);
-				}
+				if (!colsList.isEmpty() && colsList.get(0).isEmpty()) colsList.remove(0);
+				if (!colsList.isEmpty() && colsList.get(colsList.size() - 1).isEmpty()) colsList.remove(colsList.size() - 1);
 
 				String[] cols = colsList.toArray(new String[0]);
 
@@ -133,8 +140,7 @@ public class FmExportParser {
 	}
 
 	private static List<PlayerRowModel> parsePlainTextFile(File file) throws IOException {
-		List<PlayerRowModel> result = new ArrayList<>();
-		Set<String> seenKeys = new HashSet<>();
+		List<RawPlayerData> rawList = new ArrayList<>();
 
 		try (BufferedReader reader = new BufferedReader(new FileReader(file, StandardCharsets.UTF_8))) {
 			String line;
@@ -153,12 +159,8 @@ public class FmExportParser {
 					colsList.add(cleanNbsps(col).trim());
 				}
 
-				if (!colsList.isEmpty() && colsList.get(0).isEmpty()) {
-					colsList.remove(0);
-				}
-				if (!colsList.isEmpty() && colsList.get(colsList.size() - 1).isEmpty()) {
-					colsList.remove(colsList.size() - 1);
-				}
+				if (!colsList.isEmpty() && colsList.get(0).isEmpty()) colsList.remove(0);
+				if (!colsList.isEmpty() && colsList.get(colsList.size() - 1).isEmpty()) colsList.remove(colsList.size() - 1);
 
 				String[] cols = colsList.toArray(new String[0]);
 
@@ -181,29 +183,30 @@ public class FmExportParser {
 					continue;
 				}
 
-				PlayerRowModel model = extractRow(cols, colMap);
-				if (model != null) {
-					String key = model.nameProperty().get().trim().toLowerCase() + "_" + model.ageProperty().get();
-					if (!seenKeys.contains(key)) {
-						seenKeys.add(key);
-						result.add(model);
-					}
-				}
+				String name = getVal(cols, colMap, "name", "person", "spieler");
+				if (name.isBlank()) continue;
+
+				String roleDetail = getVal(cols, colMap, "position/rolle/aufgabe", "position / rolle / aufgabe", "rolle/aufgabe", "rolle", "taktische rolle");
+				String rawPos = getVal(cols, colMap, "ausgewählte position", "ausgew. pos.", "ausgew. pos");
+				String naturalPos = getVal(cols, colMap, "position", "pos", "natürliche position");
+
+				boolean isStarter = isStartingPosition(rawPos);
+				rawList.add(new RawPlayerData(cols, colMap, name, roleDetail, rawPos, naturalPos, isStarter));
 			}
 		}
-		return result;
+
+		return processTwoPassHierarchy(rawList);
 	}
 
 	private static List<PlayerRowModel> parseHtml(File file) throws IOException {
-		List<PlayerRowModel> result = new ArrayList<>();
-		Set<String> seenKeys = new HashSet<>();
+		List<RawPlayerData> rawList = new ArrayList<>();
 
 		Document doc = Jsoup.parse(file, "UTF-8");
 		Element table = doc.selectFirst("table");
-		if (table == null) return result;
+		if (table == null) return Collections.emptyList();
 
 		Elements rows = table.select("tr");
-		if (rows.isEmpty()) return result;
+		if (rows.isEmpty()) return Collections.emptyList();
 
 		Element headerRow = rows.get(0);
 		Elements headers = headerRow.select("th, td");
@@ -218,7 +221,63 @@ public class FmExportParser {
 			Elements cells = rows.get(r).select("th, td");
 			if (cells.isEmpty()) continue;
 			String[] cols = cells.stream().map(c -> cleanNbsps(c.text()).trim()).toArray(String[]::new);
-			PlayerRowModel model = extractRow(cols, colMap);
+
+			String name = getVal(cols, colMap, "name", "person", "spieler");
+			if (name.isBlank()) continue;
+
+			String roleDetail = getVal(cols, colMap, "position/rolle/aufgabe", "position / rolle / aufgabe", "rolle/aufgabe", "rolle", "taktische rolle");
+			String rawPos = getVal(cols, colMap, "ausgewählte position", "ausgew. pos.", "ausgew. pos");
+			String naturalPos = getVal(cols, colMap, "position", "pos", "natürliche position");
+
+			boolean isStarter = isStartingPosition(rawPos);
+			rawList.add(new RawPlayerData(cols, colMap, name, roleDetail, rawPos, naturalPos, isStarter));
+		}
+
+		return processTwoPassHierarchy(rawList);
+	}
+
+	private static boolean isStartingPosition(String rawPos) {
+		if (rawPos == null || rawPos.isBlank()) return false;
+		String p = rawPos.trim().toUpperCase();
+		if (p.matches("^[EB]\\d+$") || p.equals("-") || p.equals("—")) return false;
+		return p.startsWith("OM") || p.startsWith("DM") || p.startsWith("V") || p.startsWith("FV") || p.startsWith("ST") || p.startsWith("TW") || p.startsWith("M");
+	}
+
+	// =========================================================================
+	// TWO-PASS MAPPING LOGIK
+	// =========================================================================
+
+	private static List<PlayerRowModel> processTwoPassHierarchy(List<RawPlayerData> rawList) {
+		List<PlayerRowModel> result = new ArrayList<>();
+		Set<String> seenKeys = new HashSet<>();
+
+		// Map für Startelf: Rolle-Basis (z.B. "Offensiver Mittelfeldspieler") -> Liste der aktiven Taktik-Rollen
+		Map<TacticRole, List<String>> starterRoleMap = new HashMap<>();
+
+		// --- PASS 1: STARTELF RESOLVEN & VORBILDER SAMMELN ---
+		Map<RawPlayerData, String> resolvedRoles = new HashMap<>();
+
+		for (RawPlayerData raw : rawList) {
+			if (raw.isStarter()) {
+				String preciseRole = resolveStarterRoleWithSide(raw.roleDetail(), raw.rawPos(), raw.naturalPos());
+				resolvedRoles.put(raw, preciseRole);
+
+				TacticRole baseRole = resolveRole(raw.roleDetail(), raw.rawPos(), raw.naturalPos());
+				starterRoleMap.computeIfAbsent(baseRole, k -> new ArrayList<>()).add(preciseRole);
+			}
+		}
+
+		// --- PASS 2: BANK & RESERVE AN DIE STARTELF ANLEHNEN ---
+		for (RawPlayerData raw : rawList) {
+			String finalRoleName;
+
+			if (raw.isStarter()) {
+				finalRoleName = resolvedRoles.get(raw);
+			} else {
+				finalRoleName = resolveBenchRoleHierarchy(raw.roleDetail(), raw.naturalPos(), starterRoleMap);
+			}
+
+			PlayerRowModel model = buildPlayerModel(raw.cols(), raw.colMap(), finalRoleName, raw.rawPos(), raw.naturalPos());
 			if (model != null) {
 				String key = model.nameProperty().get().trim().toLowerCase() + "_" + model.ageProperty().get();
 				if (!seenKeys.contains(key)) {
@@ -227,68 +286,77 @@ public class FmExportParser {
 				}
 			}
 		}
+
 		return result;
 	}
 
-	private static PlayerRowModel extractRow(String[] cols, Map<String, Integer> map) {
+	private static String resolveStarterRoleWithSide(String roleDetail, String selectedPos, String naturalPos) {
+		TacticRole tr = resolveRole(roleDetail, selectedPos, naturalPos);
+		String sel = (selectedPos != null) ? selectedPos.trim().toUpperCase() : "";
+
+		// Seiten-Zuweisung anhand von "Ausgewählte Position"
+		if (sel.contains("OMZL")) return "Offensiver Mittelfeldspieler Links";
+		if (sel.contains("OMZR")) return "Offensiver Mittelfeldspieler Rechts";
+
+		if (sel.contains("FVL")) return "Flügelverteidiger Links";
+		if (sel.contains("FVR")) return tr == TacticRole.KFV ? "Komp. Flügelverteidiger Rechts" : "Flügelverteidiger Rechts";
+
+		if (sel.contains("VZL")) return "Ballspielender Vert. Links";
+		if (sel.contains("VZR")) return "Halbraumverteidiger Rechts";
+		if (sel.equals("VZ")) return "Innenverteidiger Zentral";
+
+		if (sel.contains("DMZR")) return "Regista (Zentral Rechts)";
+		if (sel.contains("DMZL")) return "Zurückgezogener Spielmacher";
+
+		return tr.getDisplayName();
+	}
+
+	private static String resolveBenchRoleHierarchy(String roleDetail, String naturalPos, Map<TacticRole, List<String>> starterRoleMap) {
+		TacticRole baseRole = resolveRole(roleDetail, "", naturalPos);
+
+		List<String> starterRoles = starterRoleMap.get(baseRole);
+
+		// 1. Gibt es diese Rolle genau einmal in der Startelf? (z.B. Regista, BSV, Stoßstürmer)
+		if (starterRoles != null && starterRoles.size() == 1) {
+			return starterRoles.get(0);
+		}
+
+		// 2. Gibt es die Rolle doppelt (z.B. OM oder FV)? -> Seite über "Position" auflösen
+		if (starterRoles != null && starterRoles.size() > 1) {
+			String nat = (naturalPos != null) ? naturalPos.toUpperCase() : "";
+			boolean canLeft = nat.contains("(L)") || nat.contains("(LZ)") || nat.contains("(RL)");
+			boolean canRight = nat.contains("(R)") || nat.contains("(RZ)") || nat.contains("(RL)");
+
+			for (String sRole : starterRoles) {
+				if (sRole.contains("Links") && canLeft && !canRight) return sRole;
+				if (sRole.contains("Rechts") && canRight && !canLeft) return sRole;
+			}
+
+			if (canLeft) {
+				for (String sRole : starterRoles) {
+					if (sRole.contains("Links")) return sRole;
+				}
+			}
+			if (canRight) {
+				for (String sRole : starterRoles) {
+					if (sRole.contains("Rechts")) return sRole;
+				}
+			}
+			return starterRoles.get(0);
+		}
+
+		return baseRole.getDisplayName();
+	}
+
+	private static PlayerRowModel buildPlayerModel(String[] cols, Map<String, Integer> map, String roleDisplayName, String rawPos, String naturalPosRaw) {
 		String name = getVal(cols, map, "name", "person", "spieler");
 		if (name.isBlank()) return null;
 
-		if (name.contains("\n")) {
-			name = name.split("\n")[0].trim();
-		}
-		if (name.contains(" - ")) {
-			name = name.split(" - ")[0].trim();
-		}
+		if (name.contains("\n")) name = name.split("\n")[0].trim();
+		if (name.contains(" - ")) name = name.split(" - ")[0].trim();
 
-		String roleDetail = getVal(cols, map,
-				"position/rolle/aufgabe",
-				"position / rolle / aufgabe",
-				"rolle/aufgabe",
-				"rolle",
-				"taktische rolle"
-		);
-
-		String rawPos = getVal(cols, map, "ausgewählte position", "ausgew. pos.", "ausgew. pos");
-		String naturalPosRaw = getVal(cols, map, "position", "pos", "natürliche position");
-
-		if ((roleDetail.isBlank() || roleDetail.equals("-")) && naturalPosRaw.contains("\n")) {
-			String[] lines = naturalPosRaw.split("\n");
-			if (lines.length > 1 && !lines[1].isBlank()) {
-				roleDetail = lines[1].trim();
-				naturalPosRaw = lines[0].trim();
-			}
-		}
-
-		String targetPositionStr = "";
-
-		boolean hasValidRoleDetail = !roleDetail.isBlank()
-				&& !roleDetail.equals("-")
-				&& !roleDetail.equals("—")
-				&& !roleDetail.toLowerCase().contains("spielposition");
-
-		boolean hasValidRawPos = !rawPos.isBlank()
-				&& !rawPos.toUpperCase().matches("^[EB]\\d+$")
-				&& !rawPos.equals("-")
-				&& !rawPos.equals("—");
-
-		if (hasValidRoleDetail) {
-			targetPositionStr = roleDetail;
-		} else if (hasValidRawPos) {
-			targetPositionStr = rawPos;
-		} else {
-			if (!naturalPosRaw.isBlank() && !naturalPosRaw.equals("-")) {
-				targetPositionStr = naturalPosRaw.contains(",") ? naturalPosRaw.split(",")[0].trim() : naturalPosRaw;
-			} else {
-				targetPositionStr = "IV";
-			}
-		}
-
-		String cleanPos = cleanNbsps(targetPositionStr).replaceAll("[\\.]+$", "").trim();
-		TacticRole tacticRole = TacticRole.fromPosition(cleanPos);
-		if (tacticRole == null) {
-			tacticRole = TacticRole.values()[0];
-		}
+		TacticRole tacticRole = TacticRole.fromDisplayName(roleDisplayName);
+		if (tacticRole == null) tacticRole = resolveRole(roleDisplayName, rawPos, naturalPosRaw);
 
 		int age = parseInt(getVal(cols, map, "alter", "age"));
 		long value = parseMoney(getVal(cols, map, "transferwert", "marktwert", "wert"));
@@ -307,36 +375,14 @@ public class FmExportParser {
 		int zie = parseInt(getVal(cols, map, "zie", "ziel", "zielstrebigkeit"));
 
 		double contractYears = parseContractYears(getVal(cols, map, "endet", "vertrag"));
-
 		double loanRating = parseDouble(getVal(cols, map, "ø note", "note", "d-note", "drschn."));
 		int goals = parseInt(getVal(cols, map, "tore", "goals"));
 		int assists = parseInt(getVal(cols, map, "vor", "vorlagen", "assists"));
 
-		// Verletzungsanfälligkeit / Verletzungsrisiko einlesen
-		String injury = getVal(cols, map,
-				"verletzungsanfälligkeit",
-				"verletzungsrisiko",
-				"verletzungsanfälligkeit (fitness und verletzungen)",
-				"injury susceptibility"
-		);
+		String injury = getVal(cols, map, "verletzungsanfälligkeit", "verletzungsrisiko", "verletzungsanfälligkeit (fitness und verletzungen)", "injury susceptibility");
 		if (injury.isBlank() || injury.equals("-")) injury = "Normal";
 
-		Player player = new Player(
-				name,
-				tacticRole.getDisplayName(),
-				age,
-				value,
-				salary,
-				contractYears,
-				bew,
-				ant,
-				aus,
-				zie,
-				minutes,
-				art,
-				club
-		);
-
+		Player player = new Player(name, roleDisplayName, age, value, salary, contractYears, bew, ant, aus, zie, minutes, art, club);
 		player.setLeague(league);
 		player.setNaturalPosition(naturalPosRaw);
 		player.setLoanRating(loanRating);
@@ -352,14 +398,237 @@ public class FmExportParser {
 			}
 		}
 
-		double s1 = parseDouble(getVal(cols, map, tacticRole.getStat1Header()));
-		double s2 = parseDouble(getVal(cols, map, tacticRole.getStat2Header()));
-		double s3 = parseDouble(getVal(cols, map, tacticRole.getStat3Header()));
+		double s1 = parseStatValue(cols, map, tacticRole.getStat1Header());
+		double s2 = parseStatValue(cols, map, tacticRole.getStat2Header());
+		double s3 = parseStatValue(cols, map, tacticRole.getStat3Header());
 
 		PlayerRowModel row = new PlayerRowModel(player, s1, s2, s3);
 		row.setStatLabels(tacticRole.getStat1Header(), tacticRole.getStat2Header(), tacticRole.getStat3Header());
 
 		return row;
+	}
+
+	private static double parseStatValue(String[] cols, Map<String, Integer> map, String header) {
+		if (header == null || header.isBlank()) return 0.0;
+		String h = header.toLowerCase().trim();
+
+		if (h.contains("e pä/90") || h.contains("ent päs")) {
+			return parseDouble(getVal(cols, map, "e pä/90", "e pä/90 min", "ent päs/90", "ent päs", "entsch pässe"));
+		}
+		if (h.contains("pr pässe")) {
+			return parseDouble(getVal(cols, map, "pr pässe/90", "pr päs/90", "pr pässe"));
+		}
+		if (h.contains("xg verh")) {
+			return parseDouble(getVal(cols, map, "xg verh/90", "xgverh90"));
+		}
+		if (h.contains("xg/90")) {
+			return parseDouble(getVal(cols, map, "xg/90", "xg", "xg90"));
+		}
+		if (h.contains("xa/90")) {
+			return parseDouble(getVal(cols, map, "xa/90", "xa", "xa90"));
+		}
+		if (h.contains("par %")) {
+			return parseDouble(getVal(cols, map, "par %", "par"));
+		}
+		if (h.contains("abb/90")) {
+			return parseDouble(getVal(cols, map, "abb/90", "abb90"));
+		}
+		if (h.contains("fpq %")) {
+			return parseDouble(getVal(cols, map, "fpq %", "fpq"));
+		}
+		if (h.contains("kopf %")) {
+			return parseDouble(getVal(cols, map, "kopf %", "kopf"));
+		}
+		if (h.contains("zwk %")) {
+			return parseDouble(getVal(cols, map, "zwk %", "zwk"));
+		}
+		if (h.contains("pas %")) {
+			return parseDouble(getVal(cols, map, "pas %", "pass %", "pas"));
+		}
+		if (h.contains("drb/90")) {
+			return parseDouble(getVal(cols, map, "drb/90", "drb90"));
+		}
+		if (h.contains("schüsse %")) {
+			return parseDouble(getVal(cols, map, "schüsse %", "schuss %"));
+		}
+		if (h.contains("verw. %")) {
+			return parseDouble(getVal(cols, map, "verw. %", "verw %", "verw"));
+		}
+
+		return parseDouble(getVal(cols, map, header));
+	}
+
+	private static TacticRole resolveRole(String roleDetail, String selectedPos, String naturalPos) {
+		if (roleDetail != null && !roleDetail.isBlank() && !roleDetail.equals("-") && !roleDetail.equals("—")) {
+			String cleaned = cleanRoleText(roleDetail);
+			TacticRole tr = matchTacticRoleByKeyword(cleaned);
+			if (tr != null) return tr;
+
+			tr = TacticRole.fromDisplayName(cleaned);
+			if (tr != null && tr != TacticRole.ZSM) return tr;
+
+			tr = TacticRole.fromPosition(cleaned);
+			if (tr != null && tr != TacticRole.ZSM) return tr;
+		}
+
+		if (selectedPos != null && !selectedPos.isBlank() && !selectedPos.matches("^[EB]\\d+$")) {
+			String cleaned = cleanRoleText(selectedPos);
+			TacticRole tr = matchTacticRoleByKeyword(cleaned);
+			if (tr != null) return tr;
+
+			tr = TacticRole.fromPosition(cleaned);
+			if (tr != null && tr != TacticRole.ZSM) return tr;
+		}
+
+		if (naturalPos != null && !naturalPos.isBlank() && !naturalPos.equals("-")) {
+			String firstPos = naturalPos.contains(",") ? naturalPos.split(",")[0].trim() : naturalPos;
+			String cleaned = cleanRoleText(firstPos);
+			TacticRole tr = matchTacticRoleByKeyword(cleaned);
+			if (tr != null) return tr;
+
+			tr = TacticRole.fromPosition(cleaned);
+			if (tr != null && tr != TacticRole.ZSM) return tr;
+		}
+
+		return TacticRole.ZSM;
+	}
+
+	private static String cleanRoleText(String raw) {
+		if (raw == null) return "";
+		return raw
+				.replaceAll("\\s*\\([^)]*\\)", "")
+				.replaceAll("(?i)\\s*-\\s*(unterstützen|verteidigen|angreifen|angriff|abdecken|vorstossen|halten|rückendeckung|vorstopper).*", "")
+				.replaceAll("[\\.]+$", "")
+				.trim();
+	}
+
+	private static TacticRole matchTacticRoleByKeyword(String text) {
+		if (text == null || text.isBlank()) return null;
+		String lower = text.toLowerCase().trim();
+
+		if (lower.contains("torwart") || lower.contains("torhüter") || lower.equals("tw") || lower.contains("mtw") || lower.equals("gk")) {
+			return lower.contains("mit") ? TacticRole.MTW : TacticRole.TW;
+		}
+		if (lower.contains("komp") && (lower.contains("flügel") || lower.contains("flugel") || lower.contains("kfv"))) {
+			return TacticRole.KFV;
+		}
+		if (lower.contains("invers") && (lower.contains("flügelvert") || lower.contains("ifv"))) {
+			return TacticRole.IFV;
+		}
+		if (lower.contains("invers") && (lower.contains("aussenvert") || lower.contains("iav"))) {
+			return TacticRole.IAV;
+		}
+		if (lower.contains("flügelvert") || lower.contains("flugelvert") || lower.equals("fv") || lower.equals("wb")) {
+			return TacticRole.FV;
+		}
+		if (lower.contains("außenvert") || lower.contains("aussenvert") || lower.equals("av") || lower.equals("fb")) {
+			return TacticRole.AV;
+		}
+		if (lower.contains("ballspiel") || lower.contains("bsv") || lower.contains("bpd")) {
+			return TacticRole.BSV;
+		}
+		if (lower.contains("halbraum") || lower.contains("hrv") || lower.contains("wcb")) {
+			return TacticRole.HRV;
+		}
+		if (lower.contains("libero") || lower.equals("lib")) {
+			return TacticRole.LIBERO;
+		}
+		if (lower.contains("komp") && lower.contains("innen")) {
+			return TacticRole.KIV;
+		}
+		if (lower.contains("innenvert") || lower.equals("iv") || lower.startsWith("iv ") || lower.startsWith("iv-")
+				|| lower.equals("vz") || lower.equals("cb") || lower.equals("dc")) {
+			return TacticRole.IV;
+		}
+		if (lower.contains("regista") || lower.equals("reg") || lower.contains("dmzr")) {
+			return TacticRole.REGISTA;
+		}
+		if (lower.contains("zurückgezogener") || lower.contains("zsm") || lower.contains("dlp")) {
+			return TacticRole.ZSM;
+		}
+		if (lower.contains("vertikaler") || lower.contains("vsm") || lower.contains("rpm")) {
+			return TacticRole.VERTIKALER_SPIELMACHER;
+		}
+		if (lower.contains("volante") || lower.contains("vol")) {
+			return TacticRole.SEGUNDO_VOLANTE;
+		}
+		if (lower.contains("abräumer") || lower.equals("ab") || lower.contains("anchor")) {
+			return TacticRole.ABRAEUMER;
+		}
+		if (lower.contains("tiefer sechs") || lower.equals("ts")) {
+			return TacticRole.TIEFER_SECHSER;
+		}
+		if (lower.contains("ballerober") || lower.contains("bms") || lower.contains("bwm")) {
+			return TacticRole.BALLEROBERNDER_MITTELFELDSSPIELER;
+		}
+		if (lower.contains("defensiv") && (lower.contains("mittel") || lower.equals("dm"))) {
+			return TacticRole.DEFENSIVER_MITTELFELDSSPIELER;
+		}
+		if (lower.contains("box to box") || lower.contains("b2b") || lower.contains("bbm")) {
+			return TacticRole.BOX_TO_BOX;
+		}
+		if (lower.contains("carrilero") || lower.equals("car")) {
+			return TacticRole.CARRILERO;
+		}
+		if (lower.contains("mezzala") || lower.equals("mez")) {
+			return TacticRole.MEZZALA;
+		}
+		if (lower.contains("vorgeschob") || lower.contains("vosm") || lower.equals("ap")) {
+			return TacticRole.VORGESCHOBENER_SPIELMACHER;
+		}
+		if (lower.equals("zm") || lower.equals("cm") || lower.contains("zentraler mittel")) {
+			return TacticRole.ZENTRALER_MITTELFELDSSPIELER;
+		}
+		if (lower.contains("invers") && (lower.contains("flügel") || lower.equals("ifl") || lower.equals("iw"))) {
+			return TacticRole.INVERSER_FLUEGELSPIELER;
+		}
+		if (lower.contains("invers") && (lower.contains("stürmer") || lower.contains("aussenst") || lower.equals("ias") || lower.equals("if"))) {
+			return TacticRole.INVERSER_AUSSENSTUERMER;
+		}
+		if (lower.contains("defensiv") && lower.contains("flügel")) {
+			return TacticRole.DEFENSIVER_FLUEGELSPIELER;
+		}
+		if (lower.contains("flügel") || lower.equals("flü") || lower.equals("w")) {
+			return TacticRole.FLUEGELSPIELER;
+		}
+		if (lower.contains("schatten") || lower.equals("ss")) {
+			return TacticRole.SCHATTENSTUERMER;
+		}
+		if (lower.contains("raumdeuter") || lower.equals("rd")) {
+			return TacticRole.RAUMDEUTER;
+		}
+		if (lower.contains("trequart") || lower.equals("treq")) {
+			return TacticRole.TREQUARTISTA;
+		}
+		if (lower.contains("enganche") || lower.equals("eng")) {
+			return TacticRole.ENGANCHE;
+		}
+		if (lower.contains("offensiv") || lower.equals("om") || lower.startsWith("om ") || lower.startsWith("om-") || lower.contains("omz") || lower.equals("am")) {
+			return TacticRole.OFFENSIVER_MITTELFELDSSPIELER;
+		}
+		if (lower.contains("knipser") || lower.equals("kni") || lower.equals("poacher")) {
+			return TacticRole.KNIPSER;
+		}
+		if (lower.contains("pressend") || lower.equals("ps") || lower.equals("pf")) {
+			return TacticRole.PRESSENDER_STUERMER;
+		}
+		if (lower.contains("falsche neun") || lower.equals("f9")) {
+			return TacticRole.FALSCHE_NEUN;
+		}
+		if (lower.contains("hängend") || lower.equals("hs") || lower.equals("dlf")) {
+			return TacticRole.HAENGENDE_SPITZE;
+		}
+		if (lower.contains("komp") && lower.contains("stürm")) {
+			return TacticRole.KOMPLETTER_STUERMER;
+		}
+		if (lower.contains("ziel") && lower.contains("stürm")) {
+			return TacticRole.ZIELSPIELER;
+		}
+		if (lower.contains("stoßstürmer") || lower.contains("stossstürmer") || lower.equals("sts") || lower.equals("af") || lower.equals("st") || lower.contains("stürmer")) {
+			return TacticRole.STOESSTUERMER;
+		}
+
+		return null;
 	}
 
 	// ==========================================
@@ -482,48 +751,18 @@ public class FmExportParser {
 		String name = getVal(cols, map, "name", "person", "spieler");
 		if (name.isBlank() || name.equals("- -") || name.equals("-") || name.equals("—")) return null;
 
-		if (name.contains("\n")) {
-			name = name.split("\n")[0].trim();
-		}
-		if (name.contains(" - ")) {
-			name = name.split(" - ")[0].trim();
-		}
+		if (name.contains("\n")) name = name.split("\n")[0].trim();
+		if (name.contains(" - ")) name = name.split(" - ")[0].trim();
 
-		String roleDetail = getVal(cols, map,
-				"position/rolle/aufgabe",
-				"position / rolle / aufgabe",
-				"rolle/aufgabe",
-				"rolle",
-				"taktische rolle"
-		);
-		String rawPos = getVal(cols, map, "ausgewählte position", "ausgew. pos.", "ausgew. pos");
 		String naturalPosRaw = getVal(cols, map, "position", "pos", "natürliche position");
+		String firstPos = (!naturalPosRaw.isBlank() && naturalPosRaw.contains(","))
+				? naturalPosRaw.split(",")[0].trim() : naturalPosRaw;
 
-		if ((roleDetail.isBlank() || roleDetail.equals("-")) && naturalPosRaw.contains("\n")) {
-			String[] lines = naturalPosRaw.split("\n");
-			if (lines.length > 1 && !lines[1].isBlank()) {
-				roleDetail = lines[1].trim();
-				naturalPosRaw = lines[0].trim();
-			}
-		}
+		String roleDetail = getVal(cols, map, "position/rolle/aufgabe", "position / rolle / aufgabe", "rolle/aufgabe", "rolle", "taktische rolle");
+		String rawPos = getVal(cols, map, "ausgewählte position", "ausgew. pos.", "ausgew. pos");
 
-		String targetPositionStr = "";
-		boolean hasValidRoleDetail = !roleDetail.isBlank() && !roleDetail.equals("-") && !roleDetail.equals("—");
-		boolean hasValidRawPos = !rawPos.isBlank() && !rawPos.toUpperCase().matches("^[EB]\\d+$") && !rawPos.equals("-") && !rawPos.equals("—");
-
-		if (hasValidRoleDetail) {
-			targetPositionStr = roleDetail;
-		} else if (hasValidRawPos) {
-			targetPositionStr = rawPos;
-		} else if (!naturalPosRaw.isBlank() && !naturalPosRaw.equals("-")) {
-			targetPositionStr = naturalPosRaw.contains(",") ? naturalPosRaw.split(",")[0].trim() : naturalPosRaw;
-		} else {
-			targetPositionStr = "IV";
-		}
-
-		String cleanPos = cleanNbsps(targetPositionStr).replaceAll("[\\.]+$", "").trim();
-		TacticRole tacticRole = TacticRole.fromPosition(cleanPos);
-		String resolvedRole = (tacticRole != null) ? tacticRole.getDisplayName() : "Ballspielender Vert. Links";
+		TacticRole tacticRole = resolveRole(firstPos, rawPos, roleDetail);
+		String resolvedRole = (tacticRole != null) ? tacticRole.getDisplayName() : "Ballspielender Verteidiger";
 
 		ScoutingPlayerModel p = new ScoutingPlayerModel();
 		p.nameProperty().set(name);
@@ -542,13 +781,7 @@ public class FmExportParser {
 		p.staminaProperty().set(parseInt(getVal(cols, map, "aus", "ausdauer")));
 		p.determinationProperty().set(parseInt(getVal(cols, map, "zie", "entsch", "zielstrebigkeit", "entschlossenheit")));
 
-		// Verletzungsrisiko / Verletzungsanfälligkeit im Scouting einlesen
-		String injury = getVal(cols, map,
-				"verletzungsrisiko",
-				"verletzungsanfälligkeit",
-				"verletzungsanfälligkeit (fitness und verletzungen)",
-				"injury susceptibility"
-		);
+		String injury = getVal(cols, map, "verletzungsrisiko", "verletzungsanfälligkeit", "verletzungsanfälligkeit (fitness und verletzungen)", "injury susceptibility");
 		if (injury.isBlank() || injury.equals("-")) injury = "Normal";
 		p.setInjurySusceptibility(injury);
 
@@ -572,7 +805,7 @@ public class FmExportParser {
 		double zwkPct = parseDouble(getVal(cols, map, "zwk %", "zwk"));
 		int abbTotal = parseInt(getVal(cols, map, "abb"));
 		int prPTotal = parseInt(getVal(cols, map, "pr pässe", "prpaesse"));
-		int entP = parseInt(getVal(cols, map, "ent päs", "entsch pässe", "entpaes"));
+		int entP = parseInt(getVal(cols, map, "e pä/90", "e pä/90 min", "ent päs", "entsch pässe", "entpaes"));
 
 		p.progressivePasses90Property().set(prP);
 		p.xg90Property().set(xg);

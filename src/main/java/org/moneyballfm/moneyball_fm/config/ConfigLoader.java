@@ -8,6 +8,7 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
@@ -15,10 +16,10 @@ import java.util.stream.Stream;
 public class ConfigLoader {
 	private static AppConfig cachedConfig;
 
-	// Standard-Taktikdateien, die in src/main/resources/tactics/ liegen
+	// Exakte Namen deiner YAML-Dateien
 	private static final List<String> DEFAULT_TACTIC_FILES = List.of(
-			"4-3-3 Gegenpress.yaml",
-			"2. Taktik (Asymmetrisch).yaml"
+			"1-taktik-4-3-3-gegenpress.yaml",
+			"2-taktik-3-4-2-1.yaml"
 	);
 
 	public static AppConfig loadConfig() {
@@ -42,7 +43,7 @@ public class ConfigLoader {
 				cachedConfig.setTactics(new ArrayList<>());
 			}
 
-			// Vor dem Einlesen: Standard-Taktiken entpacken, falls der tactics-Ordner leer ist
+			// Vor dem Einlesen: Standard-Taktiken entpacken bzw. aus src kopieren, falls Ordner leer ist
 			extractDefaultTacticsIfEmpty();
 
 			// Externe Taktiken aus dem Ordner "tactics" einlesen
@@ -65,33 +66,50 @@ public class ConfigLoader {
 		try {
 			if (!Files.exists(tacticDir)) {
 				Files.createDirectories(tacticDir);
+				System.out.println("Ordner 'tactics' neu angelegt unter: " + tacticDir.toAbsolutePath());
 			}
 
-			boolean isEmpty;
+			boolean hasYaml;
 			try (Stream<Path> entries = Files.list(tacticDir)) {
-				isEmpty = entries.noneMatch(p -> p.toString().endsWith(".yaml") || p.toString().endsWith(".yml"));
+				hasYaml = entries.anyMatch(p -> p.toString().toLowerCase().endsWith(".yaml")
+						|| p.toString().toLowerCase().endsWith(".yml"));
 			}
 
-			if (isEmpty) {
+			if (!hasYaml) {
+				System.out.println("Keine YAML-Dateien im Ordner 'tactics' gefunden. Extrahiere Standard-Taktiken...");
 				for (String filename : DEFAULT_TACTIC_FILES) {
-					// Sucht in /tactics/<Name> oder direkt im Root der Ressourcen
+					Path target = tacticDir.resolve(filename);
+
+					// 1. IDE-Entwicklungsmodus: Direkt aus src/main/resources/tactics/ kopieren
+					Path devSource = Paths.get("src", "main", "resources", "tactics", filename);
+					if (Files.exists(devSource)) {
+						Files.copy(devSource, target, StandardCopyOption.REPLACE_EXISTING);
+						System.out.println("Standard-Taktik aus Quellordner kopiert: " + target.toAbsolutePath());
+						continue;
+					}
+
+					// 2. Build- / Release-Modus: Aus Classpath/JAR entpacken
 					InputStream in = ConfigLoader.class.getResourceAsStream("/tactics/" + filename);
 					if (in == null) {
 						in = ConfigLoader.class.getResourceAsStream("/" + filename);
 					}
+					if (in == null && ConfigLoader.class.getClassLoader() != null) {
+						in = ConfigLoader.class.getClassLoader().getResourceAsStream("tactics/" + filename);
+					}
 
 					if (in != null) {
-						Path target = tacticDir.resolve(filename);
 						try (InputStream input = in;
 						     OutputStream out = Files.newOutputStream(target)) {
 							input.transferTo(out);
-							System.out.println("Standard-Taktik entpackt: " + target.toAbsolutePath());
+							System.out.println("Standard-Taktik aus Classpath entpackt: " + target.toAbsolutePath());
 						}
+					} else {
+						System.err.println("Warnung: Taktikdatei weder in src noch im Classpath gefunden: " + filename);
 					}
 				}
 			}
 		} catch (Exception ex) {
-			System.err.println("Hinweis beim Extrahieren der Standard-Taktiken: " + ex.getMessage());
+			System.err.println("Fehler beim Vorbereiten des tactics-Ordners: " + ex.getMessage());
 		}
 	}
 
@@ -107,7 +125,6 @@ public class ConfigLoader {
 						try {
 							TacticConfig extTactic = mapper.readValue(yamlFile.toFile(), TacticConfig.class);
 							if (extTactic != null && extTactic.getName() != null && !extTactic.getName().isBlank()) {
-								// Ersetzen, falls schon vorhanden, sonst anfügen
 								config.getTactics().removeIf(t -> t.getName().equalsIgnoreCase(extTactic.getName()));
 								config.getTactics().add(extTactic);
 								System.out.println("Taktik erfolgreich geladen: " + extTactic.getName());

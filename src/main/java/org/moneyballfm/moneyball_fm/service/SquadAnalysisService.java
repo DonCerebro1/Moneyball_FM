@@ -7,6 +7,7 @@ import org.moneyballfm.moneyball_fm.config.TacticConfig;
 import org.moneyballfm.moneyball_fm.model.DepthChartRowModel;
 import org.moneyballfm.moneyball_fm.model.PlayerRowModel;
 import org.moneyballfm.moneyball_fm.model.PositionNeedModel;
+import org.moneyballfm.moneyball_fm.model.TacticRole;
 import org.moneyballfm.moneyball_fm.model.YouthPlayerModel;
 
 import java.text.NumberFormat;
@@ -111,7 +112,7 @@ public class SquadAnalysisService {
 			PositionNeedModel need = new PositionNeedModel(slot.getSlotName(), slot.getRoleLabel());
 
 			List<PlayerRowModel> matchingPlayers = players.stream()
-					.filter(p -> matchesSlot(p.roleProperty().get(), slot))
+					.filter(p -> matchesPlayerSlot(p, slot))
 					.toList();
 
 			int count = matchingPlayers.size();
@@ -176,12 +177,12 @@ public class SquadAnalysisService {
 					? slot.getRoleLabel() : slot.getSlotName();
 
 			List<PlayerRowModel> matchingPros = players.stream()
-					.filter(p -> matchesSlot(p.roleProperty().get(), slot))
+					.filter(p -> matchesPlayerSlot(p, slot))
 					.sorted((a, b) -> Double.compare(b.moneyballScoreProperty().get(), a.moneyballScoreProperty().get()))
 					.toList();
 
 			List<YouthPlayerModel> matchingYouth = (youthPlayers != null) ? youthPlayers.stream()
-					.filter(y -> matchesSlot(y.targetRoleProperty().get(), slot))
+					.filter(y -> matchesRoleAndSide(y.targetRoleProperty().get(), slot))
 					.sorted((a, b) -> Double.compare(b.talentScoreProperty().get(), a.talentScoreProperty().get()))
 					.toList() : List.of();
 
@@ -232,13 +233,109 @@ public class SquadAnalysisService {
 		return result;
 	}
 
-	private static boolean matchesSlot(String playerRole, SlotConfig slot) {
-		if (playerRole == null) return false;
-		String r = playerRole.toLowerCase().trim();
-		String slotName = (slot.getSlotName() != null) ? slot.getSlotName().toLowerCase().trim() : "";
-		String roleLabel = (slot.getRoleLabel() != null) ? slot.getRoleLabel().toLowerCase().trim() : "";
+	private static boolean matchesPlayerSlot(PlayerRowModel player, SlotConfig slot) {
+		if (player == null || slot == null) return false;
 
-		return r.contains(slotName) || slotName.contains(r) || r.contains(roleLabel) || roleLabel.contains(r);
+		String playerRole = player.roleProperty().get();
+		if (playerRole == null || playerRole.isBlank()) return false;
+
+		return matchesRoleAndSide(playerRole, slot);
+	}
+
+	private static boolean matchesRoleAndSide(String playerRole, SlotConfig slot) {
+		if (playerRole == null || slot == null) return false;
+
+		String slotName = slot.getSlotName() != null ? slot.getSlotName().trim() : "";
+		String roleLabel = slot.getRoleLabel() != null ? slot.getRoleLabel().trim() : slotName;
+
+		// 1. Exakter Namensabgleich
+		if (playerRole.equalsIgnoreCase(roleLabel) || playerRole.equalsIgnoreCase(slotName)) {
+			return true;
+		}
+
+		// 2. Normalisierter String-Abgleich
+		String pClean = normalizeRole(playerRole);
+		String sClean = normalizeRole(roleLabel);
+		String sNameClean = normalizeRole(slotName);
+
+		if (pClean.equals(sClean) || pClean.equals(sNameClean)) {
+			return true;
+		}
+
+		// Torwart-Brücke: Füllt denselben Torwart-Slot im Tiefenchart
+		boolean pIsGk = pClean.contains("torwart") || pClean.contains("tw") || pClean.contains("mtw") || pClean.contains("gk");
+		boolean sIsGk = sClean.contains("torwart") || sClean.contains("tw") || sClean.contains("mtw") || sNameClean.contains("tw") || sNameClean.contains("mtw") || sNameClean.contains("gk");
+		if (pIsGk && sIsGk) {
+			return true;
+		}
+
+		// 3. Seiten-Ausschluss (Links vs. Rechts)
+		boolean pLeft = pClean.contains("links") || playerRole.toLowerCase().contains("(l)");
+		boolean pRight = pClean.contains("rechts") || playerRole.toLowerCase().contains("(r)");
+
+		boolean sLeft = sClean.contains("links") || sNameClean.contains("links") || roleLabel.toLowerCase().contains("(l)");
+		boolean sRight = sClean.contains("rechts") || sNameClean.contains("rechts") || roleLabel.toLowerCase().contains("(r)");
+
+		if ((pLeft && sRight) || (pRight && sLeft)) {
+			return false;
+		}
+
+		// 4. Striktes TacticRole-Enum
+		TacticRole pRole = resolveRoleSafely(playerRole);
+		TacticRole sRole = resolveSlotTacticRole(slot);
+
+		if (pRole != null && sRole != null && pRole == sRole) {
+			if (sLeft && !pLeft && pRight) return false;
+			if (sRight && !pRight && pLeft) return false;
+			return true;
+		}
+
+		return false;
+	}
+
+	private static String normalizeRole(String text) {
+		if (text == null) return "";
+		return text.toLowerCase()
+				.replace("zurückgez.", "zurückgezogener")
+				.replace("zurückgez", "zurückgezogener")
+				.replace("komp.", "kompletter")
+				.replace("vert.", "verteidiger")
+				.replace("vert", "verteidiger")
+				.replaceAll("[\\.\\(\\)\\[\\]\\-]", "")
+				.replaceAll("\\s+", "")
+				.trim();
+	}
+
+	private static TacticRole resolveSlotTacticRole(SlotConfig slot) {
+		String name = slot.getSlotName() != null ? slot.getSlotName() : "";
+		String label = slot.getRoleLabel() != null ? slot.getRoleLabel() : "";
+
+		TacticRole tr = resolveRoleSafely(label);
+		if (tr != null && tr != TacticRole.ZSM) return tr;
+
+		tr = resolveRoleSafely(name);
+		if (tr != null && tr != TacticRole.ZSM) return tr;
+
+		return TacticRole.fromPosition(label + " " + name);
+	}
+
+	private static TacticRole resolveRoleSafely(String text) {
+		if (text == null || text.isBlank()) return TacticRole.ZSM;
+
+		String clean = text.toLowerCase()
+				.replaceAll("(?i)\\b(links|rechts|zentral|mitte)\\b", "")
+				.replaceAll("\\s*\\([^)]*\\)", "")
+				.replace("offensives mittelfeldspieler", "offensiver mittelfeldspieler")
+				.trim();
+
+		if (clean.contains("offensiv") || clean.equals("om") || clean.contains("omz")) {
+			return TacticRole.OFFENSIVER_MITTELFELDSSPIELER;
+		}
+
+		TacticRole tr = TacticRole.fromDisplayName(clean);
+		if (tr != null) return tr;
+
+		return TacticRole.fromPosition(clean);
 	}
 
 	private static void evaluateDiagnosis(PositionNeedModel need, int count, double topScore, double avgAge, int critContracts) {

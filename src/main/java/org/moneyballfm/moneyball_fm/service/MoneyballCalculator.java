@@ -7,6 +7,7 @@ import org.moneyballfm.moneyball_fm.config.SlotConfig;
 import org.moneyballfm.moneyball_fm.config.TacticConfig;
 import org.moneyballfm.moneyball_fm.model.Player;
 import org.moneyballfm.moneyball_fm.model.PlayerRowModel;
+import org.moneyballfm.moneyball_fm.model.TacticRole;
 
 public class MoneyballCalculator {
 
@@ -17,7 +18,7 @@ public class MoneyballCalculator {
 		Player player = row.getPlayer();
 		SlotConfig slot = findMatchingSlot(currentRoleStr, config);
 
-		// 1. Stats dynamisch aus den Metrik-Definitionen der aktiven Taktik laden
+		// 1. Stats dynamisch aus den Metrik-Definitionen laden
 		if (slot != null && slot.getMetrics() != null && player != null) {
 			for (int i = 0; i < slot.getMetrics().size(); i++) {
 				MetricConfig m = slot.getMetrics().get(i);
@@ -87,7 +88,7 @@ public class MoneyballCalculator {
 
 				double benchmark = metric.getBenchmark();
 
-				// Prozent-Skalierung ausgleichen: Wenn Benchmark <= 1.0 (z. B. 0.85), FM-Wert aber > 1.0 (z. B. 95.0)
+				// Prozent-Skalierung ausgleichen
 				if (benchmark > 0.0 && benchmark <= 1.0 && val > 1.0) {
 					val = val / 100.0;
 				}
@@ -108,7 +109,7 @@ public class MoneyballCalculator {
 
 			double rawScore = (totalWeight > 0) ? (totalWeightedScore / totalWeight) : 50.0;
 
-			// Sanfte Dämpfung bei geringer Spielzeit (< 450 Min), um extreme Ausreißer zu glätten
+			// Dämpfung bei geringer Spielzeit (< 450 Min)
 			if (mins < 450) {
 				double confidence = Math.min(1.0, mins / 450.0);
 				rawScore = (rawScore * confidence) + (50.0 * (1.0 - confidence));
@@ -116,7 +117,26 @@ public class MoneyballCalculator {
 
 			finalScore = Math.round(rawScore * 10.0) / 10.0;
 		} else {
-			finalScore = 50.0;
+			// Fallback: Direkte Score-Berechnung über TacticRole
+			TacticRole tr = TacticRole.fromDisplayName(currentRoleStr);
+			if (tr != null) {
+				double b1 = getBenchmarkForStat(tr.getStat1Header());
+				double b2 = getBenchmarkForStat(tr.getStat2Header());
+				double b3 = getBenchmarkForStat(tr.getStat3Header());
+
+				double sc1 = calcSingleStatScore(s1, b1, tr.getStat1Header().contains("xg verh"));
+				double sc2 = calcSingleStatScore(s2, b2, false);
+				double sc3 = calcSingleStatScore(s3, b3, false);
+
+				double raw = (sc1 + sc2 + sc3) / 3.0;
+				if (mins < 450) {
+					double conf = Math.min(1.0, mins / 450.0);
+					raw = (raw * conf) + (50.0 * (1.0 - conf));
+				}
+				finalScore = Math.round(raw * 10.0) / 10.0;
+			} else {
+				finalScore = 50.0;
+			}
 		}
 
 		row.moneyballScoreProperty().set(finalScore);
@@ -135,6 +155,35 @@ public class MoneyballCalculator {
 		} else {
 			row.sampleQualityProperty().set("🔴 Geringe Stichprobe (< 5 Spiele)");
 		}
+	}
+
+	private static double calcSingleStatScore(double val, double benchmark, boolean isInverse) {
+		if (benchmark <= 1.0 && val > 1.0) val = val / 100.0;
+		if (isInverse) return Math.max(0.0, 100.0 - (val * 25.0));
+		if (benchmark <= 0.0) return 50.0;
+		return Math.min(100.0, (val / benchmark) * 85.0);
+	}
+
+	public static double getBenchmarkForStat(String statHeader) {
+		if (statHeader == null) return 1.0;
+		String s = statHeader.toLowerCase();
+
+		if (s.contains("e pä/90") || s.contains("ent päs")) return 2.2;
+		if (s.contains("pr pässe")) return 4.5;
+		if (s.contains("xg/90")) return 0.45;
+		if (s.contains("xa/90")) return 0.25;
+		if (s.contains("par %")) return 0.75;
+		if (s.contains("xg verh")) return 0.44;
+		if (s.contains("abb/90")) return 2.0;
+		if (s.contains("fpq %")) return 0.25;
+		if (s.contains("kopf %")) return 0.65;
+		if (s.contains("zwk %")) return 0.75;
+		if (s.contains("pas %")) return 0.88;
+		if (s.contains("drb/90")) return 2.5;
+		if (s.contains("schüsse %")) return 0.45;
+		if (s.contains("verw. %")) return 0.18;
+
+		return 1.0;
 	}
 
 	public static double calculateAvailabilityFactor(int minutes, String injuryText) {
@@ -191,25 +240,36 @@ public class MoneyballCalculator {
 				.replaceAll("\\s+", " ")
 				.trim();
 
+		boolean pLeft = p.contains("links") || playerRole.toLowerCase().contains("(l)");
+		boolean pRight = p.contains("rechts") || playerRole.toLowerCase().contains("(r)");
+
 		for (SlotConfig slot : activeTactic.getSlots()) {
 			String sName = (slot.getSlotName() != null) ? slot.getSlotName().toLowerCase()
 					.replaceAll("[\\.\\(\\)\\[\\]\\-]", " ").replaceAll("\\s+", " ").trim() : "";
 			String rLabel = (slot.getRoleLabel() != null) ? slot.getRoleLabel().toLowerCase()
 					.replaceAll("[\\.\\(\\)\\[\\]\\-]", " ").replaceAll("\\s+", " ").trim() : "";
 
+			boolean sLeft = sName.contains("(l)") || sName.contains("links") || rLabel.contains("links");
+			boolean sRight = sName.contains("(r)") || sName.contains("rechts") || rLabel.contains("rechts");
+
+			// Seitenkonflikt ausschließen
+			if ((pLeft && sRight) || (pRight && sLeft)) continue;
+
 			if (!sName.isEmpty() && (p.startsWith(sName) || p.contains(sName))) return slot;
 			if (!rLabel.isEmpty() && (p.contains(rLabel) || rLabel.contains(p))) return slot;
 
-			// Spezifische Matches
 			if (p.contains("defensiv") && (rLabel.contains("defensiv") || sName.contains("dm"))) return slot;
 			if (p.contains("ballspiel") && (rLabel.contains("ballspiel") || sName.contains("bsv"))) return slot;
 			if (p.contains("halbraum") && (rLabel.contains("halbraum") || sName.contains("hrv"))) return slot;
 			if (p.contains("regista") && (rLabel.contains("regista") || sName.contains("reg"))) return slot;
+			if (p.contains("offensiv") && (rLabel.contains("offensiv") || sName.contains("om"))) {
+				if (sLeft && pLeft) return slot;
+				if (sRight && pRight) return slot;
+				if (!sLeft && !sRight) return slot;
+			}
 			if (p.contains("spielmacher") && rLabel.contains("spielmacher")) return slot;
 			if (p.contains("flügelvert") && rLabel.contains("flügelvert")) {
-				if (p.contains("links") == rLabel.contains("links") || p.contains("rechts") == rLabel.contains("rechts")) {
-					return slot;
-				}
+				if (pLeft == sLeft && pRight == sRight) return slot;
 			}
 			if (p.contains("stürmer") && rLabel.contains("stürmer")) return slot;
 			if (p.contains("torwart") && rLabel.contains("torwart")) return slot;

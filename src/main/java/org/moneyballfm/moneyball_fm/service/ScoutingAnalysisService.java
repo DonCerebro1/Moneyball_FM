@@ -43,7 +43,7 @@ public class ScoutingAnalysisService {
 			AppConfig appConfig) throws Exception {
 
 		List<ScoutingPlayerModel> incomingScouts = FmExportParser.parseScoutingFile(file);
-		String fallbackRole = !availableRoles.isEmpty() ? availableRoles.get(0) : "Stoßstürmer (Angreifen)";
+		String fallbackRole = !availableRoles.isEmpty() ? availableRoles.get(0) : "Stoßstürmer (Mitte)";
 
 		Map<String, ScoutingPlayerModel> existingMap = new HashMap<>();
 		for (ScoutingPlayerModel existing : scoutDataList) {
@@ -123,79 +123,87 @@ public class ScoutingAnalysisService {
 
 		double s1 = 0.0, s2 = 0.0, s3 = 0.0;
 
-		if (roleText.contains("STO") || roleText.contains("STÜRMER") || roleText.contains("ANGREIFEN") || roleText.contains("ST (Z)")) {
-			s1 = p.xg90Property().get();
-			s2 = p.xa90Property().get();
-			double shots = p.shotsOnTargetPctProperty().get();
-			s3 = shots > 1.0 ? shots / 100.0 : shots;
-		} else if (roleText.contains("MTW") || roleText.contains("TORWART") || roleText.contains("TW")) {
-			double save = p.savePctProperty().get();
-			s1 = save > 1.0 ? save / 100.0 : save;
+		// 1. Torwart: Par %, xG verh/90, Pas %
+		if (roleText.contains("MTW") || roleText.contains("TORWART") || roleText.contains("TW")) {
+			s1 = normalizePercent(p.savePctProperty().get());
 			s2 = p.xgPrevented90Property().get();
-			double pass = p.passCompletionPctProperty().get();
-			s3 = pass > 1.0 ? pass / 100.0 : pass;
-		} else if (roleText.contains("OM") || roleText.contains("QM") || roleText.contains("FLÜGEL") || roleText.contains("WINGER")) {
+			s3 = normalizePercent(p.passCompletionPctProperty().get());
+		}
+		// 2. Stoßstürmer: xG/90, Verw. %, Schüsse %
+		else if (roleText.contains("STO") || roleText.contains("STÜRMER") || roleText.contains("ST (Z)")) {
+			s1 = p.xg90Property().get();
+			s2 = normalizePercent(p.shotConversionPctProperty().get());
+			s3 = normalizePercent(p.shotsOnTargetPctProperty().get());
+		}
+		// 3. Zehner / OM: xA/90, E Pä/90, Pas %
+		else if (roleText.contains("OM") || roleText.contains("ZEHNER") || roleText.contains("ENGANCHE") || roleText.contains("TREQUARTISTA")) {
 			s1 = p.xa90Property().get();
-			double cross = p.crossAccuracyPctProperty().get();
-			s2 = cross > 1.0 ? cross / 100.0 : cross;
-			double pass = p.passCompletionPctProperty().get();
-			s3 = pass > 1.0 ? pass / 100.0 : pass;
-		} else if (roleText.contains("REG") || roleText.contains("ZURÜCKGEZOGENER") || roleText.contains("SPIELMACHER")) {
-			double pass = p.passCompletionPctProperty().get();
-			s1 = pass > 1.0 ? pass / 100.0 : pass;
+			s2 = (double) p.keyPassesTotalProperty().get(); // E Pä/90 aus Parser
+			s3 = normalizePercent(p.passCompletionPctProperty().get());
+		}
+		// 4. Regista: Pas %, Pr Pässe/90, E Pä/90
+		else if (roleText.contains("REGISTA") || roleText.contains("REG")) {
+			s1 = normalizePercent(p.passCompletionPctProperty().get());
 			s2 = p.progressivePasses90Property().get();
-			double cross = p.crossAccuracyPctProperty().get();
-			s3 = cross > 1.0 ? cross / 100.0 : cross;
-		} else if (roleText.contains("ZSM") || roleText.contains("ZENTRAL") || roleText.contains("DM") || roleText.contains("BALLEROBERNDER")) {
-			double pass = p.passCompletionPctProperty().get();
-			s1 = pass > 1.0 ? pass / 100.0 : pass;
+			s3 = (double) p.keyPassesTotalProperty().get(); // E Pä/90 aus Parser
+		}
+		// 5. ZSM / Sechser: Pas %, AbB/90, Zwk %
+		else if (roleText.contains("ZSM") || roleText.contains("ZENTRAL") || roleText.contains("DM") || roleText.contains("BALLEROBERNDER")) {
+			s1 = normalizePercent(p.passCompletionPctProperty().get());
 			s2 = p.interceptions90Property().get();
-			double tackles = p.tacklesWonPctProperty().get();
-			s3 = tackles > 1.0 ? tackles / 100.0 : tackles;
-		} else if (roleText.contains("FV") || roleText.contains("KFV") || roleText.contains("AUSSENVERTEIDIGER") || roleText.contains("FLÜGELVERTEIDIGER")) {
-			s1 = p.crossesAttempted90Property().get();
-			s2 = p.xa90Property().get();
-			s3 = p.interceptions90Property().get();
-		} else if (roleText.contains("BSV") || roleText.contains("BALLSPIELEND")) {
-			double pass = p.passCompletionPctProperty().get();
-			s1 = pass > 1.0 ? pass / 100.0 : pass;
-			s2 = p.interceptions90Property().get();
+			s3 = normalizePercent(p.tacklesWonPctProperty().get());
+		}
+		// 6. Flügelverteidiger (FV / KFV): AbB/90, FPQ %, Drb/90
+		else if (roleText.contains("FV") || roleText.contains("KFV") || roleText.contains("AUSSENVERTEIDIGER") || roleText.contains("FLÜGELVERTEIDIGER")) {
+			s1 = p.interceptions90Property().get();
+			s2 = normalizePercent(p.crossAccuracyPctProperty().get());
+			s3 = p.dribbles90Property().get();
+		}
+		// 7. Ballspielender Verteidiger (BSV): Pas %, Zwk %, Pr Pässe/90
+		else if (roleText.contains("BSV") || roleText.contains("BALLSPIELEND")) {
+			s1 = normalizePercent(p.passCompletionPctProperty().get());
+			s2 = normalizePercent(p.tacklesWonPctProperty().get());
 			s3 = p.progressivePasses90Property().get();
-		} else if (roleText.contains("IV") || roleText.contains("INNENVERTEIDIGER") || roleText.contains("VERTEIDIGER")) {
-			double tackles = p.tacklesWonPctProperty().get();
-			s1 = tackles > 1.0 ? tackles / 100.0 : tackles;
-			double headers = p.headersWonPctProperty().get();
-			s2 = headers > 1.0 ? headers / 100.0 : headers;
-			s3 = (double) p.mistakesLeadingToGoalProperty().get();
-		} else if (roleText.contains("HRV") || roleText.contains("HALBRAUM")) {
-			double pass = p.passCompletionPctProperty().get();
-			s1 = pass > 1.0 ? pass / 100.0 : pass;
-			double tackles = p.tacklesWonPctProperty().get();
-			s2 = tackles > 1.0 ? tackles / 100.0 : tackles;
+		}
+		// 8. Innenverteidiger (IV): Kopf %, Zwk %, AbB/90
+		else if (roleText.contains("IV") || roleText.contains("INNENVERTEIDIGER") || roleText.contains("VERTEIDIGER")) {
+			s1 = normalizePercent(p.headersWonPctProperty().get());
+			s2 = normalizePercent(p.tacklesWonPctProperty().get());
 			s3 = p.interceptions90Property().get();
-		} else {
-			double pass = p.passCompletionPctProperty().get();
-			s1 = pass > 1.0 ? pass / 100.0 : pass;
+		}
+		// 9. Halbraumverteidiger (HRV): Pas %, Zwk %, Drb/90
+		else if (roleText.contains("HRV") || roleText.contains("HALBRAUM")) {
+			s1 = normalizePercent(p.passCompletionPctProperty().get());
+			s2 = normalizePercent(p.tacklesWonPctProperty().get());
+			s3 = p.dribbles90Property().get();
+		}
+		// 10. Flügelspieler: FPQ %, Drb/90, xA/90
+		else if (roleText.contains("FLÜGEL") || roleText.contains("WINGER")) {
+			s1 = normalizePercent(p.crossAccuracyPctProperty().get());
+			s2 = p.dribbles90Property().get();
+			s3 = p.xa90Property().get();
+		}
+		// Fallback
+		else {
+			s1 = normalizePercent(p.passCompletionPctProperty().get());
 			s2 = p.interceptions90Property().get();
 			s3 = p.progressivePasses90Property().get();
 		}
 
-		if (s1 > 0.0 || s2 > 0.0 || s3 > 0.0 || (p.statValue1Property().get() == 0.0 && p.statValue2Property().get() == 0.0)) {
-			p.statValue1Property().set(s1);
-			p.statValue2Property().set(s2);
-			p.statValue3Property().set(s3);
-		}
+		p.statValue1Property().set(s1);
+		p.statValue2Property().set(s2);
+		p.statValue3Property().set(s3);
 	}
 
 	public static void evaluate(ScoutingPlayerModel p, AppConfig config) {
 		if (p == null) return;
 
-		double j = p.statValue1Property().get();
-		double k = p.statValue2Property().get();
-		double l = p.statValue3Property().get();
+		double s1 = p.statValue1Property().get();
+		double s2 = p.statValue2Property().get();
+		double s3 = p.statValue3Property().get();
 		int minutes = p.minutesProperty().get();
 
-		boolean allStatsZero = (j == 0.0 && k == 0.0 && l == 0.0);
+		boolean allStatsZero = (s1 == 0.0 && s2 == 0.0 && s3 == 0.0);
 		boolean sampleTooSmall = (minutes > 0 && minutes < 450);
 
 		if (allStatsZero || sampleTooSmall) {
@@ -216,50 +224,71 @@ public class ScoutingAnalysisService {
 
 		double statPoints;
 
+		// 1. Stoßstürmer (xG: 0.79, Verw: 0.23, Schüsse: 0.53)
 		if (role.contains("STO") || role.contains("STÜRMER") || role.contains("ST (Z)")) {
-			statPoints = Math.min(j / 0.52, 1.25) * 22.75
-					+ Math.min(k / 0.19, 1.35) * 22.75
-					+ Math.min(l / 0.48, 1.20) * 19.50;
-		} else if (role.contains("MTW") || role.contains("TORWART") || role.contains("TW")) {
-			statPoints = Math.min(j / 0.78, 1.20) * 22.75
-					+ Math.min(Math.max(k + 0.35, 0.0) / 0.60, 1.30) * 29.25
-					+ Math.min(l / 0.82, 1.20) * 13.00;
-		} else if (role.contains("OM") || role.contains("QM") || role.contains("FLÜGEL") || role.contains("WINGER")) {
-			double crossPct = k > 1.0 ? k / 100.0 : k;
-			statPoints = Math.min(j / 0.20, 1.30) * 26.00
-					+ Math.min(crossPct / 0.22, 1.30) * 22.75
-					+ Math.min(l / 0.80, 1.20) * 16.25;
-		} else if (role.contains("REG") || role.contains("ZURÜCKGEZOGENER") || role.contains("SPIELMACHER")) {
-			double crossPct = l > 1.0 ? l / 100.0 : l;
-			statPoints = Math.min(j / 0.85, 1.20) * 19.50
-					+ Math.min(k / 5.20, 1.35) * 29.25
-					+ Math.min(crossPct / 0.22, 1.20) * 16.25;
-		} else if (role.contains("ZSM") || role.contains("ZENTRAL") || role.contains("DM") || role.contains("BALLEROBERNDER")) {
-			statPoints = Math.min(j / 0.86, 1.20) * 22.75
-					+ Math.min(k / 2.80, 1.30) * 22.75
-					+ Math.min(l / 0.74, 1.20) * 19.50;
-		} else if (role.contains("FV") || role.contains("KFV") || role.contains("AUSSENVERTEIDIGER") || role.contains("FLÜGELVERTEIDIGER")) {
-			double crossPct = k > 1.0 ? k / 100.0 : k;
-			statPoints = Math.min(j / 2.50, 1.30) * 22.75
-					+ Math.min(crossPct / 0.22, 1.30) * 22.75
-					+ Math.min(l / 2.00, 1.20) * 19.50;
-		} else if (role.contains("BSV") || role.contains("BALLSPIELEND")) {
-			statPoints = Math.min(j / 0.85, 1.20) * 22.75
-					+ Math.min(k / 0.75, 1.20) * 22.75
-					+ Math.min(l / 4.50, 1.30) * 19.50;
-		} else if (role.contains("IV") || role.contains("INNENVERTEIDIGER") || role.contains("VERTEIDIGER")) {
-			double errorBonus = Math.max(0.0, 1.0 - (l * 0.5)) * 9.75;
-			statPoints = Math.min(j / 0.74, 1.20) * 26.00
-					+ Math.min(k / 0.76, 1.20) * 29.25
-					+ errorBonus;
-		} else if (role.contains("HRV") || role.contains("HALBRAUM")) {
-			statPoints = Math.min(j / 0.83, 1.20) * 22.75
-					+ Math.min(k / 0.74, 1.20) * 22.75
-					+ Math.min(l / 1.40, 1.20) * 19.50;
-		} else {
-			statPoints = Math.min(j / 0.80, 1.20) * 22.0
-					+ Math.min(k / 1.50, 1.20) * 22.0
-					+ Math.min(l / 0.80, 1.20) * 21.0;
+			statPoints = Math.min(s1 / 0.79, 1.30) * 26.0
+					+ Math.min(s2 / 0.23, 1.30) * 19.5
+					+ Math.min(s3 / 0.53, 1.30) * 19.5;
+		}
+		// 2. Torwart (Par: 0.88, xG verh: 0.44, Pas: 0.97)
+		else if (role.contains("MTW") || role.contains("TORWART") || role.contains("TW")) {
+			statPoints = Math.min(s1 / 0.88, 1.25) * 22.75
+					+ Math.min(Math.max(s2 + 0.35, 0.0) / 0.44, 1.30) * 22.75
+					+ Math.min(s3 / 0.97, 1.20) * 19.50;
+		}
+		// 3. Zehner / OM (xA: 0.19, E Pä/90: 2.20, Pas: 0.87)
+		else if (role.contains("OM") || role.contains("ZEHNER") || role.contains("ENGANCHE") || role.contains("TREQUARTISTA")) {
+			statPoints = Math.min(s1 / 0.19, 1.35) * 22.75
+					+ Math.min(s2 / 2.20, 1.35) * 22.75
+					+ Math.min(s3 / 0.87, 1.20) * 19.50;
+		}
+		// 4. Regista (Pas: 0.88, Pr Pässe: 5.90, E Pä/90: 1.20)
+		else if (role.contains("REG") || role.contains("ZURÜCKGEZOGENER") || role.contains("SPIELMACHER")) {
+			statPoints = Math.min(s1 / 0.88, 1.20) * 22.75
+					+ Math.min(s2 / 5.90, 1.35) * 22.75
+					+ Math.min(s3 / 1.20, 1.35) * 19.50;
+		}
+		// 5. ZSM / Sechser (Pas: 0.89, AbB/90: 2.50, Zwk: 0.79)
+		else if (role.contains("ZSM") || role.contains("ZENTRAL") || role.contains("DM") || role.contains("BALLEROBERNDER")) {
+			statPoints = Math.min(s1 / 0.89, 1.20) * 22.75
+					+ Math.min(s2 / 2.50, 1.30) * 22.75
+					+ Math.min(s3 / 0.79, 1.25) * 19.50;
+		}
+		// 6. Flügelverteidiger (AbB/90: 2.80, FPQ: 0.26, Drb/90: 2.10)
+		else if (role.contains("FV") || role.contains("KFV") || role.contains("AUSSENVERTEIDIGER") || role.contains("FLÜGELVERTEIDIGER")) {
+			statPoints = Math.min(s1 / 2.80, 1.30) * 22.75
+					+ Math.min(s2 / 0.26, 1.30) * 19.50
+					+ Math.min(s3 / 2.10, 1.35) * 22.75;
+		}
+		// 7. Ballspielender Verteidiger (Pas: 0.88, Zwk: 0.78, Pr Pässe: 5.50)
+		else if (role.contains("BSV") || role.contains("BALLSPIELEND")) {
+			statPoints = Math.min(s1 / 0.88, 1.20) * 22.75
+					+ Math.min(s2 / 0.78, 1.25) * 22.75
+					+ Math.min(s3 / 5.50, 1.30) * 19.50;
+		}
+		// 8. Innenverteidiger (Kopf: 0.78, Zwk: 0.82, AbB/90: 2.00)
+		else if (role.contains("IV") || role.contains("INNENVERTEIDIGER") || role.contains("VERTEIDIGER")) {
+			statPoints = Math.min(s1 / 0.78, 1.25) * 26.00
+					+ Math.min(s2 / 0.82, 1.25) * 26.00
+					+ Math.min(s3 / 2.00, 1.30) * 13.00;
+		}
+		// 9. Halbraumverteidiger (Pas: 0.85, Zwk: 0.76, Drb/90: 1.40)
+		else if (role.contains("HRV") || role.contains("HALBRAUM")) {
+			statPoints = Math.min(s1 / 0.85, 1.20) * 22.75
+					+ Math.min(s2 / 0.76, 1.25) * 22.75
+					+ Math.min(s3 / 1.40, 1.30) * 19.50;
+		}
+		// 10. Flügelspieler
+		else if (role.contains("FLÜGEL") || role.contains("WINGER")) {
+			statPoints = Math.min(s1 / 0.25, 1.30) * 21.0
+					+ Math.min(s2 / 2.20, 1.35) * 22.0
+					+ Math.min(s3 / 0.22, 1.35) * 22.0;
+		}
+		// Fallback
+		else {
+			statPoints = Math.min(s1 / 0.85, 1.20) * 22.0
+					+ Math.min(s2 / 2.00, 1.25) * 22.0
+					+ Math.min(s3 / 3.50, 1.25) * 21.0;
 		}
 
 		int agility = p.agilityProperty().get();
@@ -334,5 +363,9 @@ public class ScoutingAnalysisService {
 			p.priceCheckProperty().set("🔴 ÜBERTEUERT");
 			p.transferActionProperty().set("❌ ABLEHNEN");
 		}
+	}
+
+	private static double normalizePercent(double val) {
+		return val > 1.0 ? val / 100.0 : val;
 	}
 }

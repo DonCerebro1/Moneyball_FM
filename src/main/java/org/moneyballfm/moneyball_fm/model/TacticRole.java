@@ -11,13 +11,13 @@ public enum TacticRole {
 			"MTW (U)",
 			"Mitspielender Torwart",
 			List.of("TW", "MTW", "TORWART", "GK", "SK", "TORHÜTER", "MITSPIELENDER TORWART"),
-			"Par %", "xG verh/90", "Pas %"
+			MetricProfile.TORWART
 	),
 	TW(
 			"TW (V)",
 			"Torwart",
 			List.of("TW (V)", "GK (D)"),
-			"Par %", "xG verh/90", "AbB/90"
+			MetricProfile.TORWART_KLASSISCH
 	),
 
 	// ==========================================
@@ -26,32 +26,32 @@ public enum TacticRole {
 	BSV(
 			"BSV (V)",
 			"Ballspielender Verteidiger",
-			List.of("BSV", "BPD", "BALLSPIELENDER VERT", "BALLSPIELENDER VERTEIDIGER", "VZL", "BSV (L)", "BSV (R)"),
-			"Pr Pässe/90", "Pas %", "Zwk %"
+			List.of("BSV", "BPD", "BALLSPIELENDER VERT", "BALLSPIELENDER VERTEIDIGER", "VZL", "BSV (L)", "BSV (R)", "BALLSPIELENDER VERT. LINKS"),
+			MetricProfile.IV_AUFBAU
 	),
 	HRV(
 			"HRV (U)",
 			"Halbraumverteidiger",
-			List.of("HRV", "WCB", "HALBRAUMVERTEIDIGER", "VZR", "HRV (R)", "HRV (L)"),
-			"Pr Pässe/90", "AbB/90", "Pas %"
+			List.of("HRV", "WCB", "HALBRAUMVERTEIDIGER", "VZR", "HRV (R)", "HRV (L)", "HALBRAUMVERTEIDIGER RECHTS"),
+			MetricProfile.IV_AUFBAU
 	),
 	LIBERO(
 			"LIB (U)",
 			"Libero",
 			List.of("LIB", "LIBERO"),
-			"Pr Pässe/90", "Pas %", "AbB/90"
+			MetricProfile.IV_AUFBAU
 	),
 	IV(
 			"IV (V)",
 			"Innenverteidiger",
-			List.of("IV", "VZ", "IV (Z)", "DC", "CB", "CD", "INNENVERTEIDIGER", "INNENVERTEITIGER"),
-			"Kopf %", "Zwk %", "AbB/90"
+			List.of("IV", "VZ", "IV (Z)", "DC", "CB", "CD", "INNENVERTEIDIGER", "INNENVERTEITIGER", "INNENVERTEIDIGER ZENTRAL"),
+			MetricProfile.IV_ZERSTOERER
 	),
 	KIV(
 			"KIV (V)",
 			"Kompromissloser Innenverteidiger",
 			List.of("KIV", "NCB", "KOMPROMISSLOSER INNENVERTEIDIGER", "KOMPROMISSLOSER INNENVERTEITIGER"),
-			"Kopf %", "Zwk %", "AbB/90"
+			MetricProfile.IV_ZERSTOERER
 	),
 
 	// ==========================================
@@ -61,37 +61,37 @@ public enum TacticRole {
 			"IFV (U)",
 			"Inverser Flügelverteidiger",
 			List.of("IFV", "IWB", "INVERSER FLÜGELVERTEIDIGER", "INVERSER FLUGELVERTEIDIGER"),
-			"Pas %", "Pr Pässe/90", "AbB/90"
+			MetricProfile.AV_INVERS
 	),
 	AV(
 			"AV (U)",
 			"Außenverteidiger",
 			List.of("AV", "FB", "AUSSENVERTEIDIGER", "AUßENVERTEIDIGER"),
-			"Zwk %", "AbB/90", "Pas %"
+			MetricProfile.AV_DEFENSIV
 	),
 	IAV(
 			"IAV (V)",
 			"Inverser Außenverteidiger",
 			List.of("IAV", "IFB", "INVERSER AUSSENVERTEIDIGER", "INVERSER AUßENVERTEIDIGER"),
-			"Pas %", "Zwk %", "AbB/90"
+			MetricProfile.AV_DEFENSIV
 	),
 	FV(
 			"FV (U)",
 			"Flügelverteidiger",
-			List.of("FV", "WB", "FLÜGELVERTEIDIGER", "FLÜGELVERTEIGER"),
-			"FPQ %", "Drb/90", "Zwk %"
+			List.of("FV", "WB", "FLÜGELVERTEIDIGER", "FLÜGELVERTEIGER", "FLÜGELVERTEIDIGER LINKS", "FLÜGELVERTEIDIGER RECHTS"),
+			MetricProfile.AV_OFFENSIV
 	),
 	KAV(
 			"KAV (V)",
 			"Kompromissloser Außenverteidiger",
 			List.of("KAV", "NFB", "KOMPROMISSLOSER AUSSENVERTEIDIGER", "KOMPROMISSLOSER AUßENVERTEIDIGER"),
-			"Zwk %", "AbB/90", "Kopf %"
+			MetricProfile.IV_ZERSTOERER
 	),
 	KFV(
 			"KFV (U)",
 			"Kompletter Flügelverteidiger",
-			List.of("KFV", "CWB", "KOMPLETTER FLÜGELVERTEIDIGER", "KOMP. FLÜGELVERTEIDIGER"),
-			"Ent Päs", "Drb/90", "FPQ %"
+			List.of("KFV", "CWB", "KOMPLETTER FLÜGELVERTEIDIGER", "KOMP. FLÜGELVERTEIDIGER", "KOMP. FLÜGELVERTEIDIGER RECHTS"),
+			MetricProfile.AV_OFFENSIV
 	),
 
 	// ==========================================
@@ -101,49 +101,49 @@ public enum TacticRole {
 			"ZSM (U)",
 			"Zurückgezogener Spielmacher",
 			List.of("ZSM", "DLP", "ZURÜCKGEZOGENER SPIELMACHER"),
-			"Pr Pässe/90", "Pas %", "Ent Päs"
+			MetricProfile.SECHSER_SPIELMACHER
 	),
 	ABRAEUMER(
 			"AB (V)",
 			"Abräumer",
 			List.of("AB", "A", "ABRÄUMER", "ANCHOR", "ANKER"),
-			"Zwk %", "AbB/90", "Kopf %"
+			MetricProfile.IV_ZERSTOERER
 	),
 	TIEFER_SECHSER(
 			"TS (V)",
 			"Tiefer Sechser",
 			List.of("TS", "DM (V)", "TIEFER SECHSER", "HALF BACK", "HB"),
-			"AbB/90", "Zwk %", "Pas %"
+			MetricProfile.SECHSER_ABRAEUMER
 	),
 	SEGUNDO_VOLANTE(
 			"VOL (U)",
 			"Segundo Volante",
 			List.of("VOL", "SV", "SEGUNDO VOLANTE"),
-			"Drb/90", "Zwk %", "Pr Pässe/90"
+			MetricProfile.ACHTER_ALLROUND
 	),
 	VERTIKALER_SPIELMACHER(
 			"VSM (U)",
 			"Vertikaler Spielmacher",
 			List.of("VSM", "RPM", "VERTIKALER SPIELMACHER", "ROAMING PLAYMAKER"),
-			"Pr Pässe/90", "Ent Päs", "Drb/90"
+			MetricProfile.SECHSER_SPIELMACHER
 	),
 	REGISTA(
 			"REG (U)",
 			"Regista",
-			List.of("REG", "REGISTA", "DMZR"),
-			"Pr Pässe/90", "Ent Päs", "Pas %"
+			List.of("REG", "REGISTA", "DMZR", "REGISTA (ZENTRAL RECHTS)"),
+			MetricProfile.SECHSER_SPIELMACHER
 	),
 	DEFENSIVER_MITTELFELDSSPIELER(
 			"DM (V)",
 			"Defensiver Mittelfeldspieler",
 			List.of("DM", "DM (U)", "DEFENSIVER MITTELFELD", "DEFENSIVER MITTELFELDSPIELER"),
-			"Zwk %", "AbB/90", "Pas %"
+			MetricProfile.SECHSER_ABRAEUMER
 	),
 	BALLEROBERNDER_MITTELFELDSSPIELER(
 			"BMS (U)",
 			"Ballerobernder Mittelfeldspieler",
 			List.of("BMS", "BEM", "BWM", "BALLEROBERNDER MITTELFELDSPIELER"),
-			"Zwk %", "AbB/90", "Pas %"
+			MetricProfile.SECHSER_ABRAEUMER
 	),
 
 	// ==========================================
@@ -153,31 +153,31 @@ public enum TacticRole {
 			"VoSm (U)",
 			"Vorgeschobener Spielmacher",
 			List.of("VOSM", "AP", "VORGESCHOBENER SPIELMACHER"),
-			"Ent Päs", "xA/90", "Pr Pässe/90"
+			MetricProfile.ACHTER_KREATIV
 	),
 	ZENTRALER_MITTELFELDSSPIELER(
 			"ZM (U)",
 			"Zentraler Mittelfeldspieler",
 			List.of("ZM", "CM", "ZENTRALER MITTELFELDSPIELER"),
-			"Pas %", "Zwk %", "Pr Pässe/90"
+			MetricProfile.ACHTER_ALLROUND
 	),
 	CARRILERO(
 			"CAR (U)",
 			"Carrilero",
 			List.of("CAR", "CARRILERO"),
-			"Pas %", "AbB/90", "Zwk %"
+			MetricProfile.SECHSER_ABRAEUMER
 	),
 	MEZZALA(
 			"MEZ (U)",
 			"Mezzala",
 			List.of("MEZ", "MEZZALA"),
-			"Drb/90", "Ent Päs", "xA/90"
+			MetricProfile.ACHTER_KREATIV
 	),
 	BOX_TO_BOX(
 			"BBM (U)",
 			"Box to Box Mittelfeldspieler",
 			List.of("BBM", "B2B", "BOX TO BOX", "BOX-TO-BOX", "BOX TO BOX MITTELFELDSPIELER"),
-			"Drb/90", "Zwk %", "Pas %"
+			MetricProfile.ACHTER_ALLROUND
 	),
 
 	// ==========================================
@@ -187,31 +187,31 @@ public enum TacticRole {
 			"FLÜ (U)",
 			"Flügelspieler",
 			List.of("FLÜ", "W", "FLG", "FLÜGELSPIELER"),
-			"FPQ %", "Drb/90", "xA/90"
+			MetricProfile.FLUEGEL_VORBEREITER
 	),
 	INVERSER_FLUEGELSPIELER(
 			"IFL (U)",
 			"Inverser Flügelspieler",
 			List.of("IFL", "IW", "INVERSER FLÜGELSPIELER"),
-			"Drb/90", "Ent Päs", "Schüsse %"
+			MetricProfile.FLUEGEL_INVERS
 	),
 	AEUSSERER_SPIELMACHER(
 			"ASP (U)",
 			"Äußerer Spielmacher",
 			List.of("ASP", "WM", "ÄUßERER SPIELMACHER", "AEUSSERER SPIELMACHER", "WIDE PLAYMAKER"),
-			"Ent Päs", "Pr Pässe/90", "Pas %"
+			MetricProfile.SECHSER_SPIELMACHER
 	),
 	DEFENSIVER_FLUEGELSPIELER(
 			"DFL (U)",
 			"Defensiver Flügelspieler",
 			List.of("DFL", "DW", "DEFENSIVER FLÜGELSPIELER"),
-			"Zwk %", "AbB/90", "FPQ %"
+			MetricProfile.AV_OFFENSIV
 	),
 	AEUSSERER_MITTELFELDSSPIELER(
 			"AM (U)",
-			"Äußere Mittelfeldspieler",
+			"Äußerer Mittelfeldspieler",
 			List.of("AM", "LM", "RM", "ÄUßERE MITTELFELDSPIELER", "ÄUßERER MITTELFELDSPIELER", "WIDE MIDFIELDER"),
-			"Pas %", "FPQ %", "Zwk %"
+			MetricProfile.FLUEGEL_VORBEREITER
 	),
 
 	// ==========================================
@@ -221,43 +221,43 @@ public enum TacticRole {
 			"IAS (A)",
 			"Inverser Aussenstürmer",
 			List.of("IAS", "IF", "INVERSER AUSSENSTÜRMER", "INVERSER AUSSENSTUERMER", "INSIDE FORWARD"),
-			"xG/90", "Schüsse %", "Drb/90"
+			MetricProfile.FLUEGEL_INVERS
 	),
 	TREQUARTISTA(
 			"TREQ (A)",
 			"Trequartista",
 			List.of("TREQ", "T", "TREQUARTISTA", "TREQUISTA"),
-			"Ent Päs", "xA/90", "Drb/90"
+			MetricProfile.ZEHNER_KREATIV
 	),
 	RAUMDEUTER(
 			"RD (A)",
 			"Raumdeuter",
 			List.of("RD", "RAUMDEUTER"),
-			"xG/90", "Schüsse %", "Verw. %"
+			MetricProfile.TORJAEGER
 	),
 	AEUSSERER_ZIELSPIELER(
 			"AZS (U)",
-			"Äußere Zielspieler",
+			"Äußerer Zielspieler",
 			List.of("AZS", "WT", "ÄUßERE ZIELSPIELER", "ÄUßERER ZIELSPIELER", "WIDE TARGET FORWARD"),
-			"Kopf %", "Ent Päs", "xG/90"
+			MetricProfile.ZIELSTUERMER
 	),
 	OFFENSIVER_MITTELFELDSSPIELER(
 			"OM (U)",
-			"Offensives Mittelfeldspieler",
-			List.of("OM", "AM", "OMZ", "OFFENSIVES MITTELFELD", "OFFENSIVER MITTELFELDSPIELER"),
-			"Ent Päs", "xA/90", "xG/90"
+			"Offensiver Mittelfeldspieler",
+			List.of("OM", "AM", "OMZ", "OFFENSIVES MITTELFELD", "OFFENSIVER MITTELFELDSPIELER", "OFFENSIVES MITTELFELDSPIELER", "OFFENSIVER MITTELFELDSPIELER LINKS", "OFFENSIVER MITTELFELDSPIELER RECHTS"),
+			MetricProfile.ZEHNER_KREATIV
 	),
 	SCHATTENSTUERMER(
 			"SS (A)",
 			"Schattenstürmer",
 			List.of("SS", "SCHATTENSTÜRMER", "SHADOW STRIKER"),
-			"xG/90", "Schüsse %", "Ent Päs"
+			MetricProfile.TORJAEGER
 	),
 	ENGANCHE(
 			"ENG (U)",
 			"Enganche",
 			List.of("ENG", "ENGANCHE"),
-			"Ent Päs", "xA/90", "Pas %"
+			MetricProfile.ZEHNER_KREATIV
 	),
 
 	// ==========================================
@@ -267,70 +267,69 @@ public enum TacticRole {
 			"StS (A)",
 			"Stoßstürmer",
 			List.of("STS", "AF", "STOßSTÜRMER", "STOSSSTÜRMER", "ADVANCED FORWARD"),
-			"xG/90", "Schüsse %", "Verw. %"
+			MetricProfile.TORJAEGER
 	),
 	HAENGENDE_SPITZE(
 			"HS (U)",
 			"Hängende Spitze",
 			List.of("HS", "DLF", "HÄNGENDE SPITZE", "HÄS", "DEEP LYING FORWARD"),
-			"Ent Päs", "xA/90", "xG/90"
+			MetricProfile.ZEHNER_KREATIV
 	),
 	KOMPLETTER_STUERMER(
 			"KLT (A)",
 			"Kompletter Stürmer",
 			List.of("KLT", "CF", "KOMPLETTER STÜRMER"),
-			"xG/90", "Kopf %", "Ent Päs"
+			MetricProfile.ZIELSTUERMER
 	),
 	KNIPSER(
 			"KNI (A)",
 			"Knipser",
 			List.of("KNI", "P", "POACHER", "KNIPSER"),
-			"xG/90", "Schüsse %", "Verw. %"
+			MetricProfile.TORJAEGER
 	),
 	PRESSENDER_STUERMER(
 			"PS (A)",
 			"Pressender Stürmer",
 			List.of("PS", "PF", "PRESSENDER STÜRMER"),
-			"Zwk %", "xG/90", "Kopf %"
+			MetricProfile.TORJAEGER
 	),
 	ZIELSPIELER(
 			"ZS (U)",
 			"Zielspieler",
 			List.of("ZS", "TF", "ZIELSPIELER", "TARGET FORWARD"),
-			"Kopf %", "Ent Päs", "xG/90"
+			MetricProfile.ZIELSTUERMER
 	),
 	FALSCHE_NEUN(
 			"F9 (U)",
 			"Falsche Neun",
 			List.of("F9", "FALSE NINE", "FALSCHE NEUN"),
-			"Pr Pässe/90", "Ent Päs", "xA/90"
+			MetricProfile.ACHTER_KREATIV
 	);
 
 	private final String code;
 	private final String displayName;
 	private final List<String> aliases;
-	private final String stat1Header;
-	private final String stat2Header;
-	private final String stat3Header;
+	private final MetricProfile profile;
 
-	TacticRole(String code, String displayName, List<String> aliases, String s1, String s2, String s3) {
+	TacticRole(String code, String displayName, List<String> aliases, MetricProfile profile) {
 		this.code = code;
 		this.displayName = displayName;
 		this.aliases = aliases;
-		this.stat1Header = s1;
-		this.stat2Header = s2;
-		this.stat3Header = s3;
+		this.profile = profile;
 	}
 
 	public String getCode() { return code; }
 	public String getDisplayName() { return displayName; }
-	public String getStat1Header() { return stat1Header; }
-	public String getStat2Header() { return stat2Header; }
-	public String getStat3Header() { return stat3Header; }
+	public MetricProfile getProfile() { return profile; }
+
+	public String getStat1Header() { return profile.getStat1(); }
+	public String getStat2Header() { return profile.getStat2(); }
+	public String getStat3Header() { return profile.getStat3(); }
 
 	public static TacticRole fromDisplayName(String name) {
 		if (name == null || name.isBlank()) return ZSM;
 
+		// 1. Exakter Match auf DisplayName, Code oder Enum-Name
 		for (TacticRole r : values()) {
 			if (r.getDisplayName().equalsIgnoreCase(name) ||
 					r.getCode().equalsIgnoreCase(name) ||
@@ -338,6 +337,19 @@ public enum TacticRole {
 				return r;
 			}
 		}
+
+		// 2. Suche über Aliases (inklusive neuer Zwei-Pass-Namen)
+		String clean = name.toUpperCase().replace(".", "").replace("\u00A0", " ").trim();
+		for (TacticRole r : values()) {
+			for (String alias : r.aliases) {
+				String cleanAlias = alias.toUpperCase().replace(".", "").trim();
+				if (clean.equalsIgnoreCase(cleanAlias) || clean.equals(cleanAlias)) {
+					return r;
+				}
+			}
+		}
+
+		// 3. Fallback über Positions- / Keyword-Parsing
 		return fromPosition(name);
 	}
 
@@ -346,16 +358,13 @@ public enum TacticRole {
 			return ZSM;
 		}
 
-		// 1. Aufgaben nach Bindestrich abtrennen
 		String clean = pos;
 		if (clean.contains("-")) {
 			clean = clean.split("-")[0];
 		}
 
-		// 2. Spielaufgaben in Klammern entfernen
 		clean = clean.replaceAll("(?i)\\s*\\((unterstützen|verteidigen|angreifen|rückendeckung|vorstopper)\\)", "");
 
-		// 3. Normalisieren
 		clean = clean.toUpperCase()
 				.replace("\u00A0", " ")
 				.replace(".", "")
@@ -367,7 +376,6 @@ public enum TacticRole {
 			return ZSM;
 		}
 
-		// 4. Direkter Match auf Enum-Name, Code oder DisplayName
 		for (TacticRole r : values()) {
 			String cleanDisplayName = r.displayName.replaceAll("(?i)\\s*\\((unterstützen|verteidigen|angreifen)\\)", "").toUpperCase().replace(".", "").trim();
 			String cleanCode = r.code.replaceAll("(?i)\\s*\\((unterstützen|verteidigen|angreifen)\\)", "").toUpperCase().replace(".", "").trim();
@@ -379,7 +387,6 @@ public enum TacticRole {
 			}
 		}
 
-		// 5. Alias-Match
 		for (TacticRole r : values()) {
 			for (String alias : r.aliases) {
 				String cleanAlias = alias.toUpperCase().replace(".", "").trim();
@@ -389,7 +396,6 @@ public enum TacticRole {
 			}
 		}
 
-		// 6. Substring-Fallbacks (Prioritätsreihenfolge)
 		if (clean.contains("TORWART") || clean.contains("TORHÜTER") || clean.contains("TW") || clean.contains("GK")) {
 			return clean.contains("MIT") ? MTW : TW;
 		}

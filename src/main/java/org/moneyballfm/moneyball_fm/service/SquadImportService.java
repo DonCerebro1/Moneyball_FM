@@ -2,10 +2,10 @@ package org.moneyballfm.moneyball_fm.service;
 
 import javafx.collections.ObservableList;
 import org.moneyballfm.moneyball_fm.config.AppConfig;
-import org.moneyballfm.moneyball_fm.db.HistoryRepository;
 import org.moneyballfm.moneyball_fm.model.LoanPlayerModel;
 import org.moneyballfm.moneyball_fm.model.PlayerRowModel;
 import org.moneyballfm.moneyball_fm.model.RegistrationRowModel;
+import org.moneyballfm.moneyball_fm.model.TacticRole;
 import org.moneyballfm.moneyball_fm.model.YouthPlayerModel;
 import org.moneyballfm.moneyball_fm.parser.FmExportParser;
 
@@ -152,7 +152,7 @@ public class SquadImportService {
 				LoanPlayerModel freshLoan = new LoanPlayerModel(
 						LoanPlayerModel.LoanType.OUTGOING,
 						row.nameProperty().get(),
-						row.roleProperty().get(),
+						cleanYouthRole(row.roleProperty().get()),
 						row.ageProperty().get(),
 						clubAndLeague,
 						estimatedGames,
@@ -182,9 +182,11 @@ public class SquadImportService {
 				existingKader.remove(pKey);
 				existingLoans.remove(pKey);
 
+				String youthRole = cleanYouthRole(row.roleProperty().get());
+
 				YouthPlayerModel freshYouth = new YouthPlayerModel(
 						row.nameProperty().get(),
-						row.roleProperty().get(),
+						youthRole,
 						row.ageProperty().get(),
 						4.0,
 						2.0,
@@ -216,13 +218,14 @@ public class SquadImportService {
 
 				row.onLoanProperty().set(isIncomingLoan);
 
+				String importedRole = row.roleProperty().get();
+
 				if (existingKader.containsKey(pKey)) {
 					PlayerRowModel existing = existingKader.get(pKey);
 
-					// Rolle der aktiven Taktik nicht blind mit dem Importwert überschreiben
 					String currentRole = existing.getRoleForTactic(activeTactic);
 					if (currentRole == null || currentRole.isBlank()) {
-						currentRole = existing.roleProperty().get();
+						currentRole = importedRole;
 					}
 
 					existing.updateFromFresh(row);
@@ -234,10 +237,9 @@ public class SquadImportService {
 					MoneyballCalculator.recalculate(existing, appConfig);
 					updatedCount++;
 				} else {
-					// Neuer Spieler: Startrolle direkt für die aktive Taktik registrieren
-					if (row.roleProperty().get() != null && !row.roleProperty().get().isBlank()) {
-						row.setRoleForTactic(activeTactic, row.roleProperty().get());
-					}
+					row.roleProperty().set(importedRole);
+					row.setRoleForTactic(activeTactic, importedRole);
+
 					MoneyballCalculator.recalculate(row, appConfig);
 					playerDataList.add(row);
 					existingKader.put(pKey, row);
@@ -246,7 +248,6 @@ public class SquadImportService {
 			}
 		}
 
-		// Abgangs-Prüfung
 		int removedCount = 0;
 		if (!importedKeys.isEmpty()) {
 			List<PlayerRowModel> soldFromKader = playerDataList.stream()
@@ -269,6 +270,25 @@ public class SquadImportService {
 		status += " (aus " + droppedFile.getName() + ").";
 
 		return new ImportResult(updatedCount, addedCount, removedCount, status);
+	}
+
+	private static String cleanYouthRole(String rawRole) {
+		if (rawRole == null || rawRole.isBlank()) return "Mitspielender Torwart";
+
+		String r = rawRole;
+		if (r.contains(":")) {
+			String[] parts = r.split(":");
+			r = parts[parts.length - 1].trim();
+		}
+
+		TacticRole tr = TacticRole.fromDisplayName(r);
+		if (tr == null) tr = TacticRole.fromPosition(r);
+
+		if (tr == TacticRole.TW || tr == TacticRole.MTW) {
+			return "Mitspielender Torwart";
+		}
+
+		return (tr != null) ? tr.getDisplayName() : r;
 	}
 
 	private static void removeFromOtherListsByKey(String key, ObservableList<?>... targetLists) {

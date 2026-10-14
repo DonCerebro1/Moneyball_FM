@@ -322,7 +322,7 @@ public class MainController {
 
 		appConfig.setActiveTactic(newTacticName);
 
-		// 2. Tabellenspalten für die neue Taktik vorbereiten
+		// 2. Tabellenspalten und Dropdowns für die neue Taktik vorbereiten
 		setupAllTables();
 
 		// 3. Rollen der neuen Taktik zuweisen und berechnen
@@ -345,7 +345,7 @@ public class MainController {
 		refreshShadowSquad();
 		refreshSquadKPIs();
 
-		// Rollen im bestehenden Snapshot aktualisieren, ohne neuen Eintrag zu erzeugen
+		// Rollen im bestehenden Snapshot aktualisieren
 		HistoryRepository.updateLatestSnapshotRoles(playerDataList);
 
 		if (statusLabel != null) {
@@ -358,7 +358,6 @@ public class MainController {
 		row.setRoleForTactic(currentTactic, newRole);
 		recalc(row);
 
-		// Nur Rollen im aktuellen Snapshot anpassen
 		HistoryRepository.updateLatestSnapshotRoles(playerDataList);
 	}
 
@@ -688,6 +687,8 @@ public class MainController {
 
 	private ObservableList<String> getAvailableRoles() {
 		ObservableList<String> roles = FXCollections.observableArrayList();
+
+		// 1. Zuerst alle konkreten Slots der aktiven Taktik (Prio 1 für Dropdown & Tiefenchart)
 		if (appConfig != null && appConfig.getTactics() != null) {
 			appConfig.getTactics().stream()
 					.filter(t -> t.getName() != null && t.getName().equalsIgnoreCase(appConfig.getActiveTactic()))
@@ -695,12 +696,26 @@ public class MainController {
 					.ifPresent(active -> {
 						if (active.getSlots() != null) {
 							for (var slot : active.getSlots()) {
-								if (slot.getRoleLabel() != null && !roles.contains(slot.getRoleLabel())) roles.add(slot.getRoleLabel());
-								else if (slot.getSlotName() != null && !roles.contains(slot.getSlotName())) roles.add(slot.getSlotName());
+								String label = slot.getRoleLabel() != null && !slot.getRoleLabel().isBlank()
+										? slot.getRoleLabel().trim() : null;
+								String slotName = slot.getSlotName() != null && !slot.getSlotName().isBlank()
+										? slot.getSlotName().trim() : null;
+
+								if (label != null && !roles.contains(label)) roles.add(label);
+								if (slotName != null && !roles.contains(slotName)) roles.add(slotName);
 							}
 						}
 					});
 		}
+
+		// 2. Alle Standard-FM-Rollen als Fallback hinzufügen
+		for (TacticRole tr : TacticRole.values()) {
+			String dName = tr.getDisplayName();
+			if (!roles.contains(dName)) {
+				roles.add(dName);
+			}
+		}
+
 		return roles;
 	}
 
@@ -730,7 +745,7 @@ public class MainController {
 
 	@FXML
 	public void onAddYouthPlayerManual() {
-		YouthPlayerModel y = new YouthPlayerModel("Neues Talent", "Stoßstürmer (A)", 17, 4.5, 2.0, 14, 14, 13, 15, 0.55, 0.22, 0.48);
+		YouthPlayerModel y = new YouthPlayerModel("Neues Talent", "Mitspielender Torwart", 17, 4.5, 2.0, 14, 14, 13, 15, 0.55, 0.22, 0.48);
 		YouthAnalysisService.evaluate(y);
 		youthDataList.add(y);
 		refreshYouthKPIs();
