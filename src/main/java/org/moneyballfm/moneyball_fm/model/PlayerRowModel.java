@@ -306,16 +306,18 @@ public class PlayerRowModel {
 					.setGoals(fp.getGoals())
 					.setAssists(fp.getAssists());
 
+			// 1. Frische Stats vollständig übernehmen
 			this.rawPlayer.putAllStats(fp.getAllStats());
 		}
 
-		TacticRole currentTacticRole = TacticRole.fromDisplayName(this.role.get());
-		if (currentTacticRole != null) {
-			applyRoleStats(currentTacticRole);
-		} else {
-			this.statValue1.set(fresh.statValue1Property().get());
-			this.statValue2.set(fresh.statValue2Property().get());
-			this.statValue3.set(fresh.statValue3Property().get());
-		}
+		// 2. Frische Stat-Werte und Labels direkt aus dem frischen Model übernehmen
+		this.statValue1.set(fresh.statValue1Property().get());
+		this.statValue2.set(fresh.statValue2Property().get());
+		this.statValue3.set(fresh.statValue3Property().get());
+		this.setStatLabels(
+				fresh.stat1LabelProperty().get(),
+				fresh.stat2LabelProperty().get(),
+				fresh.stat3LabelProperty().get()
+		);
 	}
 }
