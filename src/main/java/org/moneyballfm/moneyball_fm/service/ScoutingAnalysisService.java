@@ -105,6 +105,30 @@ public class ScoutingAnalysisService {
 		target.determinationProperty().set(source.determinationProperty().get());
 		target.injurySusceptibilityProperty().set(source.injurySusceptibilityProperty().get());
 		target.availabilityFactorProperty().set(source.availabilityFactorProperty().get());
+
+		target.progressivePasses90Property().set(source.progressivePasses90Property().get());
+		target.xg90Property().set(source.xg90Property().get());
+		target.xa90Property().set(source.xa90Property().get());
+		target.keyPasses90Property().set(source.keyPasses90Property().get());
+		target.shotsOnTargetPctProperty().set(source.shotsOnTargetPctProperty().get());
+		target.shotConversionPctProperty().set(source.shotConversionPctProperty().get());
+		target.passCompletionPctProperty().set(source.passCompletionPctProperty().get());
+		target.xgPrevented90Property().set(source.xgPrevented90Property().get());
+		target.savePctProperty().set(source.savePctProperty().get());
+		target.interceptions90Property().set(source.interceptions90Property().get());
+		target.crossAccuracyPctProperty().set(source.crossAccuracyPctProperty().get());
+		target.goalsProperty().set(source.goalsProperty().get());
+		target.assistsProperty().set(source.assistsProperty().get());
+		target.averageRatingProperty().set(source.averageRatingProperty().get());
+		target.headersWonPctProperty().set(source.headersWonPctProperty().get());
+		target.mistakesLeadingToGoalProperty().set(source.mistakesLeadingToGoalProperty().get());
+		target.dribbles90Property().set(source.dribbles90Property().get());
+		target.crossesAttempted90Property().set(source.crossesAttempted90Property().get());
+		target.tacklesWonPctProperty().set(source.tacklesWonPctProperty().get());
+		target.interceptionsTotalProperty().set(source.interceptionsTotalProperty().get());
+		target.progressivePassesTotalProperty().set(source.progressivePassesTotalProperty().get());
+		target.keyPassesTotalProperty().set(source.keyPassesTotalProperty().get());
+
 		target.statValue1Property().set(source.statValue1Property().get());
 		target.statValue2Property().set(source.statValue2Property().get());
 		target.statValue3Property().set(source.statValue3Property().get());
@@ -138,14 +162,14 @@ public class ScoutingAnalysisService {
 		// 3. Zehner / OM: xA/90, E Pä/90, Pas %
 		else if (roleText.contains("OM") || roleText.contains("ZEHNER") || roleText.contains("ENGANCHE") || roleText.contains("TREQUARTISTA")) {
 			s1 = p.xa90Property().get();
-			s2 = (double) p.keyPassesTotalProperty().get(); // E Pä/90 aus Parser
+			s2 = p.keyPasses90Property().get();
 			s3 = normalizePercent(p.passCompletionPctProperty().get());
 		}
 		// 4. Regista: Pas %, Pr Pässe/90, E Pä/90
 		else if (roleText.contains("REGISTA") || roleText.contains("REG")) {
 			s1 = normalizePercent(p.passCompletionPctProperty().get());
 			s2 = p.progressivePasses90Property().get();
-			s3 = (double) p.keyPassesTotalProperty().get(); // E Pä/90 aus Parser
+			s3 = p.keyPasses90Property().get();
 		}
 		// 5. ZSM / Sechser: Pas %, AbB/90, Zwk %
 		else if (roleText.contains("ZSM") || roleText.contains("ZENTRAL") || roleText.contains("DM") || roleText.contains("BALLEROBERNDER")) {
@@ -177,7 +201,7 @@ public class ScoutingAnalysisService {
 			s2 = normalizePercent(p.tacklesWonPctProperty().get());
 			s3 = p.dribbles90Property().get();
 		}
-		// 10. Flügelspieler: FPQ %, Drb/90, xA/90
+		// 10. Flügelspieler
 		else if (roleText.contains("FLÜGEL") || roleText.contains("WINGER")) {
 			s1 = normalizePercent(p.crossAccuracyPctProperty().get());
 			s2 = p.dribbles90Property().get();

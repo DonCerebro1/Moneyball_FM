@@ -19,7 +19,6 @@ public class FmExportParser {
 
 	public record PreseasonData(String name, String position, int estimatedMinutes, double rating) {}
 
-	// Zwischenspeicher für den 2-Pass Import
 	private record RawPlayerData(
 			String[] cols,
 			Map<String, Integer> colMap,
@@ -251,10 +250,7 @@ public class FmExportParser {
 		List<PlayerRowModel> result = new ArrayList<>();
 		Set<String> seenKeys = new HashSet<>();
 
-		// Map für Startelf: Rolle-Basis (z.B. "Offensiver Mittelfeldspieler") -> Liste der aktiven Taktik-Rollen
 		Map<TacticRole, List<String>> starterRoleMap = new HashMap<>();
-
-		// --- PASS 1: STARTELF RESOLVEN & VORBILDER SAMMELN ---
 		Map<RawPlayerData, String> resolvedRoles = new HashMap<>();
 
 		for (RawPlayerData raw : rawList) {
@@ -267,7 +263,6 @@ public class FmExportParser {
 			}
 		}
 
-		// --- PASS 2: BANK & RESERVE AN DIE STARTELF ANLEHNEN ---
 		for (RawPlayerData raw : rawList) {
 			String finalRoleName;
 
@@ -294,7 +289,6 @@ public class FmExportParser {
 		TacticRole tr = resolveRole(roleDetail, selectedPos, naturalPos);
 		String sel = (selectedPos != null) ? selectedPos.trim().toUpperCase() : "";
 
-		// Seiten-Zuweisung anhand von "Ausgewählte Position"
 		if (sel.contains("OMZL")) return "Offensiver Mittelfeldspieler Links";
 		if (sel.contains("OMZR")) return "Offensiver Mittelfeldspieler Rechts";
 
@@ -316,12 +310,10 @@ public class FmExportParser {
 
 		List<String> starterRoles = starterRoleMap.get(baseRole);
 
-		// 1. Gibt es diese Rolle genau einmal in der Startelf? (z.B. Regista, BSV, Stoßstürmer)
 		if (starterRoles != null && starterRoles.size() == 1) {
 			return starterRoles.get(0);
 		}
 
-		// 2. Gibt es die Rolle doppelt (z.B. OM oder FV)? -> Seite über "Position" auflösen
 		if (starterRoles != null && starterRoles.size() > 1) {
 			String nat = (naturalPos != null) ? naturalPos.toUpperCase() : "";
 			boolean canLeft = nat.contains("(L)") || nat.contains("(LZ)") || nat.contains("(RL)");
@@ -805,11 +797,14 @@ public class FmExportParser {
 		double zwkPct = parseDouble(getVal(cols, map, "zwk %", "zwk"));
 		int abbTotal = parseInt(getVal(cols, map, "abb"));
 		int prPTotal = parseInt(getVal(cols, map, "pr pässe", "prpaesse"));
-		int entP = parseInt(getVal(cols, map, "e pä/90", "e pä/90 min", "ent päs", "entsch pässe", "entpaes"));
+
+		double entP90 = parseDouble(getVal(cols, map, "e pä/90", "e pä/90 min", "ent päs/90", "entsch pässe/90", "key passes/90", "k ps/90"));
+		int entPTotal = parseInt(getVal(cols, map, "ent päs", "entsch pässe", "key passes", "k ps"));
 
 		p.progressivePasses90Property().set(prP);
 		p.xg90Property().set(xg);
 		p.xa90Property().set(xa);
+		p.keyPasses90Property().set(entP90 > 0.0 ? entP90 : (double) entPTotal);
 		p.shotsOnTargetPctProperty().set(schussPct);
 		p.shotConversionPctProperty().set(verwPct);
 		p.passCompletionPctProperty().set(passPct);
@@ -827,7 +822,7 @@ public class FmExportParser {
 		p.tacklesWonPctProperty().set(zwkPct);
 		p.interceptionsTotalProperty().set(abbTotal);
 		p.progressivePassesTotalProperty().set(prPTotal);
-		p.keyPassesTotalProperty().set(entP);
+		p.keyPassesTotalProperty().set(entPTotal);
 
 		p.statValue1Property().set(xg > 0 ? xg : (passPct > 0 ? passPct / 100.0 : prP));
 		p.statValue2Property().set(xa > 0 ? xa : (zwkPct > 0 ? zwkPct / 100.0 : abb90));

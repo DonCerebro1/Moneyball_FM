@@ -29,6 +29,7 @@ public class ScoutingPlayerModel {
 	private final DoubleProperty progressivePasses90 = new SimpleDoubleProperty(0.0);
 	private final DoubleProperty xg90 = new SimpleDoubleProperty(0.0);
 	private final DoubleProperty xa90 = new SimpleDoubleProperty(0.0);
+	private final DoubleProperty keyPasses90 = new SimpleDoubleProperty(0.0);
 	private final DoubleProperty shotsOnTargetPct = new SimpleDoubleProperty(0.0);
 	private final DoubleProperty shotConversionPct = new SimpleDoubleProperty(0.0);
 	private final DoubleProperty passCompletionPct = new SimpleDoubleProperty(0.0);
@@ -60,11 +61,9 @@ public class ScoutingPlayerModel {
 	private final StringProperty priceCheck = new SimpleStringProperty();
 	private final StringProperty transferAction = new SimpleStringProperty();
 
-	// Standard-Konstruktor
 	public ScoutingPlayerModel() {
 	}
 
-	// Bisheriger Konstruktor (bleibt voll kompatibel)
 	public ScoutingPlayerModel(String name, String targetRole, int age, long askingPrice, long wageDemand,
 	                           double contractYears, int agility, int pace, int stamina,
 	                           double stat1, double stat2, double stat3) {
@@ -99,7 +98,6 @@ public class ScoutingPlayerModel {
 	public IntegerProperty staminaProperty() { return stamina; }
 	public IntegerProperty determinationProperty() { return determination; }
 
-	// Verletzung & Verfügbarkeit
 	public StringProperty injurySusceptibilityProperty() { return injurySusceptibility; }
 	public String getInjurySusceptibility() { return injurySusceptibility.get(); }
 	public void setInjurySusceptibility(String val) { this.injurySusceptibility.set(val); }
@@ -111,6 +109,7 @@ public class ScoutingPlayerModel {
 	public DoubleProperty progressivePasses90Property() { return progressivePasses90; }
 	public DoubleProperty xg90Property() { return xg90; }
 	public DoubleProperty xa90Property() { return xa90; }
+	public DoubleProperty keyPasses90Property() { return keyPasses90; }
 	public DoubleProperty shotsOnTargetPctProperty() { return shotsOnTargetPct; }
 	public DoubleProperty shotConversionPctProperty() { return shotConversionPct; }
 	public DoubleProperty passCompletionPctProperty() { return passCompletionPct; }
