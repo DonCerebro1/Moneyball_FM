@@ -41,6 +41,7 @@ public class ShadowSquadRowModel {
 		this.monthlyWageSavings.set(monthlyWageSavings);
 	}
 
+	// Property-Getter (für TableView-Bindings)
 	public StringProperty tacticalRoleProperty() { return tacticalRole; }
 	public StringProperty starterNameProperty() { return starterName; }
 	public LongProperty starterSalaryProperty() { return starterSalary; }
@@ -56,4 +57,18 @@ public class ShadowSquadRowModel {
 
 	public LongProperty netTransferGainProperty() { return netTransferGain; }
 	public LongProperty monthlyWageSavingsProperty() { return monthlyWageSavings; }
+
+	// Direkte Value-Getter (optional, für Services & Tests)
+	public String getTacticalRole() { return tacticalRole.get(); }
+	public String getStarterName() { return starterName.get(); }
+	public long getStarterSalary() { return starterSalary.get(); }
+	public long getStarterMarketValue() { return starterMarketValue.get(); }
+	public String getCandidate1Name() { return candidate1Name.get(); }
+	public long getCandidate1Fee() { return candidate1Fee.get(); }
+	public long getCandidate1Salary() { return candidate1Salary.get(); }
+	public String getCandidate2Name() { return candidate2Name.get(); }
+	public long getCandidate2Fee() { return candidate2Fee.get(); }
+	public long getCandidate2Salary() { return candidate2Salary.get(); }
+	public long getNetTransferGain() { return netTransferGain.get(); }
+	public long getMonthlyWageSavings() { return monthlyWageSavings.get(); }
 }

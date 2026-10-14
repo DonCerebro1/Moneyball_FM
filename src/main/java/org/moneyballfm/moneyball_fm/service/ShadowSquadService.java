@@ -44,7 +44,7 @@ public class ShadowSquadService {
 					.max(Comparator.comparingDouble(p -> p.moneyballScoreProperty().get()))
 					.orElse(null);
 
-			// Fallback nur, wenn noch kein Spieler exakt auf dieser Rolle steht
+			// Fallback mit Seitenprüfung und Rollen-Kompatibilität
 			if (starter == null) {
 				starter = squadPlayers.stream()
 						.filter(p -> !p.isOnLoan())
@@ -65,7 +65,7 @@ public class ShadowSquadService {
 				usedStarters.add(starterName);
 			}
 
-			// 2. Scouts für diesen Slot filtern
+			// 2. Scouts für diesen Slot filtern (inklusive KFV/FV-Brücke & Seitenfilter)
 			List<ScoutingPlayerModel> matchedScouts = scoutPlayers.stream()
 					.filter(s -> !usedScoutsAll.contains(s.nameProperty().get()))
 					.filter(s -> isExactRoleMatch(s.targetRoleProperty().get(), slotLabel, slotCode)
@@ -131,7 +131,9 @@ public class ShadowSquadService {
 			long monthlyWageSavings = 0L;
 
 			if (starter != null && c1 != null) {
-				netTransferGain = starterValue - c1Fee;
+				if (starterValue < 900_000_000L && c1Fee < 900_000_000L) {
+					netTransferGain = starterValue - c1Fee;
+				}
 				monthlyWageSavings = starterSalary - c1Salary;
 			}
 
@@ -161,9 +163,6 @@ public class ShadowSquadService {
 		return !action.contains("ABLEHNEN") && !action.contains("ZU HOCH") && !action.contains("KEINE FREIGABE");
 	}
 
-	/**
-	 * Prüft, ob die Rolle exakt übereinstimmt (auch ohne Rollen-Aufgaben wie '(A)' oder '(V)').
-	 */
 	private static boolean isExactRoleMatch(String playerRole, String slotLabel, String slotCode) {
 		if (playerRole == null || playerRole.isBlank()) return false;
 
@@ -179,42 +178,59 @@ public class ShadowSquadService {
 		return !pClean.isBlank() && pClean.equals(lClean);
 	}
 
-	/**
-	 * Sauberer, positionssicherer Fallback für ähnliche Rollenbezeichnungen,
-	 * ohne dass Innenverteidiger im Mittelfeld landen.
-	 */
 	private static boolean isCompatibleRoleMatch(String playerRole, String slotLabel, String slotCode) {
 		if (playerRole == null || playerRole.isBlank()) return false;
 
 		String p = playerRole.trim().toUpperCase();
-		String l = slotLabel != null ? slotLabel.trim().toUpperCase() : "";
+		String l = (slotLabel != null ? slotLabel.trim().toUpperCase() : "") + " " + (slotCode != null ? slotCode.trim().toUpperCase() : "");
 
-		// Torwart
-		if (l.contains("TORWART") || l.contains("TW")) {
-			return p.contains("TORWART") || p.contains("TW");
+		// Seiten-Prüfung
+		boolean pLeft = p.contains("LINKS") || p.contains("(L)");
+		boolean pRight = p.contains("RECHTS") || p.contains("(R)");
+
+		boolean sLeft = l.contains("LINKS") || l.contains("(L)");
+		boolean sRight = l.contains("RECHTS") || l.contains("(R)");
+
+		if ((pLeft && sRight) || (pRight && sLeft)) {
+			return false;
 		}
-		// Innenverteidigung
-		if (l.contains("INNENVERTEIDIGER") || l.contains("BALLSPIELENDER VERT") || l.contains("HALBRAUMVERTEIDIGER")) {
-			return p.contains("INNENVERTEIDIGER") || p.contains("BALLSPIELENDER VERT") || p.contains("HALBRAUMVERTEIDIGER");
+
+		// 1. Torwart
+		if (l.contains("TORWART") || l.contains("TW") || l.contains("MTW")) {
+			return p.contains("TORWART") || p.contains("TW") || p.contains("MTW");
 		}
-		// Außenverteidiger
-		if (l.contains("FLÜGELVERTEIDIGER")) {
-			return p.contains("FLÜGELVERTEIDIGER");
-		}
-		// Stürmer
-		if (l.contains("STÖSSTÜRMER") || l.contains("STÜRMER")) {
-			return p.contains("STÖSSTÜRMER") || p.contains("STÜRMER");
-		}
-		// Offensives Mittelfeld (Rechts / Links / Zentral)
-		if (l.contains("OFFENSIVER MITTELFELD")) {
-			if (!p.contains("OFFENSIVER MITTELFELD") && !p.contains("INVERTIERTER FLÜGEL")) return false;
-			if (l.contains("RECHTS")) return p.contains("RECHTS");
-			if (l.contains("LINKS")) return p.contains("LINKS");
+
+		// 2. Außen- & Flügelverteidiger (KFV & FV sind gegenseitig kompatibel)
+		if (l.contains("FLÜGELVERT") || l.contains("AUSSENVERT") || l.contains("KFV") || l.contains("FV")) {
+			boolean isPDefender = p.contains("FLÜGELVERT") || p.contains("AUSSENVERT") || p.contains("KFV") || p.contains("FV");
+			if (!isPDefender) return false;
+			if (sLeft && !pLeft && pRight) return false;
+			if (sRight && !pRight && pLeft) return false;
 			return true;
 		}
-		// Zentrales / Defensives Mittelfeld
-		if (l.contains("SPIELMACHER") || l.contains("REGISTA") || l.contains("DEFENSIVER MITTELFELD")) {
-			return p.contains("SPIELMACHER") || p.contains("REGISTA") || p.contains("DEFENSIVER MITTELFELD");
+
+		// 3. Innenverteidigung
+		if (l.contains("INNENVERTEIDIGER") || l.contains("BALLSPIELENDER VERT") || l.contains("HALBRAUMVERTEIDIGER") || l.contains("BSV") || l.contains("HRV") || l.contains("IV")) {
+			return p.contains("INNENVERTEIDIGER") || p.contains("BALLSPIELENDER VERT") || p.contains("HALBRAUMVERTEIDIGER") || p.contains("LIBERO") || p.contains("IV") || p.contains("BSV") || p.contains("HRV");
+		}
+
+		// 4. Stürmer
+		if (l.contains("STÖSSTÜRMER") || l.contains("STÜRMER") || l.contains("STS") || l.contains("KNIPSER")) {
+			return p.contains("STÖSSTÜRMER") || p.contains("STÜRMER") || p.contains("STS") || p.contains("KNIPSER");
+		}
+
+		// 5. Offensives Mittelfeld (Zehner)
+		if (l.contains("OFFENSIVER MITTELFELD") || l.contains("OM") || l.contains("SCHATTEN")) {
+			boolean isOM = p.contains("OFFENSIVER MITTELFELD") || p.contains("OM") || p.contains("SCHATTEN");
+			if (!isOM) return false;
+			if (sLeft && !pLeft && pRight) return false;
+			if (sRight && !pRight && pLeft) return false;
+			return true;
+		}
+
+		// 6. Zentrales & Defensives Mittelfeld
+		if (l.contains("SPIELMACHER") || l.contains("REGISTA") || l.contains("DEFENSIVER MITTELFELD") || l.contains("ZSM") || l.contains("DM")) {
+			return p.contains("SPIELMACHER") || p.contains("REGISTA") || p.contains("DEFENSIVER MITTELFELD") || p.contains("ZSM") || p.contains("DM") || p.contains("VOLANTE");
 		}
 
 		return false;
