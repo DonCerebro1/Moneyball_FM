@@ -30,7 +30,7 @@ public class RegistrationRowModel {
 		// In Spanien: U21 (<= 21 Jahre) benötigt keinen der 25 A-Kader-Slots
 		this.u21Exempt.set(player.ageProperty().get() <= 21);
 
-		// Vorbelegung Testspielminuten aus der Tabelle
+		// Minuten aus dem Spielermodell übernehmen (Feld heißt minutesProperty)
 		this.testMinutes.set(player.minutesPlayedProperty().get());
 
 		evaluate();
@@ -40,6 +40,8 @@ public class RegistrationRowModel {
 		int mins = testMinutes.get();
 		double rating = testRating.get();
 		boolean u21 = u21Exempt.get();
+		String r = role.get() != null ? role.get().toUpperCase() : "";
+		boolean isGoalkeeper = r.contains("TORWART") || r.contains("TW") || r.contains("MTW");
 
 		// 1. Fitness / Form-Trend
 		if (mins >= 210) {
@@ -58,16 +60,27 @@ public class RegistrationRowModel {
 
 		// 2. Registrierungs-Empfehlung
 		if (u21) {
+			// U21-Spieler müssen in Spanien keinen 25er-Kaderplatz belegen
 			if (rating >= 7.2 && mins >= 70) {
 				this.recommendation.set("🟢 U21 TOP-FORM (Frei)");
 			} else {
 				this.recommendation.set("🟡 U21 / B-TEAM (Frei)");
 			}
-			this.registered.set(false); // Kostet keinen 25er-Slot
+			this.registered.set(false);
+		} else if (isGoalkeeper) {
+			// Torhüter müssen in La Liga fest im A-Kader stehen
+			this.recommendation.set("🧤 TORWART (PFLICHT)");
+			this.registered.set(true);
 		} else if (salary.get() > 500_000 && rating > 0.0 && rating < 6.6) {
+			// Teure Spieler mit schwachen Leistungen
 			this.recommendation.set("🔴 STREICHEN / VERKAUF");
 			this.registered.set(false);
 		} else if (mins >= 150 && (rating >= 6.7 || rating == 0.0)) {
+			// Regulär fitte Profis
+			this.recommendation.set("🟢 REGISTRIEREN (FEST)");
+			this.registered.set(true);
+		} else if (marketValue.get() >= 10_000_000L || salary.get() >= 250_000L) {
+			// Wertvolle Stamm-/Kaderspieler vor Saisonstart nicht versehentlich aussperren
 			this.recommendation.set("🟢 REGISTRIEREN (FEST)");
 			this.registered.set(true);
 		} else {

@@ -310,7 +310,6 @@ public class MainController {
 	private void switchActiveTactic(String newTacticName) {
 		String oldTactic = appConfig.getActiveTactic();
 
-		// 1. Die aktuell gewählte Rolle jedes Spielers in der bisherigen Taktik festhalten
 		if (oldTactic != null) {
 			for (PlayerRowModel row : playerDataList) {
 				String curRole = row.roleProperty().get();
@@ -322,10 +321,8 @@ public class MainController {
 
 		appConfig.setActiveTactic(newTacticName);
 
-		// 2. Tabellenspalten und Dropdowns für die neue Taktik vorbereiten
 		setupAllTables();
 
-		// 3. Rollen der neuen Taktik zuweisen und berechnen
 		for (PlayerRowModel row : playerDataList) {
 			String savedRole = row.getRoleForTactic(newTacticName);
 			if (savedRole != null && !savedRole.isBlank()) {
@@ -345,7 +342,6 @@ public class MainController {
 		refreshShadowSquad();
 		refreshSquadKPIs();
 
-		// Rollen im bestehenden Snapshot aktualisieren
 		HistoryRepository.updateLatestSnapshotRoles(playerDataList);
 
 		if (statusLabel != null) {
@@ -454,14 +450,25 @@ public class MainController {
 	public void onCalculateSalary() {
 		try {
 			double score = 0.0;
-			if (txtCalcScore != null && !txtCalcScore.getText().isBlank()) score = Double.parseDouble(txtCalcScore.getText().trim().replace(",", "."));
+			if (txtCalcScore != null && !txtCalcScore.getText().isBlank()) {
+				score = Double.parseDouble(txtCalcScore.getText().trim().replace(",", "."));
+			}
 			long demand = 0L;
 			if (txtCalcDemand != null && !txtCalcDemand.getText().isBlank()) {
 				String clean = txtDemandClean(txtCalcDemand.getText());
 				if (!clean.isEmpty()) demand = Long.parseLong(clean);
 			}
-			double af = (cmbCalcPlayer != null && cmbCalcPlayer.getValue() != null) ? cmbCalcPlayer.getValue().getAvailabilityFactor() : 1.0;
-			var rec = SalaryCalculationService.calculateOffer(score, demand, af, appConfig);
+
+			double af = 1.0;
+			double contractYears = 2.0;
+
+			if (cmbCalcPlayer != null && cmbCalcPlayer.getValue() != null) {
+				PlayerRowModel selected = cmbCalcPlayer.getValue();
+				af = selected.getAvailabilityFactor();
+				contractYears = selected.contractYearsProperty().get();
+			}
+
+			var rec = SalaryCalculationService.calculateOffer(score, demand, af, contractYears, appConfig);
 
 			if (lblCalcTier != null) lblCalcTier.setText(rec.tierId());
 			if (lblCalcStartingOffer != null) lblCalcStartingOffer.setText("€ " + euroFormat.format(rec.suggestedStartingOffer()) + " / Mon.");
@@ -579,17 +586,40 @@ public class MainController {
 
 	private void refreshRegistrationData() {
 		registrationDataList.clear();
-		for (PlayerRowModel p : playerDataList) registrationDataList.add(new RegistrationRowModel(p));
+
+		// 1. Kader-Profis einlesen (U21 und Stammspieler vorfiltern)
+		for (PlayerRowModel p : playerDataList) {
+			RegistrationRowModel reg = new RegistrationRowModel(p);
+			registrationDataList.add(reg);
+		}
+
+		// 2. Jugendspieler integrieren (belegen standardmäßig keinen A-Kader-Slot)
 		for (YouthPlayerModel y : youthDataList) {
-			boolean exists = registrationDataList.stream().anyMatch(r -> SquadImportService.normalizeSquadPlayerKey(r.nameProperty().get(), r.ageProperty().get()).equals(SquadImportService.normalizeSquadPlayerKey(y.getName(), y.ageProperty().get())));
+			boolean exists = registrationDataList.stream().anyMatch(r ->
+					SquadImportService.normalizeSquadPlayerKey(r.nameProperty().get(), r.ageProperty().get())
+							.equals(SquadImportService.normalizeSquadPlayerKey(y.getName(), y.ageProperty().get()))
+			);
+
 			if (!exists) {
-				Player p = new Player(y.getName(), y.targetRoleProperty().get(), y.ageProperty().get(), 0L, 0L, 1.0, y.agilityProperty().get(), y.paceProperty().get(), y.staminaProperty().get(), y.determinationProperty().get(), 0);
+				Player p = new Player(y.getName(), y.targetRoleProperty().get(), y.ageProperty().get(),
+						0L, 0L, 1.0, y.agilityProperty().get(), y.paceProperty().get(), y.staminaProperty().get(),
+						y.determinationProperty().get(), 0);
 				RegistrationRowModel reg = new RegistrationRowModel(new PlayerRowModel(p, 0.0, 0.0, 0.0));
 				reg.u21ExemptProperty().set(y.ageProperty().get() <= 21);
+				reg.registeredProperty().set(false);
 				reg.evaluate();
 				registrationDataList.add(reg);
 			}
 		}
+
+		// 3. Fallback: Wenn noch weniger als 25 Plätze belegt sind, Nicht-U21-Profis aktivieren
+		long nonU21Count = registrationDataList.stream().filter(r -> !r.u21ExemptProperty().get()).count();
+		if (nonU21Count <= 25) {
+			registrationDataList.stream()
+					.filter(r -> !r.u21ExemptProperty().get())
+					.forEach(r -> r.registeredProperty().set(true));
+		}
+
 		refreshRegistrationKPIs();
 	}
 
@@ -688,7 +718,6 @@ public class MainController {
 	private ObservableList<String> getAvailableRoles() {
 		ObservableList<String> roles = FXCollections.observableArrayList();
 
-		// 1. Zuerst alle konkreten Slots der aktiven Taktik (Prio 1 für Dropdown & Tiefenchart)
 		if (appConfig != null && appConfig.getTactics() != null) {
 			appConfig.getTactics().stream()
 					.filter(t -> t.getName() != null && t.getName().equalsIgnoreCase(appConfig.getActiveTactic()))
@@ -708,7 +737,6 @@ public class MainController {
 					});
 		}
 
-		// 2. Alle Standard-FM-Rollen als Fallback hinzufügen
 		for (TacticRole tr : TacticRole.values()) {
 			String dName = tr.getDisplayName();
 			if (!roles.contains(dName)) {
