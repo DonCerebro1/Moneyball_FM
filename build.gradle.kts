@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "org.moneyballfm"
-version = "1.0-SNAPSHOT"
+version = "1.0.0"
 
 repositories {
     mavenCentral()
@@ -70,6 +70,23 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter-api:${junitVersion}")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:${junitVersion}")
     implementation("com.h2database:h2:2.2.224")
+}
+
+// Kopiert den tactics-Ordner nach der Erstellung des jpackage-Images direkt neben die .exe
+tasks.named("jpackageImage") {
+    doLast {
+        val imageDir = layout.buildDirectory.dir("jpackage/FMMoneyball").get().asFile
+        val targetTactics = File(imageDir, "tactics")
+        val sourceTactics = file("src/main/resources/tactics")
+
+        if (sourceTactics.exists()) {
+            copy {
+                from(sourceTactics)
+                into(targetTactics)
+            }
+            println("Tactics wurden erfolgreich nach ${targetTactics.absolutePath} kopiert.")
+        }
+    }
 }
 
 tasks.withType<Test> {
