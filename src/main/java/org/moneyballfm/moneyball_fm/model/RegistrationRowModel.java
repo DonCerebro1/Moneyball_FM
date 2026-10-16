@@ -30,8 +30,8 @@ public class RegistrationRowModel {
 		// In Spanien: U21 (<= 21 Jahre) benötigt keinen der 25 A-Kader-Slots
 		this.u21Exempt.set(player.ageProperty().get() <= 21);
 
-		// Minuten aus dem Spielermodell übernehmen (Feld heißt minutesProperty)
-		this.testMinutes.set(player.minutesPlayedProperty().get());
+		// Preseason-Entkopplung: Startet bei 0, Werte kommen ausschließlich über Testspiel-Import
+		this.testMinutes.set(0);
 
 		evaluate();
 	}
@@ -43,8 +43,10 @@ public class RegistrationRowModel {
 		String r = role.get() != null ? role.get().toUpperCase() : "";
 		boolean isGoalkeeper = r.contains("TORWART") || r.contains("TW") || r.contains("MTW");
 
-		// 1. Fitness / Form-Trend
-		if (mins >= 210) {
+		// 1. Fitness / Form-Trend (reine Vorbereitungsdaten)
+		if (mins == 0) {
+			fitnessTrend.set("⚪ Noch keine Testspiele");
+		} else if (mins >= 210) {
 			if (rating >= 7.2) {
 				fitnessTrend.set("🟢 Topform & voll im Saft");
 			} else if (rating >= 6.7 || rating == 0.0) {
@@ -76,11 +78,11 @@ public class RegistrationRowModel {
 			this.recommendation.set("🔴 STREICHEN / VERKAUF");
 			this.registered.set(false);
 		} else if (mins >= 150 && (rating >= 6.7 || rating == 0.0)) {
-			// Regulär fitte Profis
+			// Regulär fitte Profis nach Vorbereitung
 			this.recommendation.set("🟢 REGISTRIEREN (FEST)");
 			this.registered.set(true);
 		} else if (marketValue.get() >= 10_000_000L || salary.get() >= 250_000L) {
-			// Wertvolle Stamm-/Kaderspieler vor Saisonstart nicht versehentlich aussperren
+			// Wertvolle Stamm-/Kaderspieler auch vor Vorbereitungs-Spielen registriert halten
 			this.recommendation.set("🟢 REGISTRIEREN (FEST)");
 			this.registered.set(true);
 		} else {
