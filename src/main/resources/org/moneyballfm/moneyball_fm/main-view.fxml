@@ -24,13 +24,19 @@
 
         <!-- Editierbarer Vereinsname für flexibles Karrierespiel -->
         <Label text="Mein Verein:" style="-fx-font-weight: bold;" />
-        <TextField fx:id="txtMyClub" prefWidth="130.0" promptText="z. B. Villarreal" />
+        <TextField fx:id="txtMyClub" prefWidth="120.0" promptText="z. B. Villarreal" />
+
+        <Separator orientation="VERTICAL" />
+
+        <!-- Ingame-Saisonstand (editierbar & mit Snapshot gespeichert) -->
+        <Label text="Saison:" style="-fx-font-weight: bold;" />
+        <TextField fx:id="txtInGameSeason" prefWidth="130.0" promptText="z. B. Winter 2037" text="Winter 2037" />
 
         <Separator orientation="VERTICAL" />
 
         <!-- Taktik-Auswahl (Dynamisch aus /tactics geladen) -->
         <Label text="Taktik:" style="-fx-font-weight: bold;" />
-        <ComboBox fx:id="cmbActiveTactic" prefWidth="210.0" promptText="Taktik wählen..." />
+        <ComboBox fx:id="cmbActiveTactic" prefWidth="200.0" promptText="Taktik wählen..." />
 
         <Separator orientation="VERTICAL" />
         <Label fx:id="statusLabel" text="Datei (.rtf, .txt oder .html) hier hineinziehen per Drag &amp; Drop" style="-fx-font-weight: bold;" />
@@ -510,6 +516,55 @@
                         <TableColumn fx:id="colRegTrend" text="Fitness- &amp; Formtrend" prefWidth="180.0" />
                         <TableColumn fx:id="colRegSalary" text="Gehalt / Mon. (€)" prefWidth="125.0" />
                         <TableColumn fx:id="colRegRecommendation" text="Moneyball-Urteil" prefWidth="230.0" />
+                    </columns>
+                </TableView>
+            </VBox>
+        </Tab>
+
+        <!-- TAB 10: Karriere-Historie & Verlauf -->
+        <Tab text="📈 Historie &amp; Trend">
+            <VBox spacing="12.0">
+                <padding>
+                    <Insets top="10.0" />
+                </padding>
+
+                <!-- KPI & Filter-Header Leiste -->
+                <HBox spacing="16.0" alignment="CENTER_LEFT" style="-fx-background-color: #ffffff; -fx-padding: 10 16; -fx-background-radius: 8; -fx-border-color: #cbd5e1; -fx-border-radius: 8;">
+                    <VBox spacing="4.0">
+                        <Label text="SPIELER AUSWÄHLEN" style="-fx-font-size: 11px; -fx-text-fill: #475569; -fx-font-weight: bold;" />
+                        <ComboBox fx:id="cmbHistoryPlayer" prefWidth="260.0" promptText="Spieler wählen..." />
+                    </VBox>
+
+                    <Separator orientation="VERTICAL" />
+
+                    <VBox spacing="4.0" style="-fx-background-color: #f1f5f9; -fx-padding: 6 14; -fx-background-radius: 6; -fx-border-color: #e2e8f0; -fx-border-radius: 6;">
+                        <Label text="GESPEICHERTE STÄNDE" style="-fx-font-size: 10px; -fx-text-fill: #64748b; -fx-font-weight: bold;" />
+                        <Label fx:id="lblHistorySnapshotsCount" text="0 Stände" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #0f172a;" />
+                    </VBox>
+
+                    <VBox spacing="4.0" style="-fx-background-color: #f1f5f9; -fx-padding: 6 14; -fx-background-radius: 6; -fx-border-color: #e2e8f0; -fx-border-radius: 6;">
+                        <Label text="SCORE-ENTWICKLUNG" style="-fx-font-size: 10px; -fx-text-fill: #64748b; -fx-font-weight: bold;" />
+                        <Label fx:id="lblHistoryScoreTrend" text="—" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #0f172a;" />
+                    </VBox>
+
+                    <VBox spacing="4.0" style="-fx-background-color: #f1f5f9; -fx-padding: 6 14; -fx-background-radius: 6; -fx-border-color: #e2e8f0; -fx-border-radius: 6;">
+                        <Label text="MARKTWERT-TREND" style="-fx-font-size: 10px; -fx-text-fill: #64748b; -fx-font-weight: bold;" />
+                        <Label fx:id="lblHistoryValueTrend" text="—" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #0f172a;" />
+                    </VBox>
+                </HBox>
+
+                <!-- Historien-Tabelle -->
+                <TableView fx:id="historyTable" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="colHistSeason" text="Saison / Stand" prefWidth="130.0" />
+                        <TableColumn fx:id="colHistImportDate" text="Importiert am" prefWidth="150.0" />
+                        <TableColumn fx:id="colHistRole" text="Taktische Rolle" prefWidth="190.0" />
+                        <TableColumn fx:id="colHistAge" text="Alter" prefWidth="60.0" style="-fx-alignment: CENTER;" />
+                        <TableColumn fx:id="colHistMarketValue" text="Marktwert (€)" prefWidth="140.0" />
+                        <TableColumn fx:id="colHistSalary" text="Gehalt / Monat (€)" prefWidth="140.0" />
+                        <TableColumn fx:id="colHistMinutes" text="Minuten" prefWidth="85.0" style="-fx-alignment: CENTER;" />
+                        <TableColumn fx:id="colHistScore" text="Score" prefWidth="85.0" style="-fx-alignment: CENTER;" />
+                        <TableColumn fx:id="colHistRec" text="Einstufung" prefWidth="200.0" />
                     </columns>
                 </TableView>
             </VBox>

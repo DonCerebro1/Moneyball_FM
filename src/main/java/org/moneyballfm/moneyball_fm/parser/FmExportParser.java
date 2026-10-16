@@ -12,6 +12,8 @@ import org.moneyballfm.moneyball_fm.model.TacticRole;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class FmExportParser {
 
@@ -366,7 +368,8 @@ public class FmExportParser {
 		int aus = parseInt(getVal(cols, map, "aus", "ausdauer"));
 		int zie = parseInt(getVal(cols, map, "zie", "ziel", "zielstrebigkeit"));
 
-		double contractYears = parseContractYears(getVal(cols, map, "endet", "vertrag"));
+		String rawEndDate = getVal(cols, map, "endet", "vertrag", "auslaufend", "expires");
+		double contractYears = parseContractYears(rawEndDate);
 		double loanRating = parseDouble(getVal(cols, map, "ø note", "note", "d-note", "drschn."));
 		int goals = parseInt(getVal(cols, map, "tore", "goals"));
 		int assists = parseInt(getVal(cols, map, "vor", "vorlagen", "assists"));
@@ -381,6 +384,7 @@ public class FmExportParser {
 		player.setGoals(goals);
 		player.setAssists(assists);
 		player.setInjurySusceptibility(injury);
+		player.setContractEndDate(rawEndDate); // Speichert das Roh-Enddatum persistent
 
 		for (Map.Entry<String, Integer> entry : map.entrySet()) {
 			int idx = entry.getValue();
@@ -756,6 +760,8 @@ public class FmExportParser {
 		TacticRole tacticRole = resolveRole(firstPos, rawPos, roleDetail);
 		String resolvedRole = (tacticRole != null) ? tacticRole.getDisplayName() : "Ballspielender Verteidiger";
 
+		String rawEndDate = getVal(cols, map, "endet", "vertrag", "auslaufend", "expires");
+
 		ScoutingPlayerModel p = new ScoutingPlayerModel();
 		p.nameProperty().set(name);
 		p.targetRoleProperty().set(resolvedRole);
@@ -765,7 +771,7 @@ public class FmExportParser {
 		p.ageProperty().set(parseInt(getVal(cols, map, "alter", "age")));
 		p.askingPriceProperty().set(parseMoney(getVal(cols, map, "transferwert", "marktwert", "wert")));
 		p.wageDemandProperty().set(parseMoney(getVal(cols, map, "gehalt", "monatsgehalt")));
-		p.contractYearsProperty().set(parseContractYears(getVal(cols, map, "endet", "vertrag")));
+		p.contractYearsProperty().set(parseContractYears(rawEndDate));
 		p.minutesProperty().set(parseInt(getVal(cols, map, "min.", "minuten", "min")));
 
 		p.agilityProperty().set(parseInt(getVal(cols, map, "bew", "beweglichkeit")));
@@ -840,17 +846,36 @@ public class FmExportParser {
 		return s.replace('\u00A0', ' ').replace("&nbsp;", " ").trim();
 	}
 
-	private static double parseContractYears(String dateStr) {
-		if (dateStr == null || dateStr.isBlank() || dateStr.equals("-")) return 1.0;
+	public static double parseContractYears(String dateStr) {
+		return calculateContractYears(dateStr, 2037, true);
+	}
+
+	public static double calculateContractYears(String dateStr, int baseYear, boolean isWinter) {
+		if (dateStr == null || dateStr.isBlank() || dateStr.equals("-") || dateStr.equals("—")) {
+			return 2.0;
+		}
 		try {
-			String[] parts = dateStr.split("/");
-			if (parts.length == 3) {
+			String delimiter = dateStr.contains(".") ? "\\." : "/";
+			String[] parts = dateStr.split(delimiter);
+
+			if (parts.length >= 3) {
+				int month = Integer.parseInt(parts[1].trim());
 				int endYear = Integer.parseInt(parts[2].trim());
-				int currentSeasonYear = 2038;
-				return Math.max(0.5, endYear - currentSeasonYear);
+
+				double remaining = endYear - baseYear;
+				if (isWinter) {
+					remaining -= 0.5;
+				}
+
+				if (month <= 7) {
+					return Math.max(0.0, remaining);
+				} else {
+					return Math.max(0.0, remaining + 0.5);
+				}
 			}
 		} catch (Exception ignored) {}
-		return 1.0;
+
+		return 2.0;
 	}
 
 	private static String getVal(String[] cols, Map<String, Integer> map, String... keys) {

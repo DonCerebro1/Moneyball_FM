@@ -16,9 +16,10 @@ public class Player {
 	private int determination;
 	private int minutesPlayed;
 
-	// Vertragsart ("Leihe", "Vollzeitvertrag") und aktueller Verein
+	// Vertragsart ("Leihe", "Vollzeitvertrag"), aktueller Verein & echtes Vertragsdatum
 	private String contractType = "Vollzeitvertrag";
 	private String currentClub = "";
+	private String contractEndDate = ""; // z. B. "30/6/2038" oder "30.06.2038"
 
 	// Neu für Leihspieler & Rollen-Fallback
 	private String league = "";
@@ -75,6 +76,15 @@ public class Player {
 
 	public Player setCurrentClub(String currentClub) {
 		this.currentClub = currentClub;
+		return this;
+	}
+
+	public String getContractEndDate() {
+		return contractEndDate;
+	}
+
+	public Player setContractEndDate(String contractEndDate) {
+		this.contractEndDate = (contractEndDate != null) ? contractEndDate.trim() : "";
 		return this;
 	}
 

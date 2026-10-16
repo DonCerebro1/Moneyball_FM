@@ -22,15 +22,21 @@ import java.io.File;
 import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class MainController {
+
+	private static final String ALL_CLUB_OPTION = "🏛️ Gesamter Verein (Kader-Übersicht)";
 
 	@FXML private VBox rootPane;
 	@FXML private TabPane mainTabPane;
 	@FXML private Label statusLabel;
 	@FXML private TextField txtMyClub;
+	@FXML private TextField txtInGameSeason;
 	@FXML private ComboBox<String> cmbActiveTactic;
 	@FXML private Label lblImportTimestamp;
 
@@ -217,6 +223,22 @@ public class MainController {
 	@FXML private TableColumn<RegistrationRowModel, Long> colRegSalary;
 	@FXML private TableColumn<RegistrationRowModel, String> colRegRecommendation;
 
+	// TAB 10: Karriere-Historie & Verlauf
+	@FXML private ComboBox<String> cmbHistoryPlayer;
+	@FXML private Label lblHistorySnapshotsCount;
+	@FXML private Label lblHistoryScoreTrend;
+	@FXML private Label lblHistoryValueTrend;
+	@FXML private TableView<PlayerHistoryEntry> historyTable;
+	@FXML private TableColumn<PlayerHistoryEntry, String> colHistSeason;
+	@FXML private TableColumn<PlayerHistoryEntry, String> colHistImportDate;
+	@FXML private TableColumn<PlayerHistoryEntry, String> colHistRole;
+	@FXML private TableColumn<PlayerHistoryEntry, Integer> colHistAge;
+	@FXML private TableColumn<PlayerHistoryEntry, Long> colHistMarketValue;
+	@FXML private TableColumn<PlayerHistoryEntry, Long> colHistSalary;
+	@FXML private TableColumn<PlayerHistoryEntry, Integer> colHistMinutes;
+	@FXML private TableColumn<PlayerHistoryEntry, Double> colHistScore;
+	@FXML private TableColumn<PlayerHistoryEntry, String> colHistRec;
+
 	private final ObservableList<PlayerRowModel> playerDataList = FXCollections.observableArrayList();
 	private final ObservableList<PositionNeedModel> needsDataList = FXCollections.observableArrayList();
 	private final ObservableList<DepthChartRowModel> depthChartDataList = FXCollections.observableArrayList();
@@ -226,6 +248,7 @@ public class MainController {
 	private final ObservableList<ScoutingPlayerModel> scoutDataList = FXCollections.observableArrayList();
 	private final ObservableList<ShadowSquadRowModel> shadowSquadDataList = FXCollections.observableArrayList();
 	private final ObservableList<RegistrationRowModel> registrationDataList = FXCollections.observableArrayList();
+	private final ObservableList<PlayerHistoryEntry> historyDataList = FXCollections.observableArrayList();
 
 	private AppConfig appConfig;
 	private final NumberFormat euroFormat = NumberFormat.getNumberInstance(Locale.GERMANY);
@@ -243,9 +266,18 @@ public class MainController {
 			});
 		}
 
+		// Listener für automatisches Speichern & Live-Neuberechnung des Ingame-Saisonstandes
+		if (txtInGameSeason != null) {
+			txtInGameSeason.setOnAction(e -> applyAndPersistSeason());
+			txtInGameSeason.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
+				if (!isNowFocused) applyAndPersistSeason();
+			});
+		}
+
 		setupTacticSelector();
 		setupAllTables();
 		setupSalaryCalculator();
+		setupHistoryTab();
 		setupDragAndDrop();
 
 		playerTable.setItems(playerDataList);
@@ -258,11 +290,16 @@ public class MainController {
 		if (scoutTable != null) { scoutTable.setItems(scoutDataList); scoutTable.setEditable(true); }
 		if (shadowSquadTable != null) { shadowSquadTable.setItems(shadowSquadDataList); shadowSquadTable.setEditable(true); }
 		if (registrationTable != null) { registrationTable.setItems(registrationDataList); registrationTable.setEditable(true); }
+		if (historyTable != null) historyTable.setItems(historyDataList);
 
 		String activeTactic = appConfig.getActiveTactic() != null ? appConfig.getActiveTactic() : "4-3-3 Gegenpress";
-		String lastImportDate = HistoryRepository.loadLatestSnapshot(
+		HistoryRepository.SnapshotMetadata meta = HistoryRepository.loadLatestSnapshot(
 				playerDataList, outgoingLoanDataList, incomingLoanDataList, youthDataList, scoutDataList, activeTactic
 		);
+
+		if (meta != null && meta.inGameSeason() != null && !meta.inGameSeason().isBlank()) {
+			if (txtInGameSeason != null) txtInGameSeason.setText(meta.inGameSeason());
+		}
 
 		if (!playerDataList.isEmpty() || !youthDataList.isEmpty() || !outgoingLoanDataList.isEmpty() || !scoutDataList.isEmpty()) {
 			for (PlayerRowModel row : playerDataList) MoneyballCalculator.recalculate(row, appConfig);
@@ -271,12 +308,70 @@ public class MainController {
 			for (YouthPlayerModel y : youthDataList) YouthAnalysisService.evaluate(y);
 			for (ScoutingPlayerModel s : scoutDataList) ScoutingAnalysisService.evaluate(s, appConfig);
 
+			// Initialen Abgleich der Restverträge mit der geladenen Saison durchführen
+			String initialSeason = (txtInGameSeason != null && !txtInGameSeason.getText().isBlank())
+					? txtInGameSeason.getText().trim() : "Winter 2037";
+			recalculateAllPlayerContracts(initialSeason);
+
 			refreshAll();
 			if (statusLabel != null) statusLabel.setText("Stand aus H2 geladen (" + playerDataList.size() + " Kader, " + youthDataList.size() + " Talente, " + scoutDataList.size() + " Scouts).");
-			if (lblImportTimestamp != null && lastImportDate != null) lblImportTimestamp.setText("Importiert am: " + lastImportDate);
+			if (lblImportTimestamp != null && meta != null && meta.importDate() != null) {
+				lblImportTimestamp.setText("Import: " + meta.importDate() + " | " + initialSeason);
+			}
 		}
 
 		refreshShadowSquad();
+		refreshSquadKPIs();
+	}
+
+	private void applyAndPersistSeason() {
+		if (txtInGameSeason == null) return;
+		String season = txtInGameSeason.getText();
+		if (season != null && !season.isBlank()) {
+			String trimmedSeason = season.trim();
+			HistoryRepository.updateLatestSnapshotSeason(trimmedSeason);
+
+			// Restverträge aller Spieler live neu berechnen und Positions-Bedarf aktualisieren
+			recalculateAllPlayerContracts(trimmedSeason);
+
+			if (statusLabel != null) statusLabel.setText("Saisonstand aktualisiert: " + trimmedSeason);
+			if (lblImportTimestamp != null && lblImportTimestamp.getText().contains("|")) {
+				String base = lblImportTimestamp.getText().substring(0, lblImportTimestamp.getText().indexOf("|") + 1);
+				lblImportTimestamp.setText(base + " " + trimmedSeason);
+			}
+		}
+	}
+
+	private void recalculateAllPlayerContracts(String seasonText) {
+		if (seasonText == null || seasonText.isBlank()) return;
+
+		Matcher m = Pattern.compile("(\\d{4})").matcher(seasonText);
+		int baseYear = 2037;
+		if (m.find()) {
+			baseYear = Integer.parseInt(m.group(1));
+		}
+		boolean isWinter = seasonText.toLowerCase().contains("winter");
+
+		for (PlayerRowModel row : playerDataList) {
+			Player raw = row.getRawPlayer();
+			if (raw != null) {
+				String rawEndDate = raw.getContractEndDate();
+				if (rawEndDate != null && !rawEndDate.isBlank()) {
+					double remaining = FmExportParser.calculateContractYears(rawEndDate, baseYear, isWinter);
+					row.contractYearsProperty().set(remaining);
+					raw.setContractYears(remaining);
+				}
+			}
+		}
+
+		for (ScoutingPlayerModel s : scoutDataList) {
+			double cur = s.contractYearsProperty().get();
+			if (cur > 0.0) {
+				// Scouts behalten ihren Wert oder werden entsprechend mitgepflegt
+			}
+		}
+
+		refreshSquadNeeds();
 		refreshSquadKPIs();
 	}
 
@@ -416,6 +511,14 @@ public class MainController {
 				colRegU21, colRegMinutes, colRegRating, colRegTrend, colRegSalary,
 				colRegRecommendation, this::refreshRegistrationKPIs
 		);
+
+		if (historyTable != null) {
+			TableColumnBinder.setupHistoryTable(
+					historyTable, colHistSeason, colHistImportDate, colHistRole,
+					colHistAge, colHistMarketValue, colHistSalary, colHistMinutes,
+					colHistScore, colHistRec
+			);
+		}
 	}
 
 	private void refreshAll() {
@@ -424,6 +527,7 @@ public class MainController {
 		refreshYouthKPIs();
 		refreshScoutKPIs();
 		refreshRegistrationData();
+		refreshHistoryPlayerDropdown();
 	}
 
 	private void setupSalaryCalculator() {
@@ -444,6 +548,178 @@ public class MainController {
 		}
 		if (txtCalcScore != null) txtCalcScore.textProperty().addListener((o, ov, nv) -> onCalculateSalary());
 		if (txtCalcDemand != null) txtCalcDemand.textProperty().addListener((o, ov, nv) -> onCalculateSalary());
+	}
+
+	private void setupHistoryTab() {
+		if (cmbHistoryPlayer == null) return;
+		cmbHistoryPlayer.valueProperty().addListener((obs, oldV, newV) -> {
+			if (newV != null && !newV.isBlank()) {
+				handleHistorySelection(newV);
+			}
+		});
+	}
+
+	private void refreshHistoryPlayerDropdown() {
+		if (cmbHistoryPlayer == null) return;
+		String curSelection = cmbHistoryPlayer.getValue();
+
+		ObservableList<String> items = FXCollections.observableArrayList();
+		items.add(ALL_CLUB_OPTION);
+
+		List<String> playerNames = playerDataList.stream()
+				.map(p -> p.nameProperty().get())
+				.filter(n -> n != null && !n.isBlank())
+				.distinct()
+				.sorted(String.CASE_INSENSITIVE_ORDER)
+				.toList();
+
+		items.addAll(playerNames);
+		cmbHistoryPlayer.setItems(items);
+
+		if (curSelection != null && items.contains(curSelection)) {
+			cmbHistoryPlayer.setValue(curSelection);
+			handleHistorySelection(curSelection);
+		} else if (!items.isEmpty()) {
+			cmbHistoryPlayer.setValue(ALL_CLUB_OPTION);
+			loadClubHistory();
+		} else {
+			historyDataList.clear();
+			resetHistoryKpis();
+		}
+	}
+
+	private void handleHistorySelection(String selected) {
+		if (ALL_CLUB_OPTION.equals(selected)) {
+			loadClubHistory();
+		} else {
+			loadHistoryForPlayer(selected);
+		}
+	}
+
+	private void loadClubHistory() {
+		String club = (txtMyClub != null && !txtMyClub.getText().isBlank()) ? txtMyClub.getText().trim() : "Villarreal";
+		List<ClubHistoryEntry> entries = HistoryRepository.getClubHistory(club);
+
+		List<PlayerHistoryEntry> rows = entries.stream().map(c -> new PlayerHistoryEntry(
+				c.getSnapshotDate(),
+				c.getSeason(),
+				"Kader: " + c.getPlayerCount() + " Spieler",
+				(int) Math.round(c.getAvgAge()),
+				c.getTotalMarketValue(),
+				c.getTotalMonthlySalary(),
+				0,
+				Math.round(c.getAvgMoneyballScore() * 10.0) / 10.0,
+				"Ø Alter: " + String.format(Locale.GERMANY, "%.1f", c.getAvgAge())
+		)).toList();
+
+		historyDataList.setAll(rows);
+
+		if (lblHistorySnapshotsCount != null) {
+			lblHistorySnapshotsCount.setText(entries.size() + (entries.size() == 1 ? " Saison-Stand" : " Saison-Stände"));
+		}
+
+		if (entries.size() >= 2) {
+			ClubHistoryEntry first = entries.get(0);
+			ClubHistoryEntry latest = entries.get(entries.size() - 1);
+
+			double scoreDiff = Math.round((latest.getAvgMoneyballScore() - first.getAvgMoneyballScore()) * 10.0) / 10.0;
+			long valueDiff = latest.getTotalMarketValue() - first.getTotalMarketValue();
+
+			if (lblHistoryScoreTrend != null) {
+				String sign = scoreDiff > 0.0 ? "+" : "";
+				lblHistoryScoreTrend.setText(sign + String.format(Locale.GERMANY, "%.1f", scoreDiff) + " Ø Score");
+				lblHistoryScoreTrend.setStyle(scoreDiff >= 0.0
+						? "-fx-text-fill: #16a34a; -fx-font-weight: bold; -fx-font-size: 16px;"
+						: "-fx-text-fill: #dc2626; -fx-font-weight: bold; -fx-font-size: 16px;");
+			}
+
+			if (lblHistoryValueTrend != null) {
+				String sign = valueDiff > 0 ? "+" : "";
+				lblHistoryValueTrend.setText(sign + "€ " + euroFormat.format(valueDiff));
+				lblHistoryValueTrend.setStyle(valueDiff >= 0
+						? "-fx-text-fill: #16a34a; -fx-font-weight: bold; -fx-font-size: 16px;"
+						: "-fx-text-fill: #dc2626; -fx-font-weight: bold; -fx-font-size: 16px;");
+			}
+		} else if (entries.size() == 1) {
+			if (lblHistoryScoreTrend != null) {
+				lblHistoryScoreTrend.setText("Basisstand");
+				lblHistoryScoreTrend.setStyle("-fx-text-fill: #64748b; -fx-font-weight: bold; -fx-font-size: 16px;");
+			}
+			if (lblHistoryValueTrend != null) {
+				lblHistoryValueTrend.setText("Basisstand");
+				lblHistoryValueTrend.setStyle("-fx-text-fill: #64748b; -fx-font-weight: bold; -fx-font-size: 16px;");
+			}
+		} else {
+			resetHistoryKpis();
+		}
+	}
+
+	private void loadHistoryForPlayer(String playerName) {
+		if (playerName == null || playerName.isBlank()) {
+			historyDataList.clear();
+			resetHistoryKpis();
+			return;
+		}
+
+		int currentAge = playerDataList.stream()
+				.filter(p -> playerName.equalsIgnoreCase(p.nameProperty().get()))
+				.mapToInt(p -> p.ageProperty().get())
+				.findFirst()
+				.orElse(-1);
+
+		List<PlayerHistoryEntry> entries = HistoryRepository.getPlayerHistory(playerName, currentAge);
+		historyDataList.setAll(entries);
+
+		if (lblHistorySnapshotsCount != null) {
+			lblHistorySnapshotsCount.setText(entries.size() + (entries.size() == 1 ? " Stand" : " Stände"));
+		}
+
+		if (entries.size() >= 2) {
+			PlayerHistoryEntry first = entries.get(0);
+			PlayerHistoryEntry latest = entries.get(entries.size() - 1);
+
+			double scoreDiff = Math.round((latest.moneyballScore() - first.moneyballScore()) * 10.0) / 10.0;
+			long valueDiff = latest.marketValue() - first.marketValue();
+
+			if (lblHistoryScoreTrend != null) {
+				String sign = scoreDiff > 0.0 ? "+" : "";
+				lblHistoryScoreTrend.setText(sign + String.format(Locale.GERMANY, "%.1f", scoreDiff) + " Pkt.");
+				lblHistoryScoreTrend.setStyle(scoreDiff >= 0.0
+						? "-fx-text-fill: #16a34a; -fx-font-weight: bold; -fx-font-size: 16px;"
+						: "-fx-text-fill: #dc2626; -fx-font-weight: bold; -fx-font-size: 16px;");
+			}
+
+			if (lblHistoryValueTrend != null) {
+				String sign = valueDiff > 0 ? "+" : "";
+				lblHistoryValueTrend.setText(sign + "€ " + euroFormat.format(valueDiff));
+				lblHistoryValueTrend.setStyle(valueDiff >= 0
+						? "-fx-text-fill: #16a34a; -fx-font-weight: bold; -fx-font-size: 16px;"
+						: "-fx-text-fill: #dc2626; -fx-font-weight: bold; -fx-font-size: 16px;");
+			}
+		} else if (entries.size() == 1) {
+			if (lblHistoryScoreTrend != null) {
+				lblHistoryScoreTrend.setText("Basisstand");
+				lblHistoryScoreTrend.setStyle("-fx-text-fill: #64748b; -fx-font-weight: bold; -fx-font-size: 16px;");
+			}
+			if (lblHistoryValueTrend != null) {
+				lblHistoryValueTrend.setText("Basisstand");
+				lblHistoryValueTrend.setStyle("-fx-text-fill: #64748b; -fx-font-weight: bold; -fx-font-size: 16px;");
+			}
+		} else {
+			resetHistoryKpis();
+		}
+	}
+
+	private void resetHistoryKpis() {
+		if (lblHistorySnapshotsCount != null) lblHistorySnapshotsCount.setText("0 Stände");
+		if (lblHistoryScoreTrend != null) {
+			lblHistoryScoreTrend.setText("—");
+			lblHistoryScoreTrend.setStyle("-fx-text-fill: #0f172a; -fx-font-weight: bold; -fx-font-size: 16px;");
+		}
+		if (lblHistoryValueTrend != null) {
+			lblHistoryValueTrend.setText("—");
+			lblHistoryValueTrend.setStyle("-fx-text-fill: #0f172a; -fx-font-weight: bold; -fx-font-size: 16px;");
+		}
 	}
 
 	@FXML
@@ -510,12 +786,14 @@ public class MainController {
 
 	private void saveSquadSnapshotToDatabase() {
 		String club = (txtMyClub != null && !txtMyClub.getText().isBlank()) ? txtMyClub.getText().trim() : "Villarreal";
-		HistoryRepository.saveSquadSnapshot(club, playerDataList, outgoingLoanDataList, incomingLoanDataList, youthDataList);
+		String season = (txtInGameSeason != null && !txtInGameSeason.getText().isBlank()) ? txtInGameSeason.getText().trim() : "Aktuell";
+		HistoryRepository.saveSquadSnapshot(club, season, playerDataList, outgoingLoanDataList, incomingLoanDataList, youthDataList);
 	}
 
 	private void saveScoutingSnapshotToDatabase() {
 		String club = (txtMyClub != null && !txtMyClub.getText().isBlank()) ? txtMyClub.getText().trim() : "Villarreal";
-		HistoryRepository.saveScoutingSnapshot(club, scoutDataList);
+		String season = (txtInGameSeason != null && !txtInGameSeason.getText().isBlank()) ? txtInGameSeason.getText().trim() : "Aktuell";
+		HistoryRepository.saveScoutingSnapshot(club, season, scoutDataList);
 	}
 
 	private void recalc(PlayerRowModel row) {
@@ -630,7 +908,7 @@ public class MainController {
 
 		if (lblRegisteredCount != null) {
 			lblRegisteredCount.setText(registeredSlots + " / 25 Slots");
-			lblRegisteredCount.setStyle(registeredSlots > 25 ? "-fx-text-fill: #dc2626; -fx-font-weight: bold;" : "-fx-text-fill: #16a34a; -fx-font-weight: bold;");
+			lblRegisteredCount.setStyle(registeredSlots > 25 ? "-fx-text-fill: #dc2626; -fx-font-weight: bold;" : "-fx-text-fill: #16a34a; -fx-font-weight: bold;" );
 		}
 		if (lblU21ExemptCount != null) lblU21ExemptCount.setText(u21Count + " U21 frei");
 		if (lblRegistrationWages != null) lblRegistrationWages.setText("€ " + euroFormat.format(totalRegWage) + " / Mon.");
@@ -697,13 +975,20 @@ public class MainController {
 					String clubName = (txtMyClub != null && !txtMyClub.getText().isBlank()) ? txtMyClub.getText() : null;
 					var res = SquadImportService.importSquadFile(droppedFile, clubName, appConfig, playerDataList, outgoingLoanDataList, youthDataList);
 
+					// Nach dem Import direkt anhand des aktuellen Saisonstands die Verträge synchronisieren
+					String currentSeason = (txtInGameSeason != null && !txtInGameSeason.getText().isBlank())
+							? txtInGameSeason.getText().trim() : "Winter 2037";
+					recalculateAllPlayerContracts(currentSeason);
+
 					refreshAll();
 					LoanAnalysisService.syncIncomingLoans(playerDataList, incomingLoanDataList);
 					refreshShadowSquad();
 					refreshSquadKPIs();
 					saveSquadSnapshotToDatabase();
 
-					if (lblImportTimestamp != null) lblImportTimestamp.setText("Importiert am: " + LocalDateTime.now().format(timeFormatter));
+					if (lblImportTimestamp != null) {
+						lblImportTimestamp.setText("Import: " + LocalDateTime.now().format(timeFormatter) + " | " + currentSeason);
+					}
 					statusLabel.setText(res.message());
 					event.setDropCompleted(true);
 				} catch (Exception e) {
@@ -811,6 +1096,7 @@ public class MainController {
 		scoutDataList.clear();
 		shadowSquadDataList.clear();
 		registrationDataList.clear();
+		historyDataList.clear();
 
 		if (lblCriticalNeeds != null) lblCriticalNeeds.setText("0 Positionen");
 		if (lblWarningNeeds != null) lblWarningNeeds.setText("0 Positionen");
@@ -822,6 +1108,9 @@ public class MainController {
 		if (lblU21ExemptCount != null) lblU21ExemptCount.setText("0 U21 frei");
 		if (lblRegistrationWages != null) lblRegistrationWages.setText("€ 0 / Mon.");
 		if (lblImportTimestamp != null) lblImportTimestamp.setText("Stand: Noch kein Import");
+
+		resetHistoryKpis();
+		if (cmbHistoryPlayer != null) cmbHistoryPlayer.getItems().clear();
 
 		refreshSquadKPIs();
 		refreshLoanKPIs();

@@ -665,6 +665,73 @@ public class TableColumnBinder {
 		colRegRecommendation.setCellValueFactory(c -> c.getValue().recommendationProperty());
 	}
 
+	public static void setupHistoryTable(
+			TableView<PlayerHistoryEntry> table,
+			TableColumn<PlayerHistoryEntry, String> colSeason,
+			TableColumn<PlayerHistoryEntry, String> colDate,
+			TableColumn<PlayerHistoryEntry, String> colRole,
+			TableColumn<PlayerHistoryEntry, Integer> colAge,
+			TableColumn<PlayerHistoryEntry, Long> colMarketValue,
+			TableColumn<PlayerHistoryEntry, Long> colSalary,
+			TableColumn<PlayerHistoryEntry, Integer> colMinutes,
+			TableColumn<PlayerHistoryEntry, Double> colScore,
+			TableColumn<PlayerHistoryEntry, String> colRecommendation) {
+
+		if (table == null) return;
+		StringConverter<Long> euroConv = createEuroConverter();
+
+		if (colSeason != null) colSeason.setCellValueFactory(c -> c.getValue().seasonProperty());
+		if (colDate != null) colDate.setCellValueFactory(c -> c.getValue().snapshotDateProperty());
+		if (colRole != null) colRole.setCellValueFactory(c -> c.getValue().roleProperty());
+
+		if (colAge != null) {
+			colAge.setCellValueFactory(c -> c.getValue().ageProperty().asObject());
+			colAge.setCellFactory(TextFieldTableCell.forTableColumn(new IntegerStringConverter()));
+		}
+
+		if (colMarketValue != null) {
+			colMarketValue.setCellValueFactory(c -> c.getValue().marketValueProperty().asObject());
+			colMarketValue.setCellFactory(TextFieldTableCell.forTableColumn(euroConv));
+		}
+
+		if (colSalary != null) {
+			colSalary.setCellValueFactory(c -> c.getValue().monthlySalaryProperty().asObject());
+			colSalary.setCellFactory(TextFieldTableCell.forTableColumn(euroConv));
+		}
+
+		if (colMinutes != null) {
+			colMinutes.setCellValueFactory(c -> c.getValue().minutesPlayedProperty().asObject());
+			colMinutes.setCellFactory(TextFieldTableCell.forTableColumn(new IntegerStringConverter()));
+		}
+
+		if (colScore != null) {
+			colScore.setCellValueFactory(c -> c.getValue().moneyballScoreProperty().asObject());
+			colScore.setCellFactory(col -> new TableCell<>() {
+				@Override
+				protected void updateItem(Double val, boolean empty) {
+					super.updateItem(val, empty);
+					if (empty || val == null) {
+						setText(null);
+						setStyle("");
+					} else {
+						setText(String.format(Locale.GERMANY, "%.1f", val));
+						if (val >= 80.0) {
+							setStyle("-fx-text-fill: #16a34a; -fx-font-weight: bold;");
+						} else if (val >= 65.0) {
+							setStyle("-fx-text-fill: #2563eb; -fx-font-weight: bold;");
+						} else {
+							setStyle("-fx-text-fill: #dc2626; -fx-font-weight: bold;");
+						}
+					}
+				}
+			});
+		}
+
+		if (colRecommendation != null) {
+			colRecommendation.setCellValueFactory(c -> c.getValue().recommendationProperty());
+		}
+	}
+
 	public static void syncManualStatToRaw(ScoutingPlayerModel p, int statSlot, double val) {
 		String role = p.targetRoleProperty().get() != null ? p.targetRoleProperty().get().toUpperCase() : "";
 		if (role.contains("TW") || role.contains("TORWART")) {

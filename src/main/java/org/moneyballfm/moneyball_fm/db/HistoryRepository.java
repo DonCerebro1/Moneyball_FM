@@ -4,6 +4,7 @@ import org.moneyballfm.moneyball_fm.model.*;
 
 import java.sql.*;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -12,20 +13,26 @@ public class HistoryRepository {
 
 	private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss");
 
+	public record SnapshotMetadata(String importDate, String inGameSeason) {}
+
 	public static void saveSquadSnapshot(
 			String clubName,
+			String inGameSeason,
 			List<PlayerRowModel> squad,
 			List<LoanPlayerModel> outgoingLoans,
 			List<LoanPlayerModel> incomingLoans,
 			List<YouthPlayerModel> youth) {
 
+		String season = (inGameSeason != null && !inGameSeason.isBlank()) ? inGameSeason.trim() : "Aktuell";
+
 		try (Connection conn = DatabaseManager.getConnection()) {
 			conn.setAutoCommit(false);
 
 			long snapshotId = -1;
-			String insertSnapshot = "INSERT INTO snapshots (club_name, in_game_season, export_type, file_name, imported_at) VALUES (?, 'Aktuell', 'SQUAD', 'Kader-Import', CURRENT_TIMESTAMP)";
+			String insertSnapshot = "INSERT INTO snapshots (club_name, in_game_season, export_type, file_name, imported_at) VALUES (?, ?, 'SQUAD', 'Kader-Import', CURRENT_TIMESTAMP)";
 			try (PreparedStatement ps = conn.prepareStatement(insertSnapshot, Statement.RETURN_GENERATED_KEYS)) {
 				ps.setString(1, clubName);
+				ps.setString(2, season);
 				ps.executeUpdate();
 				try (ResultSet rs = ps.getGeneratedKeys()) {
 					if (rs.next()) snapshotId = rs.getLong(1);
@@ -44,10 +51,15 @@ public class HistoryRepository {
 		}
 	}
 
-	/**
-	 * Aktualisiert nur die Rollen der Spieler im aktuellsten Snapshot,
-	 * OHNE einen neuen Datensatz in snapshots anzulegen.
-	 */
+	public static void saveSquadSnapshot(
+			String clubName,
+			List<PlayerRowModel> squad,
+			List<LoanPlayerModel> outgoingLoans,
+			List<LoanPlayerModel> incomingLoans,
+			List<YouthPlayerModel> youth) {
+		saveSquadSnapshot(clubName, "Aktuell", squad, outgoingLoans, incomingLoans, youth);
+	}
+
 	public static void updateLatestSnapshotRoles(List<PlayerRowModel> squad) {
 		if (squad == null || squad.isEmpty()) return;
 
@@ -78,19 +90,34 @@ public class HistoryRepository {
 		}
 	}
 
+	public static void updateLatestSnapshotSeason(String newSeason) {
+		if (newSeason == null || newSeason.isBlank()) return;
+		String sql = "UPDATE snapshots SET in_game_season = ? WHERE id = (SELECT id FROM snapshots WHERE export_type = 'SQUAD' ORDER BY imported_at DESC LIMIT 1)";
+		try (Connection conn = DatabaseManager.getConnection();
+		     PreparedStatement ps = conn.prepareStatement(sql)) {
+			ps.setString(1, newSeason.trim());
+			ps.executeUpdate();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+	}
+
 	public static void saveScoutingSnapshot(
 			String clubName,
+			String inGameSeason,
 			List<ScoutingPlayerModel> scouting) {
 
 		if (scouting == null || scouting.isEmpty()) return;
+		String season = (inGameSeason != null && !inGameSeason.isBlank()) ? inGameSeason.trim() : "Aktuell";
 
 		try (Connection conn = DatabaseManager.getConnection()) {
 			conn.setAutoCommit(false);
 
 			long snapshotId = -1;
-			String insertSnapshot = "INSERT INTO snapshots (club_name, in_game_season, export_type, file_name, imported_at) VALUES (?, 'Aktuell', 'SCOUTING', 'Scouting-Import', CURRENT_TIMESTAMP)";
+			String insertSnapshot = "INSERT INTO snapshots (club_name, in_game_season, export_type, file_name, imported_at) VALUES (?, ?, 'SCOUTING', 'Scouting-Import', CURRENT_TIMESTAMP)";
 			try (PreparedStatement ps = conn.prepareStatement(insertSnapshot, Statement.RETURN_GENERATED_KEYS)) {
 				ps.setString(1, clubName);
+				ps.setString(2, season);
 				ps.executeUpdate();
 				try (ResultSet rs = ps.getGeneratedKeys()) {
 					if (rs.next()) snapshotId = rs.getLong(1);
@@ -146,6 +173,12 @@ public class HistoryRepository {
 		}
 	}
 
+	public static void saveScoutingSnapshot(
+			String clubName,
+			List<ScoutingPlayerModel> scouting) {
+		saveScoutingSnapshot(clubName, "Aktuell", scouting);
+	}
+
 	private static void writePlayersBatch(
 			Connection conn,
 			long snapshotId,
@@ -181,7 +214,7 @@ public class HistoryRepository {
 				ps.setInt(5, age);
 				ps.setLong(6, p.marketValueProperty().get());
 				ps.setLong(7, p.monthlySalaryProperty().get());
-				ps.setDouble(8, 2.0);
+				ps.setDouble(8, p.contractYearsProperty().get());
 				ps.setInt(9, p.minutesPlayedProperty().get());
 				ps.setInt(10, 0);
 				ps.setDouble(11, 0.0);
@@ -307,7 +340,7 @@ public class HistoryRepository {
 		}
 	}
 
-	public static String loadLatestSnapshot(
+	public static SnapshotMetadata loadLatestSnapshot(
 			List<PlayerRowModel> squadTarget,
 			List<LoanPlayerModel> outgoingLoansTarget,
 			List<LoanPlayerModel> incomingLoansTarget,
@@ -316,8 +349,9 @@ public class HistoryRepository {
 			String activeTactic) {
 
 		String lastDate = null;
+		String lastSeason = null;
 
-		String squadSql = "SELECT id, imported_at FROM snapshots WHERE export_type = 'SQUAD' ORDER BY imported_at DESC LIMIT 1";
+		String squadSql = "SELECT id, imported_at, in_game_season FROM snapshots WHERE export_type = 'SQUAD' ORDER BY imported_at DESC LIMIT 1";
 		try (Connection conn = DatabaseManager.getConnection();
 		     Statement stmt = conn.createStatement();
 		     ResultSet rs = stmt.executeQuery(squadSql)) {
@@ -326,6 +360,7 @@ public class HistoryRepository {
 				long squadSnapshotId = rs.getLong("id");
 				Timestamp ts = rs.getTimestamp("imported_at");
 				lastDate = ts != null ? ts.toLocalDateTime().format(FORMATTER) : null;
+				lastSeason = rs.getString("in_game_season");
 
 				String playerSql = "SELECT * FROM player_history WHERE snapshot_id = ?";
 				try (PreparedStatement ps = conn.prepareStatement(playerSql)) {
@@ -338,6 +373,7 @@ public class HistoryRepository {
 							int age = prs.getInt("age");
 							long marketVal = prs.getLong("market_value");
 							long salary = prs.getLong("monthly_salary");
+							double contractY = prs.getDouble("contract_years");
 							int minutes = prs.getInt("minutes_played");
 							int games = prs.getInt("games_played");
 							double rating = prs.getDouble("avg_rating");
@@ -354,7 +390,7 @@ public class HistoryRepository {
 							boolean clause = prs.getBoolean("clause_fulfilled");
 
 							if ("FIRST_TEAM".equals(category)) {
-								Player p = new Player(name, "", age, marketVal, salary, 2.0, agility, pace, stamina, determ, minutes);
+								Player p = new Player(name, "", age, marketVal, salary, contractY > 0 ? contractY : 2.0, agility, pace, stamina, determ, minutes);
 								PlayerRowModel row = new PlayerRowModel(p, s1, s2, s3);
 								row.deserializeTacticalRoles(rawRoleData, activeTactic);
 								squadTarget.add(row);
@@ -431,7 +467,7 @@ public class HistoryRepository {
 			}
 		}
 
-		return lastDate;
+		return new SnapshotMetadata(lastDate, lastSeason);
 	}
 
 	private static void initRawStatsFromLoaded(ScoutingPlayerModel p, double s1, double s2, double s3) {
@@ -452,7 +488,7 @@ public class HistoryRepository {
 	}
 
 	public static List<PlayerHistoryEntry> getPlayerHistory(String playerName, int currentAge) {
-		List<PlayerHistoryEntry> list = new java.util.ArrayList<>();
+		List<PlayerHistoryEntry> list = new ArrayList<>();
 		if (playerName == null || playerName.isBlank()) return list;
 
 		String sql = (currentAge > 0)
@@ -515,7 +551,7 @@ public class HistoryRepository {
 	}
 
 	public static List<PlayerHistoryEntry> getScoutingHistory(String playerName, int currentAge) {
-		List<PlayerHistoryEntry> list = new java.util.ArrayList<>();
+		List<PlayerHistoryEntry> list = new ArrayList<>();
 		if (playerName == null || playerName.isBlank()) return list;
 
 		String sql = (currentAge > 0)
@@ -574,5 +610,50 @@ public class HistoryRepository {
 
 	public static List<PlayerHistoryEntry> getScoutingHistory(String playerName) {
 		return getScoutingHistory(playerName, -1);
+	}
+
+	public static List<ClubHistoryEntry> getClubHistory(String clubName) {
+		List<ClubHistoryEntry> list = new ArrayList<>();
+		String sql = """
+             SELECT s.id, s.imported_at, s.in_game_season,
+                    COUNT(p.id) AS player_count,
+                    COALESCE(AVG(p.age), 0.0) AS avg_age,
+                    COALESCE(SUM(p.market_value), 0) AS total_market_value,
+                    COALESCE(SUM(p.monthly_salary), 0) AS total_salary,
+                    COALESCE(AVG(p.moneyball_score), 0.0) AS avg_score
+             FROM snapshots s
+             LEFT JOIN player_history p ON s.id = p.snapshot_id AND p.category = 'FIRST_TEAM'
+             WHERE s.export_type = 'SQUAD'
+               AND (? IS NULL OR ? = '' OR LOWER(TRIM(s.club_name)) = LOWER(TRIM(?)))
+             GROUP BY s.id, s.imported_at, s.in_game_season
+             ORDER BY s.imported_at ASC
+       """;
+
+		try (Connection conn = DatabaseManager.getConnection();
+		     PreparedStatement ps = conn.prepareStatement(sql)) {
+			String c = (clubName != null && !clubName.isBlank()) ? clubName.trim() : null;
+			ps.setString(1, c);
+			ps.setString(2, c != null ? c : "");
+			ps.setString(3, c != null ? c : "");
+
+			try (ResultSet rs = ps.executeQuery()) {
+				DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss");
+				while (rs.next()) {
+					Timestamp ts = rs.getTimestamp("imported_at");
+					String dateStr = (ts != null) ? ts.toLocalDateTime().format(dtf) : "-";
+					String season = rs.getString("in_game_season");
+					int count = rs.getInt("player_count");
+					double avgAge = rs.getDouble("avg_age");
+					long totalMv = rs.getLong("total_market_value");
+					long totalSal = rs.getLong("total_salary");
+					double avgScore = rs.getDouble("avg_score");
+
+					list.add(new ClubHistoryEntry(dateStr, season, count, avgAge, totalMv, totalSal, avgScore));
+				}
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return list;
 	}
 }
