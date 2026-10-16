@@ -1,0 +1,189 @@
+name: "2. Taktik (Asymmetrisch)"
+
+slots:
+  # 1. Torwart
+  - slot_name: "MTW (U)"
+    role_label: "Mitspielender Torwart"
+    metrics:
+      - name: "Gehaltene Bälle %"
+        weight: 0.35
+        benchmark: 0.88
+        column_aliases: ["Par %", "Gehaltene Bälle %", "par"]
+      - name: "xG verhindert / 90"
+        weight: 0.35
+        benchmark: 0.44
+        column_aliases: ["xG verh/90", "xgverh90", "xG verhindert / 90"]
+      - name: "Passquote %"
+        weight: 0.30
+        benchmark: 0.97
+        column_aliases: ["Pas %", "Passquote %", "pass"]
+
+  # 2. Stoßstürmer (Mitte)
+  - slot_name: "Stoßstürmer (A)"
+    role_label: "Stoßstürmer (Mitte)"
+    metrics:
+      - name: "xG / 90"
+        weight: 0.40
+        benchmark: 0.79
+        column_aliases: ["xG/90", "xg90", "xG / 90"]
+      - name: "Konversionsrate %"
+        weight: 0.30
+        benchmark: 0.23
+        column_aliases: ["Verw. %", "verw", "Konversionsrate %", "Chancenverwertung%"]
+      - name: "Schüsse aufs Tor %"
+        weight: 0.30
+        benchmark: 0.53
+        column_aliases: ["Schüsse %", "schuss %", "Schüsse aufs Tor %"]
+
+  # 3. Offensiver Mittelfeldspieler Links
+  - slot_name: "OM (L)"
+    role_label: "Offensiver Mittelfeldspieler Links"
+    metrics:
+      - name: "xA / 90"
+        weight: 0.35
+        benchmark: 0.17
+        column_aliases: ["xA/90", "xa90", "xA / 90"]
+      - name: "Entscheidende Pässe / 90"
+        weight: 0.35
+        benchmark: 2.20
+        column_aliases: ["E Pä/90", "e pä/90", "Entscheidende Pässe", "Key Passes"]
+      - name: "Passquote %"
+        weight: 0.30
+        benchmark: 0.85
+        column_aliases: ["Pas %", "Passquote %", "pass"]
+
+  # 4. Offensiver Mittelfeldspieler Rechts
+  - slot_name: "OM (R)"
+    role_label: "Offensiver Mittelfeldspieler Rechts"
+    metrics:
+      - name: "xA / 90"
+        weight: 0.35
+        benchmark: 0.19
+        column_aliases: ["xA/90", "xa90", "xA / 90"]
+      - name: "Entscheidende Pässe / 90"
+        weight: 0.35
+        benchmark: 2.20
+        column_aliases: ["E Pä/90", "e pä/90", "Entscheidende Pässe", "Key Passes"]
+      - name: "Passquote %"
+        weight: 0.30
+        benchmark: 0.87
+        column_aliases: ["Pas %", "Passquote %", "pass"]
+
+  # 5. Regista (Zentral Rechts)
+  - slot_name: "Regista (U)"
+    role_label: "Regista (Zentral Rechts)"
+    metrics:
+      - name: "Passquote %"
+        weight: 0.35
+        benchmark: 0.88
+        column_aliases: ["Pas %", "Passquote %", "pass"]
+      - name: "Progressive Pässe / 90"
+        weight: 0.35
+        benchmark: 5.90
+        column_aliases: ["Pr Pässe/90", "prpaesse90", "Progressive Pässe / 90"]
+      - name: "Entscheidende Pässe / 90"
+        weight: 0.30
+        benchmark: 1.20
+        column_aliases: ["E Pä/90", "e pä/90", "Entscheidende Pässe", "Key Passes"]
+
+  # 6. Defensiver Mittelfeldspieler (Zentral Links)
+  - slot_name: "DM (V)"
+    role_label: "Defensiver Mittelfeldspieler"
+    metrics:
+      - name: "Passquote %"
+        weight: 0.35
+        benchmark: 0.88
+        column_aliases: ["Pas %", "Passquote %", "pass"]
+      - name: "Abgefangene Bälle / 90"
+        weight: 0.35
+        benchmark: 2.50
+        column_aliases: ["AbB/90", "abb90", "Abgefangene Bälle / 90", "Interceptions"]
+      - name: "Zweikampfquote %"
+        weight: 0.30
+        benchmark: 0.78
+        column_aliases: ["Zwk %", "zwk", "Zweikampfquote %", "Tackles %"]
+
+  # 7. Flügelverteidiger Links
+  - slot_name: "FV (L)"
+    role_label: "Flügelverteidiger Links"
+    metrics:
+      - name: "Abgefangene Bälle / 90"
+        weight: 0.35
+        benchmark: 2.80
+        column_aliases: ["AbB/90", "abb90", "Abgefangene Bälle / 90"]
+      - name: "Flankenquote %"
+        weight: 0.30
+        benchmark: 0.26
+        column_aliases: ["FPQ %", "fpq", "Flankenquote %"]
+      - name: "Prog. Läufe / Dribblings pro Spiel"
+        weight: 0.35
+        benchmark: 2.10
+        column_aliases: ["Drb/90", "drb90", "Prog. Läufe / Dribblings pro Spiel", "Dribblings"]
+
+  # 8. Flügelverteidiger Rechts
+  - slot_name: "KFV (R)"
+    role_label: "Komp. Flügelverteidiger Rechts"
+    metrics:
+      - name: "Abgefangene Bälle / 90"
+        weight: 0.35
+        benchmark: 2.80
+        column_aliases: ["AbB/90", "abb90", "Abgefangene Bälle / 90"]
+      - name: "Flankenquote %"
+        weight: 0.30
+        benchmark: 0.26
+        column_aliases: ["FPQ %", "fpq", "Flankenquote %"]
+      - name: "Prog. Läufe / Dribblings pro Spiel"
+        weight: 0.35
+        benchmark: 2.10
+        column_aliases: ["Drb/90", "drb90", "Prog. Läufe / Dribblings pro Spiel", "Dribblings"]
+
+  # 9. Ballspielender Verteidiger Links
+  - slot_name: "BSV (L)"
+    role_label: "Ballspielender Vert. Links"
+    metrics:
+      - name: "Passquote %"
+        weight: 0.35
+        benchmark: 0.88
+        column_aliases: ["Pas %", "Passquote %", "pass"]
+      - name: "Zweikampfquote %"
+        weight: 0.35
+        benchmark: 0.78
+        column_aliases: ["Zwk %", "zwk", "Zweikampfquote %"]
+      - name: "Progressive Pässe / 90"
+        weight: 0.30
+        benchmark: 5.50
+        column_aliases: ["Pr Pässe/90", "prpaesse90", "Progressive Pässe / 90"]
+
+  # 10. Innenverteidiger Zentral
+  - slot_name: "IV (Z)"
+    role_label: "Innenverteidiger Zentral"
+    metrics:
+      - name: "Kopfballquote %"
+        weight: 0.40
+        benchmark: 0.78
+        column_aliases: ["Kopf %", "kopf", "Kopfballquote %"]
+      - name: "Zweikampfquote %"
+        weight: 0.40
+        benchmark: 0.82
+        column_aliases: ["Zwk %", "zwk", "Zweikampfquote %"]
+      - name: "Abgefangene Bälle / 90"
+        weight: 0.20
+        benchmark: 2.00
+        column_aliases: ["AbB/90", "abb90", "Abgefangene Bälle / 90"]
+
+  # 11. Halbraumverteidiger Rechts
+  - slot_name: "HRV (R)"
+    role_label: "Halbraumverteidiger Rechts"
+    metrics:
+      - name: "Passquote %"
+        weight: 0.35
+        benchmark: 0.85
+        column_aliases: ["Pas %", "Passquote %", "pass"]
+      - name: "Zweikampfquote %"
+        weight: 0.35
+        benchmark: 0.76
+        column_aliases: ["Zwk %", "zwk", "Zweikampfquote %"]
+      - name: "Prog. Läufe / Dribblings pro Spiel"
+        weight: 0.30
+        benchmark: 1.40
+        column_aliases: ["Drb/90", "drb90", "Prog. Läufe / Dribblings pro Spiel"]
