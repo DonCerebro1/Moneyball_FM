@@ -12,8 +12,6 @@ import org.moneyballfm.moneyball_fm.model.TacticRole;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class FmExportParser {
 
@@ -384,7 +382,7 @@ public class FmExportParser {
 		player.setGoals(goals);
 		player.setAssists(assists);
 		player.setInjurySusceptibility(injury);
-		player.setContractEndDate(rawEndDate); // Speichert das Roh-Enddatum persistent
+		player.setContractEndDate(rawEndDate);
 
 		for (Map.Entry<String, Integer> entry : map.entrySet()) {
 			int idx = entry.getValue();
@@ -761,11 +759,13 @@ public class FmExportParser {
 		String resolvedRole = (tacticRole != null) ? tacticRole.getDisplayName() : "Ballspielender Verteidiger";
 
 		String rawEndDate = getVal(cols, map, "endet", "vertrag", "auslaufend", "expires");
+		String league = getVal(cols, map, "liga", "wettbewerb", "division", "league");
 
 		ScoutingPlayerModel p = new ScoutingPlayerModel();
 		p.nameProperty().set(name);
 		p.targetRoleProperty().set(resolvedRole);
 		p.clubProperty().set(getVal(cols, map, "verein", "club"));
+		p.setLeague(league);
 		p.positionsProperty().set(naturalPosRaw);
 
 		p.ageProperty().set(parseInt(getVal(cols, map, "alter", "age")));

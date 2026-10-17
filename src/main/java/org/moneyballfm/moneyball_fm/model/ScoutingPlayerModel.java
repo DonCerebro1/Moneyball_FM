@@ -7,6 +7,7 @@ public class ScoutingPlayerModel {
 	// Basisdaten
 	private final StringProperty name = new SimpleStringProperty();
 	private final StringProperty club = new SimpleStringProperty("");
+	private final StringProperty league = new SimpleStringProperty("");
 	private final StringProperty positions = new SimpleStringProperty("");
 	private final StringProperty targetRole = new SimpleStringProperty();
 	private final IntegerProperty age = new SimpleIntegerProperty();
@@ -14,6 +15,9 @@ public class ScoutingPlayerModel {
 	private final LongProperty askingPrice = new SimpleLongProperty();
 	private final LongProperty wageDemand = new SimpleLongProperty();
 	private final DoubleProperty contractYears = new SimpleDoubleProperty();
+
+	// Liga-Koeffizient (Qualitätsfaktor)
+	private final DoubleProperty leagueCoefficient = new SimpleDoubleProperty(1.0);
 
 	// Attribute
 	private final IntegerProperty agility = new SimpleIntegerProperty();
@@ -85,6 +89,14 @@ public class ScoutingPlayerModel {
 
 	public StringProperty nameProperty() { return name; }
 	public StringProperty clubProperty() { return club; }
+	public StringProperty leagueProperty() { return league; }
+	public String getLeague() { return league.get(); }
+	public void setLeague(String val) { this.league.set(val != null ? val : ""); }
+
+	public DoubleProperty leagueCoefficientProperty() { return leagueCoefficient; }
+	public double getLeagueCoefficient() { return leagueCoefficient.get(); }
+	public void setLeagueCoefficient(double val) { this.leagueCoefficient.set(val); }
+
 	public StringProperty positionsProperty() { return positions; }
 	public StringProperty targetRoleProperty() { return targetRole; }
 	public IntegerProperty ageProperty() { return age; }

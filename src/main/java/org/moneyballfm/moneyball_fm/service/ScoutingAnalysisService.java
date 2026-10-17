@@ -22,7 +22,12 @@ public class ScoutingAnalysisService {
 		}
 
 		long signCount = scouts.stream()
-				.filter(s -> s.transferActionProperty().get() != null && s.transferActionProperty().get().contains("SOFORT VERPFLICHTEN"))
+				.filter(s -> {
+					String action = s.transferActionProperty().get();
+					return action != null && (action.contains("SOFORT VERPFLICHTEN")
+							|| action.contains("UNTERKLASSIGES SCHNÄPPCHEN")
+							|| action.contains("TALENT-DEAL"));
+				})
 				.count();
 
 		long bargainCount = scouts.stream()
@@ -94,6 +99,8 @@ public class ScoutingAnalysisService {
 	public static void copyScoutData(ScoutingPlayerModel source, ScoutingPlayerModel target) {
 		target.ageProperty().set(source.ageProperty().get());
 		target.clubProperty().set(source.clubProperty().get());
+		target.leagueProperty().set(source.leagueProperty().get());
+		target.leagueCoefficientProperty().set(source.leagueCoefficientProperty().get());
 		target.positionsProperty().set(source.positionsProperty().get());
 		target.askingPriceProperty().set(source.askingPriceProperty().get());
 		target.wageDemandProperty().set(source.wageDemandProperty().get());
@@ -243,6 +250,13 @@ public class ScoutingAnalysisService {
 		double af = MoneyballCalculator.calculateAvailabilityFactor(minutes, p.getInjurySusceptibility());
 		p.setAvailabilityFactor(af);
 
+		// Liga-Koeffizient ermitteln & im Model abspeichern
+		double leagueCoeff = 1.0;
+		if (config != null) {
+			leagueCoeff = config.getLeagueCoefficient(p.getLeague());
+		}
+		p.setLeagueCoefficient(leagueCoeff);
+
 		String roleRaw = p.targetRoleProperty().get() != null ? p.targetRoleProperty().get().trim() : "";
 		String role = roleRaw.toUpperCase();
 
@@ -315,6 +329,9 @@ public class ScoutingAnalysisService {
 					+ Math.min(s3 / 3.50, 1.25) * 21.0;
 		}
 
+		// Leistungs-Punkte mit dem Liga-Schwierigkeitsfaktor skalieren
+		statPoints *= leagueCoeff;
+
 		int agility = p.agilityProperty().get();
 		int pace = p.paceProperty().get();
 		int stamina = p.staminaProperty().get();
@@ -363,6 +380,24 @@ public class ScoutingAnalysisService {
 		long asking = p.askingPriceProperty().get();
 		long wage = p.wageDemandProperty().get();
 
+		// Schwellenwerte für unterklassige Ligen (2. und 3. Ligen)
+		boolean isSecondTier = (leagueCoeff <= 0.85 && leagueCoeff > 0.72);
+		boolean isThirdTier = (leagueCoeff <= 0.72);
+
+		double minScoreForDeal;
+		String signActionLabel;
+
+		if (isThirdTier) {
+			minScoreForDeal = 60.0;
+			signActionLabel = "⭐ TALENT-DEAL (UNTERKLASSIG)";
+		} else if (isSecondTier) {
+			minScoreForDeal = 68.0;
+			signActionLabel = "⭐ UNTERKLASSIGES SCHNÄPPCHEN";
+		} else {
+			minScoreForDeal = 80.0;
+			signActionLabel = "⭐ SOFORT VERPFLICHTEN";
+		}
+
 		if (asking >= 900_000_000L) {
 			p.priceCheckProperty().set("🔒 UNVERKÄUFLICH");
 			p.transferActionProperty().set("❌ KEINE FREIGABE");
@@ -371,14 +406,15 @@ public class ScoutingAnalysisService {
 			p.transferActionProperty().set("ℹ️ ABLÖSE ANFRAGEN");
 		} else if (asking <= adjustedMaxFee * 0.50) {
 			p.priceCheckProperty().set("🟢 TOP-SCHNÄPPCHEN");
-			if (wage <= adjustedMaxWage && finalScore >= 80.0) {
-				p.transferActionProperty().set(af < 0.80 ? "⚠️ RISIKO-SCHNÄPPCHEN (VERHANDELN)" : "⭐ SOFORT VERPFLICHTEN");
+			if (wage <= adjustedMaxWage && finalScore >= minScoreForDeal) {
+				p.transferActionProperty().set(af < 0.80 ? "⚠️ RISIKO-SCHNÄPPCHEN (VERHANDELN)" : signActionLabel);
 			} else {
 				p.transferActionProperty().set("✅ VERHANDELN");
 			}
 		} else if (asking <= adjustedMaxFee) {
 			p.priceCheckProperty().set("🟡 FAIRER PREIS");
-			if (wage <= adjustedMaxWage && finalScore >= 75.0) {
+			double minScoreFair = isThirdTier ? 55.0 : (isSecondTier ? 65.0 : 75.0);
+			if (wage <= adjustedMaxWage && finalScore >= minScoreFair) {
 				p.transferActionProperty().set(af < 0.80 ? "⚠️ BEOBACHTEN (VERLETZUNGSRISIKO)" : "✅ VERHANDELN / BEOBACHTEN");
 			} else {
 				p.transferActionProperty().set("⏳ WARTEN");

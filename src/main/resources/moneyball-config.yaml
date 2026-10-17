@@ -24,5 +24,59 @@ salary_tiers:
 
 active_tactic: "4-3-3 Gegenpress"
 
-# Taktiken werden jetzt modular und dynamisch aus dem Ordner /tactics geladen
+# Standard-Koeffizient für ungelistete oder unterklassige Ligen
+default_league_coefficient: 0.68
+
+# Liga-Koeffizienten (League Quality Multipliers) für das Scouting
+league_coefficients:
+  # Tier 1 (Top 5 Ligen) -> 1.00
+  "premier division": 1.00
+  "premier league": 1.00
+  "spaniens first division": 1.00
+  "la liga": 1.00
+  "spanische 1.": 1.00
+  "serie a": 1.00
+  "bundesliga": 1.00
+  "ligue 1 uber eats": 1.00
+  "ligue 1": 1.00
+
+  # Tier 2 (Top-Verfolger & Südamerika) -> 0.88 - 0.90
+  "portugals premier league": 0.90
+  "liga portugal": 0.90
+  "eredivisie": 0.90
+  "jupiler pro league": 0.90
+  "brasiliens national first division": 0.88
+  "brasileirão": 0.88
+  "argentiniens premier division": 0.85
+
+  # Tier 3 (Starke Ausbildungsligen & Top-Zweitligen) -> 0.80 - 0.85
+  "sky bet championship": 0.82
+  "championship": 0.82
+  "spaniens second division": 0.82
+  "segunda división": 0.82
+  "la liga 2": 0.82
+  "spanische 2.": 0.82
+  "2. bundesliga": 0.82
+  "kroatiens first league": 0.82
+  "türkeis super league": 0.82
+  "österreichs 1. liga": 0.82
+  "cinch premiership": 0.82
+  "swiss super league": 0.80
+  "griechenlands super league 1": 0.80
+  "ukraines premier league": 0.80
+
+  # Tier 4 (Mittlere Ligen & 3. Ligen / Übersee) -> 0.68 - 0.75
+  "3f superliga": 0.75
+  "pko bank polski ekstraklasa": 0.75
+  "serbiens super league": 0.74
+  "zyperns first division": 0.72
+  "major league soccer": 0.75
+  "mls": 0.75
+  "sky bet league one": 0.68
+  "league one": 0.68
+  "primera federación": 0.68
+  "spanische 3.": 0.68
+  "3. liga": 0.68
+
+# Taktiken werden modular und dynamisch aus dem Ordner /tactics geladen
 tactics: []

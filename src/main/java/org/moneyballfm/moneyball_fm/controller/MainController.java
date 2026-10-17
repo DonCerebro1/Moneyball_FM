@@ -266,7 +266,6 @@ public class MainController {
 			});
 		}
 
-		// Listener für automatisches Speichern & Live-Neuberechnung des Ingame-Saisonstandes
 		if (txtInGameSeason != null) {
 			txtInGameSeason.setOnAction(e -> applyAndPersistSeason());
 			txtInGameSeason.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
@@ -308,7 +307,6 @@ public class MainController {
 			for (YouthPlayerModel y : youthDataList) YouthAnalysisService.evaluate(y);
 			for (ScoutingPlayerModel s : scoutDataList) ScoutingAnalysisService.evaluate(s, appConfig);
 
-			// Initialen Abgleich der Restverträge mit der geladenen Saison durchführen
 			String initialSeason = (txtInGameSeason != null && !txtInGameSeason.getText().isBlank())
 					? txtInGameSeason.getText().trim() : "Winter 2037";
 			recalculateAllPlayerContracts(initialSeason);
@@ -331,7 +329,6 @@ public class MainController {
 			String trimmedSeason = season.trim();
 			HistoryRepository.updateLatestSnapshotSeason(trimmedSeason);
 
-			// Restverträge aller Spieler live neu berechnen und Positions-Bedarf aktualisieren
 			recalculateAllPlayerContracts(trimmedSeason);
 
 			if (statusLabel != null) statusLabel.setText("Saisonstand aktualisiert: " + trimmedSeason);
@@ -361,13 +358,6 @@ public class MainController {
 					row.contractYearsProperty().set(remaining);
 					raw.setContractYears(remaining);
 				}
-			}
-		}
-
-		for (ScoutingPlayerModel s : scoutDataList) {
-			double cur = s.contractYearsProperty().get();
-			if (cur > 0.0) {
-				// Scouts behalten ihren Wert oder werden entsprechend mitgepflegt
 			}
 		}
 
@@ -865,13 +855,11 @@ public class MainController {
 	private void refreshRegistrationData() {
 		registrationDataList.clear();
 
-		// 1. Kader-Profis einlesen (U21 und Stammspieler vorfiltern)
 		for (PlayerRowModel p : playerDataList) {
 			RegistrationRowModel reg = new RegistrationRowModel(p);
 			registrationDataList.add(reg);
 		}
 
-		// 2. Jugendspieler integrieren (belegen standardmäßig keinen A-Kader-Slot)
 		for (YouthPlayerModel y : youthDataList) {
 			boolean exists = registrationDataList.stream().anyMatch(r ->
 					SquadImportService.normalizeSquadPlayerKey(r.nameProperty().get(), r.ageProperty().get())
@@ -890,7 +878,6 @@ public class MainController {
 			}
 		}
 
-		// 3. Fallback: Wenn noch weniger als 25 Plätze belegt sind, Nicht-U21-Profis aktivieren
 		long nonU21Count = registrationDataList.stream().filter(r -> !r.u21ExemptProperty().get()).count();
 		if (nonU21Count <= 25) {
 			registrationDataList.stream()
@@ -954,6 +941,22 @@ public class MainController {
 			if (db.hasFiles()) {
 				File droppedFile = db.getFiles().get(0);
 				try {
+					// 1. Spezieller Check: 5-Jahreswertung / Ligen-Rangliste
+					if (NationCoefficientsImporter.isNationRankingFile(droppedFile)) {
+						int count = NationCoefficientsImporter.importAndGenerateLeagueTiers(droppedFile, appConfig);
+
+						for (ScoutingPlayerModel s : scoutDataList) {
+							ScoutingAnalysisService.evaluate(s, appConfig);
+						}
+						refreshScoutKPIs();
+						refreshShadowSquad();
+
+						statusLabel.setText("Ligen-Koeffizienten aktualisiert: " + count + " Spielklassen berechnet und in config gespeichert.");
+						event.setDropCompleted(true);
+						return;
+					}
+
+					// 2. Scouting-Datei (falls Tab 7 aktiv ist)
 					if (mainTabPane != null && mainTabPane.getSelectionModel().getSelectedIndex() == 6) {
 						var res = ScoutingAnalysisService.importScoutingFile(droppedFile, scoutDataList, getAvailableRoles(), appConfig);
 						refreshScoutKPIs();
@@ -963,6 +966,8 @@ public class MainController {
 						event.setDropCompleted(true);
 						return;
 					}
+
+					// 3. Vorbereitungs- / Testspiel-Datei
 					if (FmExportParser.isPreseasonFile(droppedFile)) {
 						int updated = SquadImportService.mergePreseasonStats(droppedFile, registrationDataList);
 						refreshRegistrationKPIs();
@@ -972,10 +977,10 @@ public class MainController {
 						return;
 					}
 
+					// 4. Regulärer Kader-Import
 					String clubName = (txtMyClub != null && !txtMyClub.getText().isBlank()) ? txtMyClub.getText() : null;
 					var res = SquadImportService.importSquadFile(droppedFile, clubName, appConfig, playerDataList, outgoingLoanDataList, youthDataList);
 
-					// Nach dem Import direkt anhand des aktuellen Saisonstands die Verträge synchronisieren
 					String currentSeason = (txtInGameSeason != null && !txtInGameSeason.getText().isBlank())
 							? txtInGameSeason.getText().trim() : "Winter 2037";
 					recalculateAllPlayerContracts(currentSeason);
