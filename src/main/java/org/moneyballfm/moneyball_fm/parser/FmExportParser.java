@@ -759,12 +759,23 @@ public class FmExportParser {
 		String resolvedRole = (tacticRole != null) ? tacticRole.getDisplayName() : "Ballspielender Verteidiger";
 
 		String rawEndDate = getVal(cols, map, "endet", "vertrag", "auslaufend", "expires");
-		String league = getVal(cols, map, "liga", "wettbewerb", "division", "league");
+
+		String league = getVal(cols, map, "liga", "wettbewerb", "division", "league", "comp");
+		String clubRaw = getVal(cols, map, "verein", "club");
+		String club = clubRaw;
+
+		if (league.isBlank() && clubRaw.contains(" - ")) {
+			String[] clubParts = clubRaw.split(" - ");
+			club = clubParts[0].trim();
+			league = clubParts[1].trim();
+		} else if (clubRaw.contains(" - ")) {
+			club = clubRaw.split(" - ")[0].trim();
+		}
 
 		ScoutingPlayerModel p = new ScoutingPlayerModel();
 		p.nameProperty().set(name);
 		p.targetRoleProperty().set(resolvedRole);
-		p.clubProperty().set(getVal(cols, map, "verein", "club"));
+		p.clubProperty().set(club);
 		p.setLeague(league);
 		p.positionsProperty().set(naturalPosRaw);
 
@@ -774,7 +785,7 @@ public class FmExportParser {
 		p.contractYearsProperty().set(parseContractYears(rawEndDate));
 		p.minutesProperty().set(parseInt(getVal(cols, map, "min.", "minuten", "min")));
 
-		p.agilityProperty().set(parseInt(getVal(cols, map, "bew", "beweglichkeit")));
+		p.agilityProperty().set(parseInt(getVal(cols, map, "bew", "beweglichkeit", "bewegung")));
 		p.paceProperty().set(parseInt(getVal(cols, map, "ant", "antritt")));
 		p.staminaProperty().set(parseInt(getVal(cols, map, "aus", "ausdauer")));
 		p.determinationProperty().set(parseInt(getVal(cols, map, "zie", "entsch", "zielstrebigkeit", "entschlossenheit")));
@@ -897,7 +908,29 @@ public class FmExportParser {
 
 	private static int parseInt(String val) {
 		if (val == null || val.isBlank() || val.equals("-") || val.equals("—")) return 0;
-		String c = cleanNbsps(val).replace(".", "").replaceAll("[^0-9]", "");
+		String clean = cleanNbsps(val).trim();
+
+		// Spannen wie "12 - 14" oder "11-13" erkennen und mitteln
+		if (clean.contains("-")) {
+			String[] parts = clean.split("-");
+			if (parts.length == 2) {
+				int min = parseSingleInt(parts[0].trim());
+				int max = parseSingleInt(parts[1].trim());
+				if (min > 0 && max > 0) {
+					return (int) Math.round((min + max) / 2.0);
+				} else if (max > 0) {
+					return max;
+				} else {
+					return min;
+				}
+			}
+		}
+
+		return parseSingleInt(clean);
+	}
+
+	private static int parseSingleInt(String s) {
+		String c = cleanNbsps(s).replace(".", "").replaceAll("[^0-9]", "");
 		return c.isEmpty() ? 0 : Integer.parseInt(c);
 	}
 

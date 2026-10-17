@@ -102,12 +102,24 @@ public class HistoryRepository {
 		}
 	}
 
+	public static void clearScoutingData() {
+		try (Connection conn = DatabaseManager.getConnection()) {
+			conn.setAutoCommit(false);
+			try (Statement stmt = conn.createStatement()) {
+				stmt.executeUpdate("DELETE FROM scouting_history WHERE snapshot_id IN (SELECT id FROM snapshots WHERE export_type = 'SCOUTING')");
+				stmt.executeUpdate("DELETE FROM snapshots WHERE export_type = 'SCOUTING'");
+			}
+			conn.commit();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+	}
+
 	public static void saveScoutingSnapshot(
 			String clubName,
 			String inGameSeason,
 			List<ScoutingPlayerModel> scouting) {
 
-		if (scouting == null || scouting.isEmpty()) return;
 		String season = (inGameSeason != null && !inGameSeason.isBlank()) ? inGameSeason.trim() : "Aktuell";
 
 		try (Connection conn = DatabaseManager.getConnection()) {
@@ -129,42 +141,44 @@ public class HistoryRepository {
 				return;
 			}
 
-			Set<String> scoutKeys = new HashSet<>();
-			String insertScout = """
-                         INSERT INTO scouting_history (
-                             snapshot_id, player_name, target_role, club, positions, age, asking_price,
-                             wage_demand, contract_years, agility, pace, stamina,
-                             stat1, stat2, stat3, scouting_score, transfer_action, price_check
-                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                      """;
-			try (PreparedStatement sps = conn.prepareStatement(insertScout)) {
-				for (ScoutingPlayerModel s : scouting) {
-					int age = s.ageProperty().get();
-					String key = (s.nameProperty().get() != null ? s.nameProperty().get().trim().toLowerCase() : "") + "_b" + (age > 0 ? (age / 3) : 0);
-					if (key.isBlank() || scoutKeys.contains(key)) continue;
-					scoutKeys.add(key);
+			if (scouting != null && !scouting.isEmpty()) {
+				Set<String> scoutKeys = new HashSet<>();
+				String insertScout = """
+                            INSERT INTO scouting_history (
+                                snapshot_id, player_name, target_role, club, positions, age, asking_price,
+                                wage_demand, contract_years, agility, pace, stamina,
+                                stat1, stat2, stat3, scouting_score, transfer_action, price_check
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         """;
+				try (PreparedStatement sps = conn.prepareStatement(insertScout)) {
+					for (ScoutingPlayerModel s : scouting) {
+						int age = s.ageProperty().get();
+						String key = (s.nameProperty().get() != null ? s.nameProperty().get().trim().toLowerCase() : "") + "_b" + (age > 0 ? (age / 3) : 0);
+						if (key.isBlank() || scoutKeys.contains(key)) continue;
+						scoutKeys.add(key);
 
-					sps.setLong(1, snapshotId);
-					sps.setString(2, s.nameProperty().get().trim());
-					sps.setString(3, s.targetRoleProperty().get());
-					sps.setString(4, s.clubProperty().get() != null ? s.clubProperty().get() : "");
-					sps.setString(5, s.positionsProperty().get() != null ? s.positionsProperty().get() : "");
-					sps.setInt(6, age);
-					sps.setLong(7, s.askingPriceProperty().get());
-					sps.setLong(8, s.wageDemandProperty().get());
-					sps.setDouble(9, s.contractYearsProperty().get());
-					sps.setInt(10, s.agilityProperty().get());
-					sps.setInt(11, s.paceProperty().get());
-					sps.setInt(12, s.staminaProperty().get());
-					sps.setDouble(13, s.statValue1Property().get());
-					sps.setDouble(14, s.statValue2Property().get());
-					sps.setDouble(15, s.statValue3Property().get());
-					sps.setDouble(16, s.scoutingScoreProperty().get());
-					sps.setString(17, s.transferActionProperty().get());
-					sps.setString(18, s.priceCheckProperty().get());
-					sps.addBatch();
+						sps.setLong(1, snapshotId);
+						sps.setString(2, s.nameProperty().get().trim());
+						sps.setString(3, s.targetRoleProperty().get());
+						sps.setString(4, s.clubProperty().get() != null ? s.clubProperty().get() : "");
+						sps.setString(5, s.positionsProperty().get() != null ? s.positionsProperty().get() : "");
+						sps.setInt(6, age);
+						sps.setLong(7, s.askingPriceProperty().get());
+						sps.setLong(8, s.wageDemandProperty().get());
+						sps.setDouble(9, s.contractYearsProperty().get());
+						sps.setInt(10, s.agilityProperty().get());
+						sps.setInt(11, s.paceProperty().get());
+						sps.setInt(12, s.staminaProperty().get());
+						sps.setDouble(13, s.statValue1Property().get());
+						sps.setDouble(14, s.statValue2Property().get());
+						sps.setDouble(15, s.statValue3Property().get());
+						sps.setDouble(16, s.scoutingScoreProperty().get());
+						sps.setString(17, s.transferActionProperty().get());
+						sps.setString(18, s.priceCheckProperty().get());
+						sps.addBatch();
+					}
+					sps.executeBatch();
 				}
-				sps.executeBatch();
 			}
 
 			conn.commit();
@@ -200,7 +214,6 @@ public class HistoryRepository {
 		Set<String> insertedKeys = new HashSet<>();
 
 		try (PreparedStatement ps = conn.prepareStatement(insertPlayer)) {
-			// 1. A-Kader mit persistierten Taktik-Rollen
 			for (PlayerRowModel p : squad) {
 				int age = p.ageProperty().get();
 				String key = (p.nameProperty().get() != null ? p.nameProperty().get().trim().toLowerCase() : "") + "_b" + (age > 0 ? (age / 3) : 0);
@@ -234,7 +247,6 @@ public class HistoryRepository {
 				ps.addBatch();
 			}
 
-			// 2. Outgoing Loans
 			for (LoanPlayerModel l : outgoingLoans) {
 				int age = l.ageProperty().get();
 				String key = (l.getPlayerName() != null ? l.getPlayerName().trim().toLowerCase() : "") + "_b" + (age > 0 ? (age / 3) : 0);
@@ -268,7 +280,6 @@ public class HistoryRepository {
 				ps.addBatch();
 			}
 
-			// 3. Incoming Loans
 			for (LoanPlayerModel l : incomingLoans) {
 				int age = l.ageProperty().get();
 				String key = (l.getPlayerName() != null ? l.getPlayerName().trim().toLowerCase() : "") + "_b" + (age > 0 ? (age / 3) : 0);
@@ -302,7 +313,6 @@ public class HistoryRepository {
 				ps.addBatch();
 			}
 
-			// 4. Jugend
 			for (YouthPlayerModel y : youth) {
 				int age = y.ageProperty().get();
 				String key = (y.getName() != null ? y.getName().trim().toLowerCase() : "") + "_b" + (age > 0 ? (age / 3) : 0);

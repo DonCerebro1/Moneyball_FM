@@ -959,13 +959,14 @@ public class MainController {
 						return;
 					}
 
-					// 2. Scouting-Datei (falls Tab 7 aktiv ist)
+					// 2. Scouting-Datei (falls Tab 7 aktiv ist) -> ersetzt alte Scouts komplett
 					if (mainTabPane != null && mainTabPane.getSelectionModel().getSelectedIndex() == 6) {
+						scoutDataList.clear();
 						var res = ScoutingAnalysisService.importScoutingFile(droppedFile, scoutDataList, getAvailableRoles(), appConfig);
 						refreshScoutKPIs();
 						refreshShadowSquad();
 						saveScoutingSnapshotToDatabase();
-						statusLabel.setText(res.message());
+						statusLabel.setText("Scouting-Liste ersetzt: " + res.message());
 						event.setDropCompleted(true);
 						return;
 					}
@@ -1095,6 +1096,24 @@ public class MainController {
 
 	@FXML
 	public void onClearList() {
+		// Prüfen, ob wir im Scouting-Tab sind (Index 6)
+		boolean isScoutingTabActive = (mainTabPane != null && mainTabPane.getSelectionModel().getSelectedIndex() == 6);
+
+		if (isScoutingTabActive) {
+			scoutDataList.clear();
+			HistoryRepository.clearScoutingData();
+			refreshScoutKPIs();
+			refreshShadowSquad();
+
+			if (lblScoutSignCount != null) lblScoutSignCount.setText("0 Spieler");
+			if (lblScoutBargainCount != null) lblScoutBargainCount.setText("0 Spieler");
+			if (lblScoutRejectCount != null) lblScoutRejectCount.setText("0 Spieler");
+
+			statusLabel.setText("Scouting-Liste geleert (Kaderdaten blieben erhalten).");
+			return;
+		}
+
+		// Standard: Gesamte Tabelle leeren
 		playerDataList.clear();
 		needsDataList.clear();
 		depthChartDataList.clear();
