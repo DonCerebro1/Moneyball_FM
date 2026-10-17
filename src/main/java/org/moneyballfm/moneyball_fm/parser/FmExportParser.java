@@ -778,6 +778,7 @@ public class FmExportParser {
 		p.clubProperty().set(club);
 		p.setLeague(league);
 		p.positionsProperty().set(naturalPosRaw);
+		p.setManualEntry(false);
 
 		p.ageProperty().set(parseInt(getVal(cols, map, "alter", "age")));
 		p.askingPriceProperty().set(parseMoney(getVal(cols, map, "transferwert", "marktwert", "wert")));

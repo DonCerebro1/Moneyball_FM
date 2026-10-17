@@ -15,6 +15,12 @@ public class HistoryRepository {
 
 	public record SnapshotMetadata(String importDate, String inGameSeason) {}
 
+	private static void ensureScoutingSchema(Connection conn) {
+		try (Statement stmt = conn.createStatement()) {
+			stmt.executeUpdate("ALTER TABLE scouting_history ADD COLUMN IF NOT EXISTS is_manual BOOLEAN DEFAULT FALSE");
+		} catch (SQLException ignored) {}
+	}
+
 	public static void saveSquadSnapshot(
 			String clubName,
 			String inGameSeason,
@@ -124,6 +130,7 @@ public class HistoryRepository {
 
 		try (Connection conn = DatabaseManager.getConnection()) {
 			conn.setAutoCommit(false);
+			ensureScoutingSchema(conn);
 
 			long snapshotId = -1;
 			String insertSnapshot = "INSERT INTO snapshots (club_name, in_game_season, export_type, file_name, imported_at) VALUES (?, ?, 'SCOUTING', 'Scouting-Import', CURRENT_TIMESTAMP)";
@@ -147,8 +154,8 @@ public class HistoryRepository {
                             INSERT INTO scouting_history (
                                 snapshot_id, player_name, target_role, club, positions, age, asking_price,
                                 wage_demand, contract_years, agility, pace, stamina,
-                                stat1, stat2, stat3, scouting_score, transfer_action, price_check
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                stat1, stat2, stat3, scouting_score, transfer_action, price_check, is_manual
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                          """;
 				try (PreparedStatement sps = conn.prepareStatement(insertScout)) {
 					for (ScoutingPlayerModel s : scouting) {
@@ -175,6 +182,7 @@ public class HistoryRepository {
 						sps.setDouble(16, s.scoutingScoreProperty().get());
 						sps.setString(17, s.transferActionProperty().get());
 						sps.setString(18, s.priceCheckProperty().get());
+						sps.setBoolean(19, s.isManualEntry());
 						sps.addBatch();
 					}
 					sps.executeBatch();
@@ -436,38 +444,46 @@ public class HistoryRepository {
 
 		if (scoutTarget != null) {
 			String scoutSnapSql = "SELECT id FROM snapshots WHERE export_type = 'SCOUTING' ORDER BY imported_at DESC LIMIT 1";
-			try (Connection conn = DatabaseManager.getConnection();
-			     Statement stmt = conn.createStatement();
-			     ResultSet rs = stmt.executeQuery(scoutSnapSql)) {
+			try (Connection conn = DatabaseManager.getConnection()) {
+				ensureScoutingSchema(conn);
+				try (Statement stmt = conn.createStatement();
+				     ResultSet rs = stmt.executeQuery(scoutSnapSql)) {
 
-				if (rs.next()) {
-					long scoutSnapshotId = rs.getLong("id");
-					String scoutSql = "SELECT * FROM scouting_history WHERE snapshot_id = ?";
-					try (PreparedStatement ps = conn.prepareStatement(scoutSql)) {
-						ps.setLong(1, scoutSnapshotId);
-						try (ResultSet srs = ps.executeQuery()) {
-							while (srs.next()) {
-								ScoutingPlayerModel scout = new ScoutingPlayerModel(
-										srs.getString("player_name"),
-										srs.getString("target_role"),
-										srs.getInt("age"),
-										srs.getLong("asking_price"),
-										srs.getLong("wage_demand"),
-										srs.getDouble("contract_years"),
-										srs.getInt("agility"),
-										srs.getInt("pace"),
-										srs.getInt("stamina"),
-										srs.getDouble("stat1"),
-										srs.getDouble("stat2"),
-										srs.getDouble("stat3")
-								);
-								try {
-									scout.clubProperty().set(srs.getString("club"));
-									scout.positionsProperty().set(srs.getString("positions"));
-								} catch (SQLException ignored) {}
+					if (rs.next()) {
+						long scoutSnapshotId = rs.getLong("id");
+						String scoutSql = "SELECT * FROM scouting_history WHERE snapshot_id = ?";
+						try (PreparedStatement ps = conn.prepareStatement(scoutSql)) {
+							ps.setLong(1, scoutSnapshotId);
+							try (ResultSet srs = ps.executeQuery()) {
+								while (srs.next()) {
+									ScoutingPlayerModel scout = new ScoutingPlayerModel(
+											srs.getString("player_name"),
+											srs.getString("target_role"),
+											srs.getInt("age"),
+											srs.getLong("asking_price"),
+											srs.getLong("wage_demand"),
+											srs.getDouble("contract_years"),
+											srs.getInt("agility"),
+											srs.getInt("pace"),
+											srs.getInt("stamina"),
+											srs.getDouble("stat1"),
+											srs.getDouble("stat2"),
+											srs.getDouble("stat3")
+									);
+									try {
+										scout.clubProperty().set(srs.getString("club"));
+										scout.positionsProperty().set(srs.getString("positions"));
+									} catch (SQLException ignored) {}
 
-								initRawStatsFromLoaded(scout, srs.getDouble("stat1"), srs.getDouble("stat2"), srs.getDouble("stat3"));
-								scoutTarget.add(scout);
+									try {
+										scout.setManualEntry(srs.getBoolean("is_manual"));
+									} catch (SQLException ignored) {
+										scout.setManualEntry(false);
+									}
+
+									initRawStatsFromLoaded(scout, srs.getDouble("stat1"), srs.getDouble("stat2"), srs.getDouble("stat3"));
+									scoutTarget.add(scout);
+								}
 							}
 						}
 					}

@@ -1006,14 +1006,24 @@ public class MainController {
 						return;
 					}
 
-					// 2. Scouting-Datei (Tab Index 7: Scouting) -> ersetzt alte Scouts komplett
+					// 2. Scouting-Datei (Tab Index 7: Scouting) -> Manuelle Scouts behalten, Datei-Scouts ersetzen
 					if (mainTabPane != null && mainTabPane.getSelectionModel().getSelectedIndex() == 7) {
+						List<ScoutingPlayerModel> manualScouts = scoutDataList.stream()
+								.filter(ScoutingPlayerModel::isManualEntry)
+								.toList();
+
 						scoutDataList.clear();
 						var res = ScoutingAnalysisService.importScoutingFile(droppedFile, scoutDataList, getAvailableRoles(), appConfig);
+
+						if (!manualScouts.isEmpty()) {
+							scoutDataList.addAll(0, manualScouts);
+						}
+
 						refreshScoutKPIs();
 						refreshShadowSquad();
 						saveScoutingSnapshotToDatabase();
-						statusLabel.setText("Scouting-Liste ersetzt: " + res.message());
+						String extra = !manualScouts.isEmpty() ? " (" + manualScouts.size() + " manuelle Scouts beibehalten)" : "";
+						statusLabel.setText("Scouting-Liste aktualisiert" + extra + ": " + res.message());
 						event.setDropCompleted(true);
 						return;
 					}
@@ -1125,6 +1135,7 @@ public class MainController {
 	@FXML
 	public void onAddScoutPlayerManual() {
 		ScoutingPlayerModel s = new ScoutingPlayerModel("Neues Scouting-Ziel", "Stoßstürmer (A)", 21, 15000000L, 220000L, 1.0, 15, 14, 15, 0.58, 0.24, 0.54);
+		s.setManualEntry(true);
 		ScoutingAnalysisService.evaluate(s, appConfig);
 		scoutDataList.add(s);
 		refreshScoutKPIs();

@@ -62,6 +62,9 @@ public class ScoutingAnalysisService {
 			if (name == null || name.isBlank()) continue;
 			String key = SquadImportService.normalizePlayerKey(name);
 
+			// Datei-Importe sind niemals manuelle Einträge
+			fresh.setManualEntry(false);
+
 			String roleToApply = fresh.targetRoleProperty().get();
 			if (existingMap.containsKey(key)) {
 				String existingRole = existingMap.get(key).targetRoleProperty().get();
@@ -112,6 +115,7 @@ public class ScoutingAnalysisService {
 		target.determinationProperty().set(source.determinationProperty().get());
 		target.injurySusceptibilityProperty().set(source.injurySusceptibilityProperty().get());
 		target.availabilityFactorProperty().set(source.availabilityFactorProperty().get());
+		target.setManualEntry(source.isManualEntry());
 
 		target.progressivePasses90Property().set(source.progressivePasses90Property().get());
 		target.xg90Property().set(source.xg90Property().get());

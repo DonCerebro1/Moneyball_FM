@@ -16,6 +16,9 @@ public class ScoutingPlayerModel {
 	private final LongProperty wageDemand = new SimpleLongProperty();
 	private final DoubleProperty contractYears = new SimpleDoubleProperty();
 
+	// Markierung für manuell erfasste Scout-Ziele (Schutz vor Datei-Imports)
+	private final BooleanProperty manualEntry = new SimpleBooleanProperty(false);
+
 	// Liga-Koeffizient (Qualitätsfaktor)
 	private final DoubleProperty leagueCoefficient = new SimpleDoubleProperty(1.0);
 
@@ -83,9 +86,14 @@ public class ScoutingPlayerModel {
 		this.statValue1.set(stat1);
 		this.statValue2.set(stat2);
 		this.statValue3.set(stat3);
+		this.manualEntry.set(true);
 	}
 
 	// --- Property Getter & Setter ---
+
+	public BooleanProperty manualEntryProperty() { return manualEntry; }
+	public boolean isManualEntry() { return manualEntry.get(); }
+	public void setManualEntry(boolean manual) { this.manualEntry.set(manual); }
 
 	public StringProperty nameProperty() { return name; }
 	public StringProperty clubProperty() { return club; }

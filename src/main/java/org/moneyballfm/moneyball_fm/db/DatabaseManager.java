@@ -42,7 +42,7 @@ public class DatabaseManager {
                 );
             """);
 
-			// 2. Spieler-Historie (tactical_role auf VARCHAR(1000) erweitert für Multi-Taktik-Speicherung)
+			// 2. Spieler-Historie
 			stmt.execute("""
                 CREATE TABLE IF NOT EXISTS player_history (
                     id IDENTITY PRIMARY KEY,
@@ -74,7 +74,7 @@ public class DatabaseManager {
                 );
             """);
 
-			// 3. Scouting-Historie
+			// 3. Scouting-Historie (inkl. is_manual)
 			stmt.execute("""
                 CREATE TABLE IF NOT EXISTS scouting_history (
                     id IDENTITY PRIMARY KEY,
@@ -96,6 +96,7 @@ public class DatabaseManager {
                     scouting_score DOUBLE,
                     transfer_action VARCHAR(255),
                     price_check VARCHAR(255),
+                    is_manual BOOLEAN DEFAULT FALSE,
                     CONSTRAINT fk_scout_snapshot FOREIGN KEY (snapshot_id) REFERENCES snapshots(id) ON DELETE CASCADE
                 );
             """);
@@ -103,6 +104,7 @@ public class DatabaseManager {
 			// Migrationen für bereits existierende Datenbank-Dateien
 			stmt.execute("ALTER TABLE scouting_history ADD COLUMN IF NOT EXISTS club VARCHAR(255);");
 			stmt.execute("ALTER TABLE scouting_history ADD COLUMN IF NOT EXISTS positions VARCHAR(255);");
+			stmt.execute("ALTER TABLE scouting_history ADD COLUMN IF NOT EXISTS is_manual BOOLEAN DEFAULT FALSE;");
 
 			// Bestehende player_history Tabelle auf 1000 Zeichen vergrößern
 			try {
