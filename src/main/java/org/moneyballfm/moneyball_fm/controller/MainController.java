@@ -22,7 +22,6 @@ import java.io.File;
 import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Matcher;
@@ -164,13 +163,15 @@ public class MainController {
 	@FXML private TableColumn<YouthPlayerModel, String> colYouthRecommendation;
 	@FXML private TableColumn<YouthPlayerModel, Long> colYouthMaxSalary;
 
-	// TAB 7: Scouting
+	// TAB 7: Scouting (inkl. Liga & Koeffizient)
 	@FXML private Label lblScoutSignCount;
 	@FXML private Label lblScoutBargainCount;
 	@FXML private Label lblScoutRejectCount;
 	@FXML private TableView<ScoutingPlayerModel> scoutTable;
 	@FXML private TableColumn<ScoutingPlayerModel, String> colScoutName;
 	@FXML private TableColumn<ScoutingPlayerModel, String> colScoutRole;
+	@FXML private TableColumn<ScoutingPlayerModel, String> colScoutLeague;
+	@FXML private TableColumn<ScoutingPlayerModel, Number> colScoutLeagueCoeff;
 	@FXML private TableColumn<ScoutingPlayerModel, Integer> colScoutAge;
 	@FXML private TableColumn<ScoutingPlayerModel, Long> colScoutAskingPrice;
 	@FXML private TableColumn<ScoutingPlayerModel, Long> colScoutWageDemand;
@@ -453,7 +454,7 @@ public class MainController {
 		);
 
 		TableColumnBinder.setupScoutTable(
-				scoutTable, colScoutName, colScoutRole, colScoutAge, colScoutAskingPrice, colScoutWageDemand, colScoutContractYears,
+				scoutTable, colScoutName, colScoutRole, colScoutLeague, colScoutLeagueCoeff, colScoutAge, colScoutAskingPrice, colScoutWageDemand, colScoutContractYears,
 				colScoutMinutes, colScoutSampleQuality, colScoutAgility, colScoutPace, colScoutStamina,
 				colScoutStat1, colScoutStat2, colScoutStat3,
 				colScoutScore, colScoutMaxFee, colScoutMaxWage, colScoutPriceCheck, colScoutAction, roles, this::recalcScout,
@@ -941,17 +942,19 @@ public class MainController {
 			if (db.hasFiles()) {
 				File droppedFile = db.getFiles().get(0);
 				try {
-					// 1. Spezieller Check: 5-Jahreswertung / Ligen-Rangliste
-					if (NationCoefficientsImporter.isNationRankingFile(droppedFile)) {
-						int count = NationCoefficientsImporter.importAndGenerateLeagueTiers(droppedFile, appConfig);
+					// 1. Spezieller Check: Ligen-Reputationsliste
+					if (LeagueReputationImporter.isLeagueReputationFile(droppedFile)) {
+						var result = LeagueReputationImporter.importFromFile(droppedFile);
 
+						// Neu geladene Koeffizienten auf alle vorhandenen Scouts anwenden
 						for (ScoutingPlayerModel s : scoutDataList) {
 							ScoutingAnalysisService.evaluate(s, appConfig);
 						}
+						if (scoutTable != null) scoutTable.refresh();
 						refreshScoutKPIs();
 						refreshShadowSquad();
 
-						statusLabel.setText("Ligen-Koeffizienten aktualisiert: " + count + " Spielklassen berechnet und in config gespeichert.");
+						statusLabel.setText(result.message());
 						event.setDropCompleted(true);
 						return;
 					}

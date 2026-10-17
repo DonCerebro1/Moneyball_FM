@@ -181,6 +181,8 @@ public class TableColumnBinder {
 			TableView<ScoutingPlayerModel> table,
 			TableColumn<ScoutingPlayerModel, String> colName,
 			TableColumn<ScoutingPlayerModel, String> colRole,
+			TableColumn<ScoutingPlayerModel, String> colLeague,
+			TableColumn<ScoutingPlayerModel, Number> colLeagueCoeff,
 			TableColumn<ScoutingPlayerModel, Integer> colAge,
 			TableColumn<ScoutingPlayerModel, Long> colPrice,
 			TableColumn<ScoutingPlayerModel, Long> colWage,
@@ -221,6 +223,31 @@ public class TableColumnBinder {
 				onRecalc.accept(e.getRowValue());
 			}
 		});
+
+		if (colLeague != null) {
+			colLeague.setCellValueFactory(c -> c.getValue().leagueProperty());
+			colLeague.setCellFactory(TextFieldTableCell.forTableColumn());
+			colLeague.setOnEditCommit(e -> {
+				e.getRowValue().setLeague(e.getNewValue());
+				onRecalc.accept(e.getRowValue());
+			});
+		}
+
+		if (colLeagueCoeff != null) {
+			colLeagueCoeff.setCellValueFactory(c -> c.getValue().leagueCoefficientProperty());
+			colLeagueCoeff.setCellFactory(col -> new TableCell<>() {
+				@Override
+				protected void updateItem(Number item, boolean empty) {
+					super.updateItem(item, empty);
+					if (empty || item == null) {
+						setText(null);
+					} else {
+						setText(String.format(Locale.GERMANY, "%.2f", item.doubleValue()));
+					}
+				}
+			});
+			colLeagueCoeff.setEditable(false);
+		}
 
 		colAge.setCellValueFactory(c -> c.getValue().ageProperty().asObject());
 		colAge.setCellFactory(TextFieldTableCell.forTableColumn(new IntegerStringConverter()));

@@ -404,8 +404,10 @@
                 <!-- Scouting-Tabelle -->
                 <TableView fx:id="scoutTable" VBox.vgrow="ALWAYS" editable="true">
                     <columns>
-                        <TableColumn fx:id="colScoutName" text="Spielername" prefWidth="160.0" />
+                        <TableColumn fx:id="colScoutName" text="Spielername" prefWidth="150.0" />
                         <TableColumn fx:id="colScoutRole" text="Taktische Rolle" prefWidth="130.0" />
+                        <TableColumn fx:id="colScoutLeague" text="Liga" prefWidth="140.0" />
+                        <TableColumn fx:id="colScoutLeagueCoeff" text="Liga-Koeff." prefWidth="85.0" style="-fx-alignment: CENTER;" />
                         <TableColumn fx:id="colScoutAge" text="Alter" prefWidth="55.0" />
                         <TableColumn fx:id="colScoutAskingPrice" text="Ablöseforderung (€)" prefWidth="130.0" />
                         <TableColumn fx:id="colScoutWageDemand" text="Gehalt / Monat (€)" prefWidth="130.0" />

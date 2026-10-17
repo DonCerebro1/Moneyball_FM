@@ -1,28 +1,1151 @@
-# Moneyball Konfiguration für Football Manager (V7 Exakt)
-
-my_club_name: "Villarreal"
-youth_wage_threshold: 10000   # < 10.000 €/Monat -> Nachwuchs-Gehaltsschwelle
-
+---
 thresholds:
-  sample_low_minutes: 450      # < 5 Spiele -> Rote Markierung (Geringe Stichprobe)
-  sample_high_minutes: 900     # >= 10 Spiele -> Grüne Markierung (Hohe Aussagekraft)
-  critical_contract_years: 1.0 # <= 1 Jahr Restvertrag -> Dringender Handlungsbedarf
-
+  sample_low_minutes: 450
+  sample_high_minutes: 900
+  critical_contract_years: 1.0
+tactics:
+- name: "4-3-3 Gegenpress"
+  slots:
+  - metrics:
+    - name: "Gehaltene Bälle %"
+      weight: 0.35
+      benchmark: 0.88
+      inverse: false
+      column_aliases:
+      - "Par %"
+      - "Gehaltene Bälle %"
+      - "par"
+    - name: "xG verhindert / 90"
+      weight: 0.35
+      benchmark: 0.44
+      inverse: false
+      column_aliases:
+      - "xG verh/90"
+      - "xgverh90"
+      - "xG verhindert / 90"
+    - name: "Passquote %"
+      weight: 0.3
+      benchmark: 0.97
+      inverse: false
+      column_aliases:
+      - "Pas %"
+      - "Passquote %"
+      - "pass"
+    slot_name: "MTW (U)"
+    role_label: "Mitspielender Torwart"
+  - metrics:
+    - name: "xG / 90"
+      weight: 0.4
+      benchmark: 0.79
+      inverse: false
+      column_aliases:
+      - "xG/90"
+      - "xg90"
+      - "xG / 90"
+    - name: "Konversionsrate %"
+      weight: 0.3
+      benchmark: 0.23
+      inverse: false
+      column_aliases:
+      - "Verw. %"
+      - "verw"
+      - "Konversionsrate %"
+      - "Chancenverwertung%"
+    - name: "Schüsse aufs Tor %"
+      weight: 0.3
+      benchmark: 0.53
+      inverse: false
+      column_aliases:
+      - "Schüsse %"
+      - "schuss %"
+      - "Schüsse aufs Tor %"
+    slot_name: "Stoßstürmer (A)"
+    role_label: "Stoßstürmer (Mitte)"
+  - metrics:
+    - name: "xA / 90"
+      weight: 0.35
+      benchmark: 0.17
+      inverse: false
+      column_aliases:
+      - "xA/90"
+      - "xa90"
+      - "xA / 90"
+    - name: "Entscheidende Pässe / 90"
+      weight: 0.35
+      benchmark: 2.2
+      inverse: false
+      column_aliases:
+      - "E Pä/90"
+      - "e pä/90"
+      - "Entscheidende Pässe"
+      - "Key Passes"
+    - name: "Passquote %"
+      weight: 0.3
+      benchmark: 0.85
+      inverse: false
+      column_aliases:
+      - "Pas %"
+      - "Passquote %"
+      - "pass"
+    slot_name: "OM (L)"
+    role_label: "Offensiver Mittelfeldspieler Links"
+  - metrics:
+    - name: "xA / 90"
+      weight: 0.35
+      benchmark: 0.19
+      inverse: false
+      column_aliases:
+      - "xA/90"
+      - "xa90"
+      - "xA / 90"
+    - name: "Entscheidende Pässe / 90"
+      weight: 0.35
+      benchmark: 2.2
+      inverse: false
+      column_aliases:
+      - "E Pä/90"
+      - "e pä/90"
+      - "Entscheidende Pässe"
+      - "Key Passes"
+    - name: "Passquote %"
+      weight: 0.3
+      benchmark: 0.87
+      inverse: false
+      column_aliases:
+      - "Pas %"
+      - "Passquote %"
+      - "pass"
+    slot_name: "OM (R)"
+    role_label: "Offensiver Mittelfeldspieler Rechts"
+  - metrics:
+    - name: "Passquote %"
+      weight: 0.35
+      benchmark: 0.88
+      inverse: false
+      column_aliases:
+      - "Pas %"
+      - "Passquote %"
+      - "pass"
+    - name: "Progressive Pässe / 90"
+      weight: 0.35
+      benchmark: 5.9
+      inverse: false
+      column_aliases:
+      - "Pr Pässe/90"
+      - "prpaesse90"
+      - "Progressive Pässe / 90"
+    - name: "Entscheidende Pässe / 90"
+      weight: 0.3
+      benchmark: 1.2
+      inverse: false
+      column_aliases:
+      - "E Pä/90"
+      - "e pä/90"
+      - "Entscheidende Pässe"
+      - "Key Passes"
+    slot_name: "Regista (U)"
+    role_label: "Regista (Zentral Rechts)"
+  - metrics:
+    - name: "Passquote %"
+      weight: 0.35
+      benchmark: 0.89
+      inverse: false
+      column_aliases:
+      - "Pas %"
+      - "Passquote %"
+      - "pass"
+    - name: "Abgefangene Bälle / 90"
+      weight: 0.35
+      benchmark: 2.5
+      inverse: false
+      column_aliases:
+      - "AbB/90"
+      - "abb90"
+      - "Abgefangene Bälle / 90"
+      - "Interceptions"
+    - name: "Zweikampfquote %"
+      weight: 0.3
+      benchmark: 0.79
+      inverse: false
+      column_aliases:
+      - "Zwk %"
+      - "zwk"
+      - "Zweikampfquote %"
+      - "Tackles %"
+    slot_name: "ZSM (U)"
+    role_label: "Zurückgezogener Spielmacher"
+  - metrics:
+    - name: "Abgefangene Bälle / 90"
+      weight: 0.35
+      benchmark: 2.8
+      inverse: false
+      column_aliases:
+      - "AbB/90"
+      - "abb90"
+      - "Abgefangene Bälle / 90"
+    - name: "Flankenquote %"
+      weight: 0.3
+      benchmark: 0.26
+      inverse: false
+      column_aliases:
+      - "FPQ %"
+      - "fpq"
+      - "Flankenquote %"
+    - name: "Prog. Läufe / Dribblings pro Spiel"
+      weight: 0.35
+      benchmark: 2.1
+      inverse: false
+      column_aliases:
+      - "Drb/90"
+      - "drb90"
+      - "Prog. Läufe / Dribblings pro Spiel"
+      - "Dribblings"
+    slot_name: "FV (L)"
+    role_label: "Flügelverteidiger Links"
+  - metrics:
+    - name: "Abgefangene Bälle / 90"
+      weight: 0.35
+      benchmark: 4.36
+      inverse: false
+      column_aliases:
+      - "AbB/90"
+      - "abb90"
+      - "Abgefangene Bälle / 90"
+    - name: "Flankenquote %"
+      weight: 0.3
+      benchmark: 0.24
+      inverse: false
+      column_aliases:
+      - "FPQ %"
+      - "fpq"
+      - "Flankenquote %"
+    - name: "Prog. Läufe / Dribblings pro Spiel"
+      weight: 0.35
+      benchmark: 2.1
+      inverse: false
+      column_aliases:
+      - "Drb/90"
+      - "drb90"
+      - "Prog. Läufe / Dribblings pro Spiel"
+      - "Dribblings"
+    slot_name: "KFV (R)"
+    role_label: "Komp. Flügelverteidiger Rechts"
+  - metrics:
+    - name: "Passquote %"
+      weight: 0.35
+      benchmark: 0.88
+      inverse: false
+      column_aliases:
+      - "Pas %"
+      - "Passquote %"
+      - "pass"
+    - name: "Zweikampfquote %"
+      weight: 0.35
+      benchmark: 0.78
+      inverse: false
+      column_aliases:
+      - "Zwk %"
+      - "zwk"
+      - "Zweikampfquote %"
+    - name: "Progressive Pässe / 90"
+      weight: 0.3
+      benchmark: 5.5
+      inverse: false
+      column_aliases:
+      - "Pr Pässe/90"
+      - "prpaesse90"
+      - "Progressive Pässe / 90"
+    slot_name: "BSV (L)"
+    role_label: "Ballspielender Vert. Links"
+  - metrics:
+    - name: "Kopfballquote %"
+      weight: 0.4
+      benchmark: 0.78
+      inverse: false
+      column_aliases:
+      - "Kopf %"
+      - "kopf"
+      - "Kopfballquote %"
+    - name: "Zweikampfquote %"
+      weight: 0.4
+      benchmark: 0.82
+      inverse: false
+      column_aliases:
+      - "Zwk %"
+      - "zwk"
+      - "Zweikampfquote %"
+    - name: "Abgefangene Bälle / 90"
+      weight: 0.2
+      benchmark: 2.0
+      inverse: false
+      column_aliases:
+      - "AbB/90"
+      - "abb90"
+      - "Abgefangene Bälle / 90"
+    slot_name: "IV (Z)"
+    role_label: "Innenverteidiger Zentral"
+  - metrics:
+    - name: "Passquote %"
+      weight: 0.35
+      benchmark: 0.85
+      inverse: false
+      column_aliases:
+      - "Pas %"
+      - "Passquote %"
+      - "pass"
+    - name: "Zweikampfquote %"
+      weight: 0.35
+      benchmark: 0.76
+      inverse: false
+      column_aliases:
+      - "Zwk %"
+      - "zwk"
+      - "Zweikampfquote %"
+    - name: "Prog. Läufe / Dribblings pro Spiel"
+      weight: 0.3
+      benchmark: 1.4
+      inverse: false
+      column_aliases:
+      - "Drb/90"
+      - "drb90"
+      - "Prog. Läufe / Dribblings pro Spiel"
+    slot_name: "HRV (R)"
+    role_label: "Halbraumverteidiger Rechts"
+- name: "2. Taktik (Asymmetrisch)"
+  slots:
+  - metrics:
+    - name: "Gehaltene Bälle %"
+      weight: 0.35
+      benchmark: 0.88
+      inverse: false
+      column_aliases:
+      - "Par %"
+      - "Gehaltene Bälle %"
+      - "par"
+    - name: "xG verhindert / 90"
+      weight: 0.35
+      benchmark: 0.44
+      inverse: false
+      column_aliases:
+      - "xG verh/90"
+      - "xgverh90"
+      - "xG verhindert / 90"
+    - name: "Passquote %"
+      weight: 0.3
+      benchmark: 0.97
+      inverse: false
+      column_aliases:
+      - "Pas %"
+      - "Passquote %"
+      - "pass"
+    slot_name: "MTW (U)"
+    role_label: "Mitspielender Torwart"
+  - metrics:
+    - name: "xG / 90"
+      weight: 0.4
+      benchmark: 0.79
+      inverse: false
+      column_aliases:
+      - "xG/90"
+      - "xg90"
+      - "xG / 90"
+    - name: "Konversionsrate %"
+      weight: 0.3
+      benchmark: 0.23
+      inverse: false
+      column_aliases:
+      - "Verw. %"
+      - "verw"
+      - "Konversionsrate %"
+      - "Chancenverwertung%"
+    - name: "Schüsse aufs Tor %"
+      weight: 0.3
+      benchmark: 0.53
+      inverse: false
+      column_aliases:
+      - "Schüsse %"
+      - "schuss %"
+      - "Schüsse aufs Tor %"
+    slot_name: "Stoßstürmer (A)"
+    role_label: "Stoßstürmer (Mitte)"
+  - metrics:
+    - name: "xA / 90"
+      weight: 0.35
+      benchmark: 0.17
+      inverse: false
+      column_aliases:
+      - "xA/90"
+      - "xa90"
+      - "xA / 90"
+    - name: "Entscheidende Pässe / 90"
+      weight: 0.35
+      benchmark: 2.2
+      inverse: false
+      column_aliases:
+      - "E Pä/90"
+      - "e pä/90"
+      - "Entscheidende Pässe"
+      - "Key Passes"
+    - name: "Passquote %"
+      weight: 0.3
+      benchmark: 0.85
+      inverse: false
+      column_aliases:
+      - "Pas %"
+      - "Passquote %"
+      - "pass"
+    slot_name: "OM (L)"
+    role_label: "Offensiver Mittelfeldspieler Links"
+  - metrics:
+    - name: "xA / 90"
+      weight: 0.35
+      benchmark: 0.19
+      inverse: false
+      column_aliases:
+      - "xA/90"
+      - "xa90"
+      - "xA / 90"
+    - name: "Entscheidende Pässe / 90"
+      weight: 0.35
+      benchmark: 2.2
+      inverse: false
+      column_aliases:
+      - "E Pä/90"
+      - "e pä/90"
+      - "Entscheidende Pässe"
+      - "Key Passes"
+    - name: "Passquote %"
+      weight: 0.3
+      benchmark: 0.87
+      inverse: false
+      column_aliases:
+      - "Pas %"
+      - "Passquote %"
+      - "pass"
+    slot_name: "OM (R)"
+    role_label: "Offensiver Mittelfeldspieler Rechts"
+  - metrics:
+    - name: "Passquote %"
+      weight: 0.35
+      benchmark: 0.88
+      inverse: false
+      column_aliases:
+      - "Pas %"
+      - "Passquote %"
+      - "pass"
+    - name: "Progressive Pässe / 90"
+      weight: 0.35
+      benchmark: 5.9
+      inverse: false
+      column_aliases:
+      - "Pr Pässe/90"
+      - "prpaesse90"
+      - "Progressive Pässe / 90"
+    - name: "Entscheidende Pässe / 90"
+      weight: 0.3
+      benchmark: 1.2
+      inverse: false
+      column_aliases:
+      - "E Pä/90"
+      - "e pä/90"
+      - "Entscheidende Pässe"
+      - "Key Passes"
+    slot_name: "Regista (U)"
+    role_label: "Regista (Zentral Rechts)"
+  - metrics:
+    - name: "Passquote %"
+      weight: 0.35
+      benchmark: 0.88
+      inverse: false
+      column_aliases:
+      - "Pas %"
+      - "Passquote %"
+      - "pass"
+    - name: "Abgefangene Bälle / 90"
+      weight: 0.35
+      benchmark: 2.5
+      inverse: false
+      column_aliases:
+      - "AbB/90"
+      - "abb90"
+      - "Abgefangene Bälle / 90"
+      - "Interceptions"
+    - name: "Zweikampfquote %"
+      weight: 0.3
+      benchmark: 0.78
+      inverse: false
+      column_aliases:
+      - "Zwk %"
+      - "zwk"
+      - "Zweikampfquote %"
+      - "Tackles %"
+    slot_name: "DM (V)"
+    role_label: "Defensiver Mittelfeldspieler"
+  - metrics:
+    - name: "Abgefangene Bälle / 90"
+      weight: 0.35
+      benchmark: 2.8
+      inverse: false
+      column_aliases:
+      - "AbB/90"
+      - "abb90"
+      - "Abgefangene Bälle / 90"
+    - name: "Flankenquote %"
+      weight: 0.3
+      benchmark: 0.26
+      inverse: false
+      column_aliases:
+      - "FPQ %"
+      - "fpq"
+      - "Flankenquote %"
+    - name: "Prog. Läufe / Dribblings pro Spiel"
+      weight: 0.35
+      benchmark: 2.1
+      inverse: false
+      column_aliases:
+      - "Drb/90"
+      - "drb90"
+      - "Prog. Läufe / Dribblings pro Spiel"
+      - "Dribblings"
+    slot_name: "FV (L)"
+    role_label: "Flügelverteidiger Links"
+  - metrics:
+    - name: "Abgefangene Bälle / 90"
+      weight: 0.35
+      benchmark: 2.8
+      inverse: false
+      column_aliases:
+      - "AbB/90"
+      - "abb90"
+      - "Abgefangene Bälle / 90"
+    - name: "Flankenquote %"
+      weight: 0.3
+      benchmark: 0.26
+      inverse: false
+      column_aliases:
+      - "FPQ %"
+      - "fpq"
+      - "Flankenquote %"
+    - name: "Prog. Läufe / Dribblings pro Spiel"
+      weight: 0.35
+      benchmark: 2.1
+      inverse: false
+      column_aliases:
+      - "Drb/90"
+      - "drb90"
+      - "Prog. Läufe / Dribblings pro Spiel"
+      - "Dribblings"
+    slot_name: "KFV (R)"
+    role_label: "Komp. Flügelverteidiger Rechts"
+  - metrics:
+    - name: "Passquote %"
+      weight: 0.35
+      benchmark: 0.88
+      inverse: false
+      column_aliases:
+      - "Pas %"
+      - "Passquote %"
+      - "pass"
+    - name: "Zweikampfquote %"
+      weight: 0.35
+      benchmark: 0.78
+      inverse: false
+      column_aliases:
+      - "Zwk %"
+      - "zwk"
+      - "Zweikampfquote %"
+    - name: "Progressive Pässe / 90"
+      weight: 0.3
+      benchmark: 5.5
+      inverse: false
+      column_aliases:
+      - "Pr Pässe/90"
+      - "prpaesse90"
+      - "Progressive Pässe / 90"
+    slot_name: "BSV (L)"
+    role_label: "Ballspielender Vert. Links"
+  - metrics:
+    - name: "Kopfballquote %"
+      weight: 0.4
+      benchmark: 0.78
+      inverse: false
+      column_aliases:
+      - "Kopf %"
+      - "kopf"
+      - "Kopfballquote %"
+    - name: "Zweikampfquote %"
+      weight: 0.4
+      benchmark: 0.82
+      inverse: false
+      column_aliases:
+      - "Zwk %"
+      - "zwk"
+      - "Zweikampfquote %"
+    - name: "Abgefangene Bälle / 90"
+      weight: 0.2
+      benchmark: 2.0
+      inverse: false
+      column_aliases:
+      - "AbB/90"
+      - "abb90"
+      - "Abgefangene Bälle / 90"
+    slot_name: "IV (Z)"
+    role_label: "Innenverteidiger Zentral"
+  - metrics:
+    - name: "Passquote %"
+      weight: 0.35
+      benchmark: 0.85
+      inverse: false
+      column_aliases:
+      - "Pas %"
+      - "Passquote %"
+      - "pass"
+    - name: "Zweikampfquote %"
+      weight: 0.35
+      benchmark: 0.76
+      inverse: false
+      column_aliases:
+      - "Zwk %"
+      - "zwk"
+      - "Zweikampfquote %"
+    - name: "Prog. Läufe / Dribblings pro Spiel"
+      weight: 0.3
+      benchmark: 1.4
+      inverse: false
+      column_aliases:
+      - "Drb/90"
+      - "drb90"
+      - "Prog. Läufe / Dribblings pro Spiel"
+    slot_name: "HRV (R)"
+    role_label: "Halbraumverteidiger Rechts"
 salary_tiers:
-  - id: "Tier 1 (Key/Star)"
-    max_salary_month: 1000000
-    target_score_min: 85.0
-  - id: "Tier 2 (Stamm)"
-    max_salary_month: 650000
-    target_score_min: 70.0
-  - id: "Tier 3 (Rotation/Backup)"
-    max_salary_month: 350000
-    target_score_min: 55.0
-  - id: "Tier 4 (Verkauf)"
-    max_salary_month: 150000
-    target_score_min: 0.0
-
+- id: "Tier 1 (Key/Star)"
+  max_salary_month: 1000000
+  target_score_min: 85.0
+- id: "Tier 2 (Stamm)"
+  max_salary_month: 650000
+  target_score_min: 70.0
+- id: "Tier 3 (Rotation/Backup)"
+  max_salary_month: 350000
+  target_score_min: 55.0
+- id: "Tier 4 (Verkauf)"
+  max_salary_month: 150000
+  target_score_min: 0.0
 active_tactic: "4-3-3 Gegenpress"
-
-# Taktiken werden jetzt modular und dynamisch aus dem Ordner /tactics geladen
-tactics: []
+my_club_name: "Villarreal"
+youth_wage_threshold: 10000
+league_coefficients:
+  norwegens third division: 0.55
+  südsudans premier division: 0.55
+  slowakeis second division: 0.55
+  paraguays fourth division primera c: 0.55
+  gabuns premier division: 0.55
+  thai league two: 0.68
+  palestinas west bank premier league: 0.55
+  neuseelands national league: 0.55
+  serbiens first league: 0.55
+  paraguays tercera división (primera b): 0.55
+  ukraines first league: 0.55
+  sports direct premiership: 0.68
+  tadschikistans high league: 0.55
+  venezuelas second division: 0.55
+  bruneis super league: 0.55
+  neukaledoniens championnat super ligue: 0.55
+  französisch guyanas régional 2: 0.55
+  liga nacional de honduras: 0.55
+  französisch guyanas régional 1: 0.55
+  west of scotland fourth division: 0.55
+  j3 league: 0.55
+  hong kongs first division: 0.55
+  paraguays primera división: 0.82
+  kolumbiens third division: 0.55
+  philippinens football league: 0.55
+  guams soccer league: 0.55
+  macãos first division: 0.55
+  chinas national first division: 0.55
+  frankreichs regional 1: 0.55
+  kenias second division: 0.55
+  kirgisistans high league: 0.55
+  martiniques trophee gerard janvion r1: 0.55
+  nippon national regional league: 0.55
+  brasiliens national third division: 0.55
+  ägyptens second division: 0.55
+  saudi arabiens second division: 0.55
+  elfenbeinküstes second division: 0.55
+  eccellenza: 0.55
+  schwedens third division: 0.55
+  mazedoniens first league (fyr): 0.55
+  saudi arabiens first division league: 0.55
+  v.league one: 0.55
+  swiss super league: 0.82
+  zyperns first division: 0.82
+  kosovos superleague: 0.55
+  v.league two: 0.55
+  islands third division: 0.55
+  japans university league: 0.55
+  eredivisie: 0.9
+  ligue professionnelle 2: 0.55
+  ligue professionnelle 1: 0.68
+  regional first divisions: 0.55
+  premier league: 1.0
+  türkeis 2. league: 0.55
+  kasachstans first league: 0.55
+  sknfa super league: 0.55
+  tansanias championship: 0.55
+  senegals second division: 0.55
+  schwedens first division elite: 0.55
+  antigua & barbudas premier division: 0.55
+  jordaniens first division: 0.55
+  serie a: 1.0
+  mauritius premier division: 0.55
+  palestinas gazastreifen premier league: 0.55
+  segunda división de guatemala: 0.55
+  serie c: 0.55
+  serie b: 0.68
+  türkeis super amateurliga: 0.55
+  copa peru: 0.55
+  kosovos third league: 0.55
+  spaniens federation first division: 0.55
+  kuwaits first division: 0.55
+  ungarns division i: 0.68
+  rumäniens second league: 0.55
+  israels premier league: 0.68
+  vanarama national league: 0.55
+  libanons premier league: 0.55
+  albaniens second category: 0.55
+  ukraines reg div - kryvyi rih: 0.55
+  thai league: 0.68
+  jamaikas premier league: 0.55
+  polens second division: 0.55
+  syriens first division: 0.55
+  polens third division: 0.55
+  schwedens premier division: 0.82
+  guyanas elite league: 0.55
+  uruguays 2. amateurliga: 0.55
+  usbekistans superleague: 0.55
+  west of scotland second division: 0.55
+  irlands first division: 0.55
+  armeniens premier league: 0.55
+  polens fourth division: 0.55
+  sloweniens second league: 0.55
+  vanarama national league north/south: 0.55
+  "2. bundesliga": 0.82
+  maltas premier league: 0.55
+  neuseelands regional first divisions: 0.55
+  league one: 0.68
+  kambodschas premier league: 0.55
+  ukraines extinct division: 0.55
+  east of scotland third division: 0.55
+  west of scotland third division: 0.55
+  turks & caicos premier league: 0.55
+  brasiliens rio de janeiro second division: 0.55
+  finnlands premier league: 0.55
+  argentiniens fifth division: 0.55
+  tschechiens fourth division: 0.55
+  jd cymru premier: 0.68
+  färöers premier league: 0.55
+  nigerias premier league: 0.55
+  tahitis first division: 0.55
+  serbiens superleague: 0.82
+  luxemburgs national division: 0.55
+  belarus' first league: 0.55
+  east of scotland second division: 0.55
+  ruandas premier division: 0.55
+  gambias premier division: 0.55
+  primera federación: 0.68
+  bangladeschs premier league: 0.55
+  singapurs premier league: 0.55
+  primera división de ascenso: 0.55
+  republika srpskas second league east: 0.55
+  indiens goan professional league: 0.55
+  cinch league 1: 0.55
+  russlands premier league: 0.68
+  finnlands second division: 0.55
+  türkeis super league: 0.9
+  cinch league 2: 0.55
+  serie d: 0.55
+  bahamas senior league: 0.55
+  malaysias division three league: 0.55
+  bfa premier league: 0.55
+  denmark's series: 0.55
+  haitis championnat national d2: 0.55
+  äquatorialguineas second division: 0.55
+  haitis championnat national d1: 0.55
+  kroatiens third league: 0.55
+  svg premier division: 0.55
+  myanmars national league: 0.55
+  primera división de costa rica: 0.68
+  slfa first division: 0.55
+  tschads premier division: 0.55
+  koreas amateurliga: 0.55
+  highland-lowland leagues: 0.55
+  kongos championnat national: 0.55
+  ägyptens third division: 0.55
+  chinas super league: 0.68
+  kubas provincial leagues: 0.55
+  lettlands first league: 0.55
+  liga de ascenso de nicaragua: 0.55
+  brasiliens national second division: 0.68
+  kameruns mtn elite one group a: 0.55
+  botswanas premier division: 0.55
+  mexikos first division: 0.9
+  jupiler pro league: 0.9
+  sambias premier league: 0.55
+  mongoleis premier league: 0.55
+  ligenstufe 5: 0.55
+  togos second division: 0.55
+  namibias premier division: 0.55
+  iraks premier league: 0.55
+  qatar league: 0.55
+  ligue national de football amateur 1: 0.55
+  malis ligue 2: 0.55
+  malis ligue 1: 0.55
+  irans second division: 0.55
+  kroatiens amateurliga: 0.55
+  playr-fit premier intermediate league: 0.55
+  guadeloupes ligue régionale 1: 0.55
+  guadeloupes ligue régionale 2: 0.55
+  mexikos expansion league: 0.55
+  spaniens federation third division: 0.55
+  portugals championship: 0.55
+  koreas k4 league: 0.55
+  fidschis premier league: 0.55
+  j2 league: 0.55
+  mazedoniens second league: 0.55
+  kurdistans premier league: 0.55
+  bpl qualifiers: 0.55
+  gibraltar football league: 0.55
+  burundis premier division: 0.55
+  jordaniens professional league: 0.55
+  tschechiens second division: 0.55
+  jd cymru north/south: 0.55
+  ukraines regional division d1: 0.55
+  portugals premier league: 0.9
+  kampionato liga mcb - promé division: 0.55
+  cinch championship: 0.55
+  perus first division: 0.68
+  äquatorialguineas premier division: 0.55
+  luxemburgs first division: 0.55
+  samoas national league: 0.55
+  malaysias super league: 0.55
+  segunda división: 0.82
+  spaniens first division: 1.0
+  belgian challenger pro league: 0.55
+  ghanas premier division: 0.55
+  football queensland premier league 3 - metro: 0.55
+  laos premier league: 0.55
+  major league soccer: 0.82
+  indiens calcutta premier division: 0.55
+  turkmenistans higher league: 0.55
+  boliviens second division: 0.55
+  arubas division di honor: 0.55
+  tunesiens amateurliga 1: 0.55
+  ecuadors serie b: 0.55
+  tunesiens amateurliga 2: 0.55
+  ghanas division one league: 0.55
+  cook islands round cup: 0.55
+  ecuadors serie a: 0.82
+  liga nacional de guatemala: 0.55
+  nordirlands ligastufe 4: 0.55
+  brasiliens 2. staatsliga: 0.55
+  boliviens premier division: 0.68
+  kasachstans premier league: 0.68
+  mosambiks premier division: 0.55
+  kameruns elite two: 0.55
+  kolumbiens second division: 0.55
+  islands second division: 0.55
+  guinea-bissaus premier division: 0.55
+  griechenlands super league 1: 0.82
+  griechenlands super league 2: 0.55
+  bundesliga: 1.0
+  san marino league: 0.55
+  koreas k3 league: 0.55
+  argentiniens fourth division: 0.55
+  amerikas soccer league division two: 0.55
+  chiles third division a: 0.55
+  ugandas big league: 0.55
+  vierde divisie b: 0.55
+  vierde divisie c: 0.55
+  sloweniens third league: 0.55
+  benins ligue 1: 0.55
+  vierde divisie a: 0.55
+  vierde divisie d: 0.55
+  seychellens premier division: 0.55
+  dvr premier football league: 0.55
+  "3. division": 0.55
+  tschechiens third division: 0.55
+  algeriens league 1: 0.68
+  nippon soccer league: 0.55
+  algeriens league 2: 0.55
+  färöers first division: 0.55
+  kroatiens fourth league: 0.55
+  griechenlands 1. amateurliga: 0.55
+  syriens premier league: 0.55
+  lesothos premier division: 0.55
+  kuwaits premier league: 0.55
+  tschechiens first division: 0.82
+  komorens premier league: 0.55
+  lettlands second league: 0.55
+  estlands premier league: 0.55
+  nepals super league: 0.55
+  svb eerste divisie: 0.55
+  kroatiens first league: 0.9
+  usbekistans pro league: 0.55
+  bonaires kampionato: 0.55
+  bulgariens second league: 0.55
+  angolas championship: 0.55
+  st.-martins championship: 0.55
+  ligue 1: 1.0
+  omans professional league: 0.55
+  togos first division: 0.55
+  ukraines reg div - kyiv weekend superleague d2: 0.55
+  dominicas premier league: 0.55
+  portugals third division: 0.55
+  mexikos premier division serie b: 0.55
+  mexikos premier division serie a: 0.55
+  west of scotland first division: 0.55
+  israels a league: 0.55
+  championship: 0.82
+  südafrikas premier soccer league: 0.68
+  zyperns third division: 0.55
+  hana 1q k league 1: 0.68
+  brasiliens national first division: 0.9
+  georgiens national league: 0.68
+  hana 1q k league 2: 0.55
+  tansanias mainland premier division: 0.55
+  norwegens second division: 0.55
+  liga portugal: 0.9
+  serbiens second league: 0.55
+  east of scotland first division: 0.55
+  frankreichs national: 0.55
+  tongas national league: 0.55
+  bulgariens first league: 0.68
+  "2. division": 0.55
+  norwegens fourth division: 0.55
+  portugals second league: 0.68
+  el salvadors segunda división: 0.55
+  keuken kampioen divisie: 0.68
+  nordicbet liga: 0.55
+  moldawiens divizia naţională: 0.68
+  estlands first b league: 0.55
+  ecuadors ascenso nacional: 0.55
+  la liga 2: 0.82
+  papua-neuguineas national soccer league: 0.55
+  venezuelas premier division: 0.68
+  mexikos independent league: 0.55
+  osttimors premier division: 0.55
+  kubas national league: 0.55
+  j1 league: 0.68
+  kolumbiens first division: 0.82
+  bermudas premier division: 0.55
+  brasileirão: 0.88
+  isuzu ute a-league: 0.55
+  simbabwes premier division: 0.55
+  albaniens first category: 0.55
+  premier league von eswatini: 0.55
+  paraguays second division: 0.55
+  canadian premier league: 0.68
+  schwedens first division: 0.55
+  chinas national second division: 0.55
+  luxemburgs division of honour: 0.55
+  dr kongos premier division: 0.55
+  montenegros first league: 0.55
+  la liga: 1.0
+  bulgariens third league: 0.55
+  bangladeschs championship league: 0.55
+  kenias premier division: 0.55
+  moldawiens divizia a: 0.55
+  bahrains premier league: 0.55
+  uruguays interior zone: 0.55
+  mls next pro: 0.55
+  islands first division: 0.55
+  chiles second division: 0.55
+  brasiliens national fourth division: 0.55
+  tükreis 3. league: 0.55
+  indiens second division: 0.55
+  andorras second division: 0.55
+  djiboutis premier division: 0.55
+  frankreichs national 3: 0.55
+  tt premier football league tier 1: 0.55
+  frankreichs national 2: 0.55
+  tt premier football league tier 2: 0.55
+  qatar stars league: 0.68
+  uruguays first division: 0.82
+  türkeis 1. league: 0.68
+  safa regional division 2 leagues: 0.55
+  albaniens superleague: 0.55
+  mls: 0.75
+  ukraines reg div - dnipro: 0.55
+  saudi arabiens professional league: 0.82
+  republika srpskas second league west: 0.55
+  bosniens premier league: 0.82
+  belgiens third amateur division: 0.55
+  optibet virsliga: 0.55
+  persian gulf premier league: 0.68
+  andorras first division: 0.55
+  slowakeis first division: 0.68
+  pakistans premier league: 0.55
+  dhivehi league: 0.55
+  svb tweede divisie: 0.55
+  cinch premiership: 0.9
+  ukraines amateurliga: 0.55
+  türkeis regionale amateurliga: 0.55
+  georgiens national league 2: 0.55
+  sloweniens first league: 0.68
+  polens first division: 0.55
+  maltas challenge league: 0.55
+  ungarns division iii: 0.55
+  sky bet championship: 0.82
+  uruguays second professional division: 0.55
+  englands regional premier divisions: 0.55
+  belizes super league: 0.55
+  serbiens zone league: 0.55
+  cayman islands premier league: 0.55
+  nepals a-division league: 0.55
+  argentiniens third division: 0.55
+  aserbaidschans second league: 0.55
+  sambias first division: 0.55
+  indiens national football league: 0.55
+  bfa division one: 0.55
+  swiss challenge league: 0.68
+  premier division: 1.0
+  spanische 2.: 0.82
+  schwedens second division: 0.55
+  pko bank polski ekstraklasa: 0.82
+  el salvadors primera división: 0.55
+  sky bet league one: 0.68
+  ligue 1 uber eats: 1.0
+  argentiniens second division: 0.68
+  libyens first division: 0.55
+  österreichs 2. liga: 0.55
+  litauens a league: 0.55
+  liga puerto rico: 0.55
+  syriens second division: 0.55
+  finnlands first division: 0.55
+  ligue 2 bkt: 0.68
+  russlands second division b: 0.55
+  taiwans premier league: 0.55
+  "3f superliga": 0.82
+  russlands second division a: 0.55
+  norwegens premier division: 0.82
+  spanische 1.: 1.0
+  ugandas premier league: 0.55
+  liga 4: 0.55
+  liga 3: 0.55
+  burkina fasos d1: 0.55
+  madagaskars orange pro league: 0.55
+  ukraines second league: 0.55
+  liga panameña de fútbol: 0.55
+  brasiliens staatsmeisterschaft: 0.55
+  grenadas premier division: 0.55
+  north caledonian league: 0.55
+  bvi premier league: 0.55
+  swiss promotion league: 0.55
+  belarus' highest league: 0.55
+  são tomés premier division: 0.55
+  amateurliga: 0.55
+  us virgin islands association club championship: 0.55
+  bosniens first league: 0.55
+  spaniens second division: 0.68
+  brasiliens são paulo second division: 0.55
+  rumäniens third league: 0.55
+  kap-verde-wettbewerb: 0.55
+  österreichs 1. liga: 0.9
+  rumäniens fourth league: 0.55
+  primera división de nicaragua: 0.55
+  league1 canada: 0.55
+  derde divisie a: 0.55
+  derde divisie b: 0.55
+  liga de ascenso de honduras: 0.55
+  sierra leones premier division: 0.55
+  malawis premier division: 0.55
+  chiles first division: 0.82
+  liga de ascenso de costa rica: 0.55
+  v.a.e. second league: 0.55
+  usbekistans birinchi liga: 0.55
+  israels national league: 0.55
+  litauens 1 league: 0.55
+  antigua & barbudas first division: 0.55
+  liga dominicana de fútbol: 0.55
+  zentralafrikas premier division: 0.55
+  thai league three: 0.55
+  irlands premier division: 0.68
+  elfenbeinküstes premier division: 0.55
+  sky bet league two: 0.55
+  bosniens second league: 0.55
+  v.a.e. first division: 0.55
+  sint-maartens championship: 0.55
+  indiens national division: 0.55
+  guineas premier division: 0.55
+  ungarns division ii: 0.55
+  montenegros second league: 0.55
+  kirgisistans national league: 0.55
+  spanische 3.: 0.68
+  liberias premier league: 0.55
+  united states soccer leagues championship: 0.55
+  aserbaidschans premier league: 0.68
+  iraks first division: 0.55
+  nigers premier division: 0.55
+  jamaikas parish leagues: 0.55
+  tweede divisie: 0.55
+  aserbaidschans first league: 0.55
+  neuseelands national league - championship: 0.55
+  indonesiens league two: 0.55
+  senegals first division: 0.55
+  islands fourth division: 0.55
+  eritreas premier division: 0.55
+  chiles first division b: 0.55
+  réunion regional 1: 0.55
+  portugals regional divisions: 0.55
+  regionalliga: 0.55
+  jamaikas football federation championship: 0.55
+  azadegan league: 0.55
+  indonesiens league one: 0.55
+  sri lankas super league: 0.55
+  äthiopiens premier division: 0.55
+  griechenlands amateurliga: 0.55
+  martiniques trophee de charles-alfred r2: 0.55
+  spaniens federation second division: 0.55
+  division nationale amateur: 0.55
+  äthiopiens higher league: 0.55
+  estlands first league: 0.55
+  honiara championship league: 0.55
+  argentiniens premier division: 0.9
+  kosovos first league group b: 0.55
+  uruguays first amateur division: 0.55
+  kosovos first league group a: 0.55
+  norwegens first division: 0.68
+  ukraines premier league: 0.82
+  "1. liga": 0.55
+  zyperns second division: 0.55
+  "4. liga": 0.55
+  neuseelands regional premier leagues: 0.55
+  bhutans premier league: 0.55
+  rumäniens first league: 0.68
+  russlands first division: 0.55
+  botola pro 2: 0.55
+  islands premier division: 0.68
+  v.a.e. professional league: 0.68
+  somalias premier division: 0.55
+  botola pro 1: 0.68
+  mauretaniens d1: 0.55
+  griechenlands national c division: 0.55
+  national premier leagues: 0.55
+  afghanistans premier league: 0.55
+  belgiens second amateur division: 0.55
+  sudans premier league: 0.55
+  belgiens first national amateur division: 0.55
+  armeniens first league: 0.55
+  südafrikas national first division championship: 0.55
+  playr-fit championship: 0.55
+  jemens first division: 0.55
+  ägyptens premier league: 0.68
+  perus second division: 0.55
+  kroatiens second league: 0.68
+  "3. liga": 0.55
+  amerikas developmental league: 0.55
+  salomonens s-league: 0.55
+  puerto ricos soccer league 2nd division: 0.55
+  hong kongs premier league: 0.55
+  nordmakedoniens third league: 0.55
+default_league_coefficient: 0.7
