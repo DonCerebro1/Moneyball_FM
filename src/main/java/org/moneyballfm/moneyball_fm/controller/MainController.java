@@ -108,6 +108,21 @@ public class MainController {
 	@FXML private TableColumn<DepthChartRowModel, String> colDepthAge;
 	@FXML private TableColumn<DepthChartRowModel, String> colDepthSalary;
 
+	// TAB: Taktik-Matrix & Passung
+	@FXML private Label lblMatrixBestTactic;
+	@FXML private Label lblMatrixBestAvgScore;
+	@FXML private Label lblMatrixRetrainCount;
+	@FXML private TableView<TacticalMatrixRowModel> matrixTable;
+	@FXML private TableColumn<TacticalMatrixRowModel, String> colMatrixPlayer;
+	@FXML private TableColumn<TacticalMatrixRowModel, String> colMatrixNaturalPos;
+	@FXML private TableColumn<TacticalMatrixRowModel, String> colMatrixCurrentRole;
+	@FXML private TableColumn<TacticalMatrixRowModel, Double> colMatrixCurrentScore;
+	@FXML private TableColumn<TacticalMatrixRowModel, String> colMatrixBestRole;
+	@FXML private TableColumn<TacticalMatrixRowModel, Double> colMatrixBestScore;
+	@FXML private TableColumn<TacticalMatrixRowModel, Double> colMatrixDelta;
+	@FXML private TableColumn<TacticalMatrixRowModel, String> colMatrixAlternatives;
+	@FXML private TableColumn<TacticalMatrixRowModel, String> colMatrixRecommendation;
+
 	// TAB 5: Leihspieler
 	@FXML private Label lblLoanReturnCount;
 	@FXML private Label lblLoanExtendCount;
@@ -243,6 +258,7 @@ public class MainController {
 	private final ObservableList<PlayerRowModel> playerDataList = FXCollections.observableArrayList();
 	private final ObservableList<PositionNeedModel> needsDataList = FXCollections.observableArrayList();
 	private final ObservableList<DepthChartRowModel> depthChartDataList = FXCollections.observableArrayList();
+	private final ObservableList<TacticalMatrixRowModel> matrixDataList = FXCollections.observableArrayList();
 	private final ObservableList<LoanPlayerModel> outgoingLoanDataList = FXCollections.observableArrayList();
 	private final ObservableList<LoanPlayerModel> incomingLoanDataList = FXCollections.observableArrayList();
 	private final ObservableList<YouthPlayerModel> youthDataList = FXCollections.observableArrayList();
@@ -284,6 +300,7 @@ public class MainController {
 		playerTable.setEditable(true);
 		needsTable.setItems(needsDataList);
 		if (depthChartTable != null) depthChartTable.setItems(depthChartDataList);
+		if (matrixTable != null) matrixTable.setItems(matrixDataList);
 		if (outgoingLoanTable != null) outgoingLoanTable.setItems(outgoingLoanDataList);
 		if (incomingLoanTable != null) incomingLoanTable.setItems(incomingLoanDataList);
 		if (youthTable != null) youthTable.setItems(youthDataList);
@@ -461,6 +478,12 @@ public class MainController {
 				this::autoSaveToDatabase, stage
 		);
 
+		TableColumnBinder.setupTacticalMatrixTable(
+				matrixTable, colMatrixPlayer, colMatrixNaturalPos, colMatrixCurrentRole,
+				colMatrixCurrentScore, colMatrixBestRole, colMatrixBestScore,
+				colMatrixDelta, colMatrixAlternatives, colMatrixRecommendation
+		);
+
 		TableColumnBinder.setupLoanColumns(
 				outgoingLoanTable, colOutLoanName, colOutLoanRole, colOutLoanAge, colOutLoanClub, colOutLoanGames,
 				colOutLoanMinutes, colOutLoanRating, colOutLoanScore, colOutLoanClause, colOutLoanMarketValue,
@@ -514,11 +537,34 @@ public class MainController {
 
 	private void refreshAll() {
 		refreshSquadNeeds();
+		refreshTacticalMatrix();
 		refreshLoanKPIs();
 		refreshYouthKPIs();
 		refreshScoutKPIs();
 		refreshRegistrationData();
 		refreshHistoryPlayerDropdown();
+	}
+
+	private void refreshTacticalMatrix() {
+		if (matrixTable == null && lblMatrixBestTactic == null) return;
+
+		List<TacticalMatrixRowModel> scanned = TacticalMatrixService.analyzeSquadMatrix(playerDataList, appConfig);
+		matrixDataList.setAll(scanned);
+
+		var tacticFits = TacticalMatrixService.evaluateTacticsFit(playerDataList, appConfig);
+		if (!tacticFits.isEmpty()) {
+			var bestTactic = tacticFits.get(0);
+			if (lblMatrixBestTactic != null) lblMatrixBestTactic.setText(bestTactic.tacticName() + " (" + bestTactic.summary() + ")");
+			if (lblMatrixBestAvgScore != null) lblMatrixBestAvgScore.setText(String.format(Locale.GERMANY, "%.1f", bestTactic.avgTop11Score()) + " Ø Top-11");
+		} else {
+			if (lblMatrixBestTactic != null) lblMatrixBestTactic.setText("—");
+			if (lblMatrixBestAvgScore != null) lblMatrixBestAvgScore.setText("—");
+		}
+
+		long retrainCount = scanned.stream().filter(r -> r.recommendationProperty().get().contains("Umschulen")).count();
+		if (lblMatrixRetrainCount != null) {
+			lblMatrixRetrainCount.setText(retrainCount + " Spieler");
+		}
 	}
 
 	private void setupSalaryCalculator() {
@@ -790,6 +836,7 @@ public class MainController {
 	private void recalc(PlayerRowModel row) {
 		MoneyballCalculator.recalculate(row, appConfig);
 		refreshSquadNeeds();
+		refreshTacticalMatrix();
 		LoanAnalysisService.syncIncomingLoans(playerDataList, incomingLoanDataList);
 		refreshShadowSquad();
 		refreshSquadKPIs();
@@ -959,8 +1006,8 @@ public class MainController {
 						return;
 					}
 
-					// 2. Scouting-Datei (falls Tab 7 aktiv ist) -> ersetzt alte Scouts komplett
-					if (mainTabPane != null && mainTabPane.getSelectionModel().getSelectedIndex() == 6) {
+					// 2. Scouting-Datei (Tab Index 7: Scouting) -> ersetzt alte Scouts komplett
+					if (mainTabPane != null && mainTabPane.getSelectionModel().getSelectedIndex() == 7) {
 						scoutDataList.clear();
 						var res = ScoutingAnalysisService.importScoutingFile(droppedFile, scoutDataList, getAvailableRoles(), appConfig);
 						refreshScoutKPIs();
@@ -975,7 +1022,7 @@ public class MainController {
 					if (FmExportParser.isPreseasonFile(droppedFile)) {
 						int updated = SquadImportService.mergePreseasonStats(droppedFile, registrationDataList);
 						refreshRegistrationKPIs();
-						if (mainTabPane != null && mainTabPane.getTabs().size() >= 9) mainTabPane.getSelectionModel().select(8);
+						if (mainTabPane != null && mainTabPane.getTabs().size() >= 10) mainTabPane.getSelectionModel().select(9);
 						statusLabel.setText("Testspiel-Stats gemerged: " + updated + " Spieler aktualisiert (aus " + droppedFile.getName() + ").");
 						event.setDropCompleted(true);
 						return;
@@ -1096,8 +1143,8 @@ public class MainController {
 
 	@FXML
 	public void onClearList() {
-		// Prüfen, ob wir im Scouting-Tab sind (Index 6)
-		boolean isScoutingTabActive = (mainTabPane != null && mainTabPane.getSelectionModel().getSelectedIndex() == 6);
+		// Prüfen, ob wir im Scouting-Tab sind (Index 7)
+		boolean isScoutingTabActive = (mainTabPane != null && mainTabPane.getSelectionModel().getSelectedIndex() == 7);
 
 		if (isScoutingTabActive) {
 			scoutDataList.clear();
@@ -1117,6 +1164,7 @@ public class MainController {
 		playerDataList.clear();
 		needsDataList.clear();
 		depthChartDataList.clear();
+		matrixDataList.clear();
 		outgoingLoanDataList.clear();
 		incomingLoanDataList.clear();
 		youthDataList.clear();
@@ -1128,6 +1176,9 @@ public class MainController {
 		if (lblCriticalNeeds != null) lblCriticalNeeds.setText("0 Positionen");
 		if (lblWarningNeeds != null) lblWarningNeeds.setText("0 Positionen");
 		if (lblOptimalNeeds != null) lblOptimalNeeds.setText("0 Positionen");
+		if (lblMatrixBestTactic != null) lblMatrixBestTactic.setText("—");
+		if (lblMatrixBestAvgScore != null) lblMatrixBestAvgScore.setText("—");
+		if (lblMatrixRetrainCount != null) lblMatrixRetrainCount.setText("0 Spieler");
 		if (lblShadowTotalProfit != null) lblShadowTotalProfit.setText("€ 0");
 		if (lblShadowTotalSavings != null) lblShadowTotalSavings.setText("€ 0 / Mon.");
 		if (lblShadowCoveredSlots != null) lblShadowCoveredSlots.setText("0 / 0");

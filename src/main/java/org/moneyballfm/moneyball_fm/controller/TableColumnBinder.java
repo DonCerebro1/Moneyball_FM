@@ -847,4 +847,113 @@ public class TableColumnBinder {
 			p.statValue3Property().set(s3);
 		}
 	}
+	public static void setupTacticalMatrixTable(
+			TableView<TacticalMatrixRowModel> table,
+			TableColumn<TacticalMatrixRowModel, String> colPlayerName,
+			TableColumn<TacticalMatrixRowModel, String> colNaturalPos,
+			TableColumn<TacticalMatrixRowModel, String> colCurrentRole,
+			TableColumn<TacticalMatrixRowModel, Double> colCurrentScore,
+			TableColumn<TacticalMatrixRowModel, String> colBestRole,
+			TableColumn<TacticalMatrixRowModel, Double> colBestScore,
+			TableColumn<TacticalMatrixRowModel, Double> colScoreDelta,
+			TableColumn<TacticalMatrixRowModel, String> colTopAlternatives,
+			TableColumn<TacticalMatrixRowModel, String> colRecommendation) {
+
+		if (table == null) return;
+
+		if (colPlayerName != null) colPlayerName.setCellValueFactory(c -> c.getValue().playerNameProperty());
+		if (colNaturalPos != null) colNaturalPos.setCellValueFactory(c -> c.getValue().naturalPositionsProperty());
+		if (colCurrentRole != null) colCurrentRole.setCellValueFactory(c -> c.getValue().currentRoleProperty());
+
+		if (colCurrentScore != null) {
+			colCurrentScore.setCellValueFactory(c -> c.getValue().currentScoreProperty().asObject());
+			colCurrentScore.setCellFactory(col -> new TableCell<>() {
+				@Override
+				protected void updateItem(Double val, boolean empty) {
+					super.updateItem(val, empty);
+					if (empty || val == null) {
+						setText(null);
+						setStyle("");
+					} else {
+						setText(String.format(Locale.GERMANY, "%.1f", val));
+						setStyle("-fx-font-weight: bold; -fx-text-fill: #475569;");
+					}
+				}
+			});
+		}
+
+		if (colBestRole != null) colBestRole.setCellValueFactory(c -> c.getValue().bestRoleProperty());
+
+		if (colBestScore != null) {
+			colBestScore.setCellValueFactory(c -> c.getValue().bestScoreProperty().asObject());
+			colBestScore.setCellFactory(col -> new TableCell<>() {
+				@Override
+				protected void updateItem(Double val, boolean empty) {
+					super.updateItem(val, empty);
+					if (empty || val == null) {
+						setText(null);
+						setStyle("");
+					} else {
+						setText(String.format(Locale.GERMANY, "%.1f", val));
+						if (val >= 75.0) {
+							setStyle("-fx-text-fill: #16a34a; -fx-font-weight: bold;");
+						} else if (val >= 65.0) {
+							setStyle("-fx-text-fill: #2563eb; -fx-font-weight: bold;");
+						} else {
+							setStyle("-fx-text-fill: #dc2626; -fx-font-weight: bold;");
+						}
+					}
+				}
+			});
+		}
+
+		if (colScoreDelta != null) {
+			colScoreDelta.setCellValueFactory(c -> c.getValue().scoreDeltaProperty().asObject());
+			colScoreDelta.setCellFactory(col -> new TableCell<>() {
+				@Override
+				protected void updateItem(Double val, boolean empty) {
+					super.updateItem(val, empty);
+					if (empty || val == null) {
+						setText(null);
+						setStyle("");
+					} else {
+						String sign = val > 0.0 ? "+" : "";
+						setText(sign + String.format(Locale.GERMANY, "%.1f", val));
+						if (val >= 5.0) {
+							setStyle("-fx-text-fill: #16a34a; -fx-font-weight: bold;");
+						} else if (val > 1.5) {
+							setStyle("-fx-text-fill: #2563eb; -fx-font-weight: bold;");
+						} else {
+							setStyle("-fx-text-fill: #64748b;");
+						}
+					}
+				}
+			});
+		}
+
+		if (colTopAlternatives != null) colTopAlternatives.setCellValueFactory(c -> c.getValue().topAlternativesProperty());
+
+		if (colRecommendation != null) {
+			colRecommendation.setCellValueFactory(c -> c.getValue().recommendationProperty());
+			colRecommendation.setCellFactory(col -> new TableCell<>() {
+				@Override
+				protected void updateItem(String rec, boolean empty) {
+					super.updateItem(rec, empty);
+					if (empty || rec == null) {
+						setText(null);
+						setStyle("");
+					} else {
+						setText(rec);
+						if (rec.contains("Umschulen")) {
+							setStyle("-fx-text-fill: #16a34a; -fx-font-weight: bold;");
+						} else if (rec.contains("Zweitrolle")) {
+							setStyle("-fx-text-fill: #2563eb; -fx-font-weight: bold;");
+						} else {
+							setStyle("-fx-text-fill: #475569;");
+						}
+					}
+				}
+			});
+		}
+	}
 }

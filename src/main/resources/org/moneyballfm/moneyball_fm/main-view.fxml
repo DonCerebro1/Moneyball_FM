@@ -246,6 +246,48 @@
             </VBox>
         </Tab>
 
+        <!-- TAB: Taktik-Matrix & Passung -->
+        <Tab text="🧭 Taktik-Matrix &amp; Passung">
+            <VBox spacing="12.0">
+                <padding>
+                    <Insets top="10.0" />
+                </padding>
+
+                <!-- KPI-Karten oben: Optimales System, Top-11 Schnitt, Umschulungshebel -->
+                <HBox spacing="15.0" alignment="CENTER_LEFT">
+                    <VBox spacing="4.0" style="-fx-background-color: #f1f5f9; -fx-padding: 10 16; -fx-background-radius: 8; -fx-border-color: #cbd5e1; -fx-border-radius: 8;">
+                        <Label text="OPTIMALES SPIELSYSTEM" style="-fx-font-size: 11px; -fx-text-fill: #475569; -fx-font-weight: bold;" />
+                        <Label fx:id="lblMatrixBestTactic" text="—" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #0f172a;" />
+                    </VBox>
+
+                    <VBox spacing="4.0" style="-fx-background-color: #dcfce7; -fx-padding: 10 16; -fx-background-radius: 8; -fx-border-color: #86efac; -fx-border-radius: 8;">
+                        <Label text="TOP-11 EIGNUNGSSCHNITT" style="-fx-font-size: 11px; -fx-text-fill: #166534; -fx-font-weight: bold;" />
+                        <Label fx:id="lblMatrixBestAvgScore" text="—" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #15803d;" />
+                    </VBox>
+
+                    <VBox spacing="4.0" style="-fx-background-color: #dbeafe; -fx-padding: 10 16; -fx-background-radius: 8; -fx-border-color: #bfdbfe; -fx-border-radius: 8;">
+                        <Label text="GROSSER HEBEL (&gt;= 5 PKT.)" style="-fx-font-size: 11px; -fx-text-fill: #1e40af; -fx-font-weight: bold;" />
+                        <Label fx:id="lblMatrixRetrainCount" text="0 Spieler" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #1d4ed8;" />
+                    </VBox>
+                </HBox>
+
+                <!-- Taktik-Matrix Tabelle -->
+                <TableView fx:id="matrixTable" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="colMatrixPlayer" text="Spielername" prefWidth="180.0" />
+                        <TableColumn fx:id="colMatrixNaturalPos" text="Natürliche Pos." prefWidth="120.0" />
+                        <TableColumn fx:id="colMatrixCurrentRole" text="Aktuelle Rolle" prefWidth="160.0" />
+                        <TableColumn fx:id="colMatrixCurrentScore" text="Akt. Score" prefWidth="85.0" style="-fx-alignment: CENTER;" />
+                        <TableColumn fx:id="colMatrixBestRole" text="Beste Rolle" prefWidth="170.0" />
+                        <TableColumn fx:id="colMatrixBestScore" text="Peak Score" prefWidth="90.0" style="-fx-alignment: CENTER;" />
+                        <TableColumn fx:id="colMatrixDelta" text="Hebel (Delta)" prefWidth="95.0" style="-fx-alignment: CENTER;" />
+                        <TableColumn fx:id="colMatrixRecommendation" text="Handlungsempfehlung" prefWidth="200.0" />
+                        <TableColumn fx:id="colMatrixAlternatives" text="Weitere Top-Rollen" prefWidth="340.0" />
+                    </columns>
+                </TableView>
+            </VBox>
+        </Tab>
+
         <!-- TAB 5: Leihspieler-Entscheidung -->
         <Tab text="🔄 Leihspieler">
             <VBox spacing="10.0">
@@ -570,6 +612,39 @@
                     </columns>
                 </TableView>
             </VBox>
+        </Tab>
+
+        <!-- TAB 11: Anleitung & Moneyball-Guide -->
+        <Tab text="📖 Anleitung &amp; Guide">
+            <ScrollPane fitToWidth="true" style="-fx-background-color: transparent;">
+                <VBox spacing="18.0" style="-fx-padding: 20; -fx-background-color: #ffffff;">
+
+                    <!-- Header-Karte -->
+                    <VBox spacing="4.0" style="-fx-background-color: #0f172a; -fx-padding: 16 20; -fx-background-radius: 8;">
+                        <Label text="⚽ FM Moneyball Suite – Workflow &amp; Regelwerk" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #ffffff;" />
+                        <Label text="Evidenzbasierte Kaderplanung, smarte Gehaltshygiene und datengestütztes Scouting." style="-fx-font-size: 12px; -fx-text-fill: #94a3b8;" />
+                    </VBox>
+
+                    <!-- Schritt 1: FM Views einrichten -->
+                    <VBox spacing="8.0" style="-fx-background-color: #f8fafc; -fx-padding: 14; -fx-background-radius: 6; -fx-border-color: #e2e8f0; -fx-border-radius: 6;">
+                        <Label text="1. FM-Ansichten (Views) installieren &amp; Daten exportieren" style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #1e293b;" />
+                        <Label text="• Klicke oben auf '📥 FM-Ansichten installieren'. Die Ansichten werden direkt in deinen FM-Ordner unter 'views' kopiert.&#10;• Im FM auf die Ansichtsauswahl klicken -&gt; 'Benutzerdefiniert' -&gt; Ansicht laden.&#10;• Exportieren: Drücke Strg + P -&gt; 'Webseite (.html)' oder 'Textdatei (.rtf)' wählen -&gt; Speichern." wrapText="true" style="-fx-font-size: 12px; -fx-text-fill: #334155;" />
+                    </VBox>
+
+                    <!-- Schritt 2: Drag & Drop Workflow -->
+                    <VBox spacing="8.0" style="-fx-background-color: #f8fafc; -fx-padding: 14; -fx-background-radius: 6; -fx-border-color: #e2e8f0; -fx-border-radius: 6;">
+                        <Label text="2. Drag &amp; Drop Zonen &amp; Dateitypen" style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #1e293b;" />
+                        <Label text="Die Suite erkennt automatisch, was du hineinziehst:&#10;• Kader-Export: Ziehe deine Kadersicht hinein. Berechnet automatisch Performance, Gehälter, Leihen und Jugend.&#10;• Scouting-Export: Schalte auf den Tab '🔭 Scouting' (Index 7) und ziehe deine Scouting-Liste hinein. Sie ersetzt die aktuelle Scouting-Liste vollständig.&#10;• Testspiel-Export: Ziehe Testspiel-Stats hinein, um Fitness und Match-Noten in Tab 9 (Registrierung) zu mergen.&#10;• Ligen-Reputation: Ziehe eine Ligen-Übersicht hinein, um die Ligen-Koeffizienten für Transfers zu kalibrieren." wrapText="true" style="-fx-font-size: 12px; -fx-text-fill: #334155;" />
+                    </VBox>
+
+                    <!-- Schritt 3: Moneyball-Regelwerk -->
+                    <VBox spacing="8.0" style="-fx-background-color: #f0fdf4; -fx-padding: 14; -fx-background-radius: 6; -fx-border-color: #bbf7d0; -fx-border-radius: 6;">
+                        <Label text="3. Die Moneyball-Prinzipien in der Suite" style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #166534;" />
+                        <Label text="• Gehaltshygiene: Gehälter sind strikt an Performance-Tiers (Top-Star bis Ergänzung) gebunden. Verhandle nie über der Schmerzgrenze.&#10;• Athletik-Baseline: Spieler mit Werten &lt; 12 in Antritt/Beweglichkeit/Ausdauer werden im Score abgewertet.&#10;• Taktik-Matrix: Zeigt dir Hebel auf. Hat ein Spieler z. B. Delta &gt;= 5.0, liefert er auf einer anderen Rolle nachweislich bessere Daten. Trainiere ihn im FM um!&#10;• Schattenkader: Vergleicht Stammspieler mit gescouteten Alternativen und zeigt dir sofort den Netto-Transfergewinn und Monatsersparnisse." wrapText="true" style="-fx-font-size: 12px; -fx-text-fill: #14532d;" />
+                    </VBox>
+
+                </VBox>
+            </ScrollPane>
         </Tab>
     </TabPane>
 </VBox>
